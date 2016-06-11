@@ -7,7 +7,18 @@
 
 #include <stdarg.h>
 
-void vkprintf(const char* fmt, va_list arg);
-void kprintf(const char* fmt, ...);
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+
+void vkprintf(const char *fmt, va_list arg);
+
+void kprintf(const char *fmt, ...);
+
+#ifdef __cplusplus
+}
+#endif
+
 
 #endif //GZOS_KPRINTF_H

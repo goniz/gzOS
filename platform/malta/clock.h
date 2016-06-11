@@ -3,8 +3,12 @@
 
 #include <stdint.h>
 
-#define CPU_CLOCK 100
+#define CPU_CLOCK 200
 #define TICKS_PER_MS (1000 * CPU_CLOCK / 2)
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* Initializes and enables core timer interrupts. */
 void clock_init();
@@ -13,6 +17,10 @@ void clock_init();
 uint32_t clock_get_ms();
 
 /* Processes core timer interrupts. */
-void hardclock();
+struct user_regs* clock_tick_isr(struct user_regs* regs);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // __CLOCK_H__

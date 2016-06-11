@@ -1,5 +1,5 @@
 #include "uart_cbus.h"
-#include <interrupts.h>
+#include <platform/interrupts.h>
 #include "clock.h"
 
 extern void system_init(int argc, char **argv, char **envp);

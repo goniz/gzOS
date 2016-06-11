@@ -99,13 +99,13 @@ irq6:
 
         .org 0x2e0
 irq7:
-        la      $k1,hardclock
+        la      $k1,clock_tick_isr
         b       irq_handler
         nop
 
         .org 0x300
 
-#define REG_STACK_STORE_SIZE 76
+#define REG_STACK_STORE_SIZE (26 * 4)
 
         .set	noat            // Don't allow the assembler to use r1(at) for synthetic instr.
 
@@ -123,56 +123,80 @@ irq_handler:
          * s and sp registers are saved by compiler-generated
          * procedure entry, if the procedure modifies them.
          */
-        sw      $t0, ($sp)
-        sw      $t1, 4($sp)
-        sw      $t2, 8($sp)
-        sw      $t3, 12($sp)
-        sw      $t4, 16($sp)
-        sw      $t5, 20($sp)
-        sw      $t6, 24($sp)
-        sw      $t7, 28($sp)
-        sw      $t8, 32($sp)
-        sw      $t9, 36($sp)
-        sw      $a0, 40($sp)
-        sw      $a1, 44($sp)
-        sw      $a2, 48($sp)
-        sw      $a3, 52($sp)
-        sw      $v0, 56($sp)
-        sw      $v1, 60($sp)
-        sw      $ra, 64($sp)
+        sw      $t0, (0  * 4)($sp)
+        sw      $t1, (1  * 4)($sp)
+        sw      $t2, (2  * 4)($sp) 
+        sw      $t3, (3  * 4)($sp) 
+        sw      $t4, (4  * 4)($sp) 
+        sw      $t5, (5  * 4)($sp) 
+        sw      $t6, (6  * 4)($sp) 
+        sw      $t7, (7  * 4)($sp) 
+        sw      $t8, (8  * 4)($sp) 
+        sw      $t9, (9  * 4)($sp) 
+        sw      $a0, (10 * 4)($sp) 
+        sw      $a1, (11 * 4)($sp) 
+        sw      $a2, (12 * 4)($sp) 
+        sw      $a3, (13 * 4)($sp) 
+        sw      $s0, (14 * 4)($sp) 
+        sw      $s1, (15 * 4)($sp) 
+        sw      $s2, (16 * 4)($sp) 
+        sw      $s3, (17 * 4)($sp) 
+        sw      $s4, (18 * 4)($sp) 
+        sw      $s5, (19 * 4)($sp) 
+        sw      $s6, (20 * 4)($sp) 
+        sw      $s7, (21 * 4)($sp) 
+        sw      $v0, (22 * 4)($sp) 
+        sw      $v1, (23 * 4)($sp) 
+        sw      $ra, (24 * 4)($sp) 
 
         mflo    $k0
-        sw      $k0, 68($sp)
+        sw      $k0, (25 * 4)($sp)
         mfhi    $k0
-        sw      $k0, 72($sp)
+        sw      $k0, (26 * 4)($sp)
+
+        move    $a0, $sp
 
         /* Call the C routine. */
         jalr    $k1
         nop
 
+        /*
+         * Support for ctx switch.
+         * Switch $sp with the return value of the handler if not null
+         */
+        movn    $sp, $v0, $v0
+
         /* Restore registers. */
-        lw      $k0, 72($sp)
+        lw      $k0, (26 *4)($sp)
         mthi    $k0
-        lw      $k0, 68($sp)
+        lw      $k0, (25 * 4)($sp)
         mtlo    $k0
 
-        lw      $ra, 64($sp)
-        lw      $v1, 60($sp)
-        lw      $v0, 56($sp)
-        lw      $a3, 52($sp)
-        lw      $a2, 48($sp)
-        lw      $a1, 44($sp)
-        lw      $a0, 40($sp)
-        lw      $t9, 36($sp)
-        lw      $t8, 32($sp)
-        lw      $t7, 28($sp)
-        lw      $t6, 24($sp)
-        lw      $t5, 20($sp)
-        lw      $t4, 16($sp)
-        lw      $t3, 12($sp)
-        lw      $t2, 8($sp)
-        lw      $t1, 4($sp)
-        lw      $t0, ($sp)
+        lw      $ra, (24 * 4)($sp) 
+        lw      $v1, (23 * 4)($sp) 
+        lw      $v0, (22 * 4)($sp) 
+        lw      $s7, (21 * 4)($sp) 
+        lw      $s6, (20 * 4)($sp) 
+        lw      $s5, (19 * 4)($sp) 
+        lw      $s4, (18 * 4)($sp) 
+        lw      $s3, (17 * 4)($sp)
+        lw      $s2, (16 * 4)($sp)
+        lw      $s1, (15 * 4)($sp)
+        lw      $s0, (14 * 4)($sp)
+        lw      $a3, (13 * 4)($sp)
+        lw      $a2, (12 * 4)($sp)
+        lw      $a1, (11 * 4)($sp)
+        lw      $a0, (10 * 4)($sp)
+        lw      $t9, (9  * 4)($sp)
+        lw      $t8, (8  * 4)($sp)
+        lw      $t7, (7  * 4)($sp)
+        lw      $t6, (6  * 4)($sp)
+        lw      $t5, (5  * 4)($sp)
+        lw      $t4, (4  * 4)($sp)
+        lw      $t3, (3  * 4)($sp)
+        lw      $t2, (2  * 4)($sp)
+        lw      $t1, (1  * 4)($sp)
+        lw      $t0, (0  * 4)($sp)
 
         /* Free stack frame */
         addu    $sp, $sp, REG_STACK_STORE_SIZE

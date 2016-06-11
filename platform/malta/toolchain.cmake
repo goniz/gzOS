@@ -1,5 +1,7 @@
 # A CMake toolchain file so we can cross-compile for the Rapsberry-Pi bare-metal
 
+# Toolchain can be obtained from "https://community.imgtec.com/developers/mips/tools/codescape-mips-sdk/download-codescape-mips-sdk-essentials/"
+
 include(CMakeForceCompiler)
 
 # usage

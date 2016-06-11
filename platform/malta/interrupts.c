@@ -1,9 +1,6 @@
 #include <stdint.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <assert.h>
-#include <interrupts.h>
 #include <mips.h>
+#include <platform/interrupts.h>
 //#include <tlb.h>
 //#include <pmap.h>
 #include <platform/panic.h>

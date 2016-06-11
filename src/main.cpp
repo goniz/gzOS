@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <memory>
+#include <platform/malta/clock.h>
 
 extern "C" char _end;
 extern "C" caddr_t _get_stack_pointer(void);
@@ -15,6 +16,7 @@ int main(int argc, const char** argv)
     printf("before while\n");
     while (1) { ;
         int c = getchar();
+        printf("timer clock %ld\n", clock_get_ms());
         putchar(c + 1);
     }
 }
