@@ -1,12 +1,16 @@
 #include <platform/interrupts.h>
 #include <platform/malta/interrupts.h>
 #include <mips.h>
-#include <clock.h>
-#include <platform/kprintf.h>
+#include <platform/clock.h>
+#include <platform/malta/clock.h>
 #include <stddef.h>
 
 /* This counter is incremented every millisecond. */
-static volatile uint32_t timer_ms_count;
+static volatile uint32_t timer_ms_count = 0;
+
+/* this is the second stage handler to be called on every ms */
+static clock_tick_handler_t timer_tick_handler = NULL;
+static void* timer_tick_handler_arg = NULL;
 
 void clock_init()
 {
@@ -16,6 +20,8 @@ void clock_init()
     mips32_set_c0(C0_COMPARE, TICKS_PER_MS);
 
     timer_ms_count = 0;
+    timer_tick_handler = NULL;
+    timer_tick_handler_arg = NULL;
 
     /* Enable core timer interrupts. */
     isrMask |= SR_IM7;
@@ -49,7 +55,20 @@ struct user_regs* clock_tick_isr(struct user_regs* regs)
         diff = compare - count;
     }
 
+    if (NULL != timer_tick_handler) {
+        regs = timer_tick_handler(timer_tick_handler_arg, regs);
+    }
+
     /* Set compare register. */
     mips32_set_c0(C0_COMPARE, compare);
+
     return regs;
+}
+
+void clock_set_handler(clock_tick_handler_t handler, void* argument)
+{
+    uint32_t isrMask = interrupts_disable();
+    timer_tick_handler = handler;
+    timer_tick_handler_arg = argument;
+    interrupts_enable(isrMask);
 }

@@ -20,5 +20,4 @@ void kprintf(const char *fmt, ...);
 }
 #endif
 
-
 #endif //GZOS_KPRINTF_H

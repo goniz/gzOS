@@ -39,6 +39,7 @@ struct user_regs {
     uint32_t ra;
     uint32_t lo;
     uint32_t hi;
+    uint32_t epc;
 };
 
 #ifdef __cplusplus

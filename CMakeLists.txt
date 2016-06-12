@@ -20,5 +20,6 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
 
 add_subdirectory(platform)
 add_subdirectory(stubs)
+add_subdirectory(lib)
 add_subdirectory(bootloader)
 add_subdirectory(src)

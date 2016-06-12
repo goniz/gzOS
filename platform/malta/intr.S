@@ -105,7 +105,7 @@ irq7:
 
         .org 0x300
 
-#define REG_STACK_STORE_SIZE (26 * 4)
+#define REG_STACK_STORE_SIZE (27 * 4)
 
         .set	noat            // Don't allow the assembler to use r1(at) for synthetic instr.
 
@@ -154,6 +154,9 @@ irq_handler:
         mfhi    $k0
         sw      $k0, (26 * 4)($sp)
 
+        mfc0    $k0, C0_EPC
+        sw      $k0, (27 * 4)($sp)
+
         move    $a0, $sp
 
         /* Call the C routine. */
@@ -167,8 +170,12 @@ irq_handler:
         movn    $sp, $v0, $v0
 
         /* Restore registers. */
-        lw      $k0, (26 *4)($sp)
+        lw      $k0, (27 * 4)($sp)
+        mtc0    $k0, C0_EPC
+
+        lw      $k0, (26 * 4)($sp)
         mthi    $k0
+
         lw      $k0, (25 * 4)($sp)
         mtlo    $k0
 

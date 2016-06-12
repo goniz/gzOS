@@ -33,10 +33,12 @@ SECTIONS
     *(.rodata .rodata.*)
 	*(.gcc_except_table .gcc_except_table.*)
 
-    PROVIDE_HIDDEN (__init_array_start = .);
+    PROVIDE(__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))
     KEEP (*(.init_array))
-    PROVIDE_HIDDEN (__init_array_end = .);
+    KEEP (*(SORT(.ctors.*)))
+    KEEP (*(.ctors))
+    PROVIDE(__init_array_end = .);
 
     __erodata = ABSOLUTE(.);
     . = ALIGN (4);

@@ -110,7 +110,7 @@ int _kill_r(int pid, int sig) {
 
 /*
  link
- Establish a new name for an existing file. Minimal implementation:
+ Establish a new _name for an existing file. Minimal implementation:
  */
 
 int _link(char *oldName, char * newName) {
@@ -164,7 +164,7 @@ int _read_r(struct _reent * reent, int file, char *ptr, int len)
 
 /*
  stat
- Status of a file (by name). Minimal implementation:
+ Status of a file (by _name). Minimal implementation:
  int    _EXFUN(stat,( const char *__path, struct stat *__sbuf ));
  */
 

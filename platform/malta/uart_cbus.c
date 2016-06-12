@@ -35,17 +35,17 @@ int uart_putc(int c) {
   /* Wait for transmitter hold register empty. */
   while (! (LSR & LSR_THRE));
 
-again:
+//again:
   /* Send byte. */
   THR = c;
 
   /* Wait for transmitter hold register empty. */
   while (! (LSR & LSR_THRE));
 
-  if (c == '\n') {
-    c = '\r';
-    goto again;
-  }
+//  if (c == '\n') {
+//    c = '\r';
+//    goto again;
+//  }
   return c;
 }
 
@@ -55,7 +55,8 @@ int uart_puts(const char *str) {
     uart_putc(*str++);
     n++;
   }
-  uart_putc('\n');
+
+  // uart_putc('\n');
   return n + 1;
 }
 
