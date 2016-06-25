@@ -8,7 +8,7 @@
 #include <platform/kprintf.h>
 #include <lib/primitives/queue.h>
 #include <platform/clock.h>
-#include <lib/primitives/interrupts_guard.h>
+#include <lib/primitives/interrupts_mutex.h>
 #include <lib/primitives/spinlock_mutex.h>
 #include <lib/primitives/lock_guard.h>
 #include <platform/process.h>
@@ -33,7 +33,7 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
     : _currentProc(nullptr),
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
-      _idleProc("IdleProc", idleProcMain, {}, 1024, Process::Type::Preemptive, DefaultPreemptiveQuantum),
+      _idleProc("IdleProc", idleProcMain, {}, 4096, Process::Type::Preemptive, DefaultPreemptiveQuantum),
       _processList(),
       _mutex()
 {
@@ -87,36 +87,29 @@ Process* ProcessScheduler::handleResponsiveProc(void)
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handlePreemptiveProc(void)
 {
-    Process* newProc = nullptr;
-    const auto currentQuantum = _currentProc->_quantum;
+    auto currentQuantum = _currentProc->_quantum;
 
-    debug_log("Current quantom: %d", currentQuantum);
+    debug_log("Current quantum: %d", currentQuantum);
 
-	if (currentQuantum > 0) {
-		return _currentProc;
-	}
-
-    // first, check if we're out of quantum
-    if (0 == currentQuantum) {
-		_currentProc->_state = Process::State::READY;
-        _currentProc->_quantum = _currentProc->_resetQuantum;
-        _preemptiveQueue.push(_currentProc);
-        kprintf("%s: out of quantum, rescheduling\n", _currentProc->_name);
-//        print_queue(_preemptiveQueue);
+    if (_currentProc->_state != Process::State::TERMINATED) {
+        // first, check if we're out of quantum
+        if (0 == currentQuantum) {
+            _currentProc->_state = Process::State::READY;
+            _currentProc->_quantum = _currentProc->_resetQuantum;
+            _preemptiveQueue.push(_currentProc);
+            debug_log("%s: out of quantum, rescheduling\n", _currentProc->_name);
+        }
+    } else {
+        // little hack to stop terminated procs from continuing their run
+        _currentProc->_quantum = 0;
+        currentQuantum = 0;
     }
 
-    // then we give _responsiveQueue a chance before we continue
-    if (_responsiveQueue.pop(newProc)) {
-        kprintf("%s: yielding in favor of responsive task %s\n", _currentProc->_name, newProc->_name);
-        return newProc;
+    if (currentQuantum > 0) {
+        return _currentProc;
     }
 
-	// but if we dont, pop another preemptive task
-	// we dont check for pop() retval because we just pushed to _preemptiveQueue
-	auto ret = _preemptiveQueue.pop(newProc);
-	kprintf("%s: after pop newProc %p retval %s\n", _currentProc->_name, newProc, ret ? "true" : "false");
-	kprintf("%s: yielding in favor of preemptive task %s\n", _currentProc->_name, newProc->_name);
-	return newProc;
+    return this->andTheWinnerIs();
 }
 
 struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
@@ -170,24 +163,33 @@ struct user_regs *ProcessScheduler::onTickTimer(void *argument, struct user_regs
 pid_t ProcessScheduler::createPreemptiveProcess(const char *name, Process::EntryPointFunction main,
                                                 std::vector<const char*>&& arguments, size_t stackSize, int initialQuantum)
 {
-    InterruptGuard guard;
+    InterruptsMutex mutex;
+    mutex.lock();
+
     std::unique_ptr<Process> newProc = std::make_unique<Process>(name, main, std::move(arguments),
                                                                  stackSize, Process::Type::Preemptive,
                                                                  initialQuantum);
 
     pid_t newPid = newProc->pid();
-    kprintf("newProc: %p newPid: %d\n", newProc.get(), newPid);
     _preemptiveQueue.push(newProc.get());
-    kprintf("newProc: %p newPid: %d\n", newProc.get(), newPid);
-    kprintf("newProc: %p name: %s\n", newProc.get(), newProc->_name);
     _processList.push_back(std::move(newProc));
     return newPid;
 }
 
 pid_t ProcessScheduler::createResponsiveProcess(const char *name, Process::EntryPointFunction main,
-                                                std::vector<const char*>&& arguments, size_t stackSize)
+                                                std::vector<const char*>&& arguments, size_t stackSize, int initialQuantum)
 {
-    return 0;
+    InterruptsMutex mutex;
+    mutex.lock();
+
+    std::unique_ptr<Process> newProc = std::make_unique<Process>(name, main, std::move(arguments),
+                                                                 stackSize, Process::Type::Responsive,
+                                                                 initialQuantum);
+
+    pid_t newPid = newProc->pid();
+    _responsiveQueue.push(newProc.get());
+    _processList.push_back(std::move(newProc));
+    return newPid;
 }
 
 void ProcessScheduler::setDebugMode(void)

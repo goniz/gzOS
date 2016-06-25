@@ -6,7 +6,7 @@
 #include <platform/kprintf.h>
 #include <assert.h>
 #include <platform/panic.h>
-#include "queue.h"
+#include <lib/primitives/sys/queue.h>
 #include <lib/primitives/align.h>
 #include <platform/sbrk.h>
 
@@ -28,10 +28,12 @@ typedef struct pm_seg {
 TAILQ_HEAD(pm_seglist, pm_seg);
 
 static struct pm_seglist seglist;
-extern int _memsize;
+extern unsigned long _memsize;
 
 void pm_init() {
   TAILQ_INIT(&seglist);
+
+    kprintf("START %08x END %08x _memsize %08x KSEG0 %08x\n", MALTA_PHYS_SDRAM_BASE, MALTA_PHYS_SDRAM_BASE + _memsize, _memsize, MIPS_KSEG0_START);
 
   pm_add_segment(MALTA_PHYS_SDRAM_BASE,
                  MALTA_PHYS_SDRAM_BASE + _memsize,
@@ -142,6 +144,10 @@ static vm_page_t *pm_find_buddy(pm_seg_t *seg, vm_page_t *page) {
 }
 
 static void pm_split_page(pm_seg_t *seg, vm_page_t *page) {
+    if (!page) {
+        return;
+        panic("null page..");
+    }
   int order = page->order;
 
   assert(!TAILQ_EMPTY(PG_FREEQ(seg, order)));
@@ -233,6 +239,7 @@ static vm_page_t *pm_alloc_from_seg(pm_seg_t *seg, size_t order) {
 }
 
 vm_page_t *pm_alloc(size_t npages) {
+    kprintf("pm_alloc: npages %d\n", npages);
   assert((npages > 0) && powerof2(npages));
   size_t order = __builtin_ctz(npages);
   pm_seg_t *seg_it;
@@ -283,9 +290,13 @@ void pm_free(vm_page_t *page) {
 
 vm_page_t *pm_alloc_bytes(size_t nb)
 {
-    assert(is_aligned(nb, PAGESIZE));
-    size_t n = roundup(nb / PAGESIZE, PAGESIZE);
-    return pm_alloc(n);
+    size_t npages = nb / PAGESIZE;
+    if (0 != (nb % PAGESIZE)) {
+        npages++;
+    }
+
+    kprintf("pm_alloc_bytes: nb %d npages %d\n", nb, npages);
+    return pm_alloc(npages);
 }
 
 

@@ -13,27 +13,29 @@
 
 extern "C" char _end; // Defined by the linker
 
-static struct {
+struct _sbrk_struct {
     void *ptr;     /* Pointer to the end of kernel's bss. */
     void *end;     /* Limit for the end of kernel's bss. */
     spinlock_mutex lock;
     bool shutdown;
-} sbrk = { &_end, &_end + 1024 * PAGESIZE, {}, false };
+};
+
+static _sbrk_struct _sbrk{&_end, &_end + 512 * PAGESIZE, {}, false};
 
 extern "C"
 void kernel_brk(void *addr)
 {
-    if (sbrk.shutdown) {
+    if (_sbrk.shutdown) {
         panic("Trying to use kernel_brk after it's been shutdown!");
     }
 
-    sbrk.lock.lock();
-    void *ptr = sbrk.ptr;
+    _sbrk.lock.lock();
+    void *ptr = _sbrk.ptr;
     addr = (void *)((intptr_t)addr & -sizeof(uint64_t));
     assert((intptr_t)&_end <= (intptr_t)addr);
-    assert((intptr_t)addr <= (intptr_t)sbrk.end);
-    sbrk.ptr = addr;
-    sbrk.lock.unlock();
+    assert((intptr_t)addr <= (intptr_t)_sbrk.end);
+    _sbrk.ptr = addr;
+    _sbrk.lock.unlock();
 
     if (addr > ptr)
         memset(ptr, 0, (intptr_t)addr - (intptr_t)ptr);
@@ -42,16 +44,16 @@ void kernel_brk(void *addr)
 extern "C"
 void* kernel_sbrk(size_t size)
 {
-    if (sbrk.shutdown) {
+    if (_sbrk.shutdown) {
         panic("Trying to use kernel_sbrk after it's been shutdown!");
     }
 
-    sbrk.lock.lock();
-    void *ptr = sbrk.ptr;
+    _sbrk.lock.lock();
+    void *ptr = _sbrk.ptr;
     size = roundup(size, sizeof(uint64_t));
-    assert((uintptr_t)ptr + size <= (uintptr_t)sbrk.end);
-    sbrk.ptr = (void*)((uintptr_t)sbrk.ptr + size);
-    sbrk.lock.unlock();
+    assert((uintptr_t)ptr + size <= (uintptr_t)_sbrk.end);
+    _sbrk.ptr = (void*)((uintptr_t)_sbrk.ptr + size);
+    _sbrk.lock.unlock();
 
     memset(ptr, 0, size);
     return ptr;
@@ -60,12 +62,12 @@ void* kernel_sbrk(size_t size)
 extern "C"
 void* kernel_sbrk_shutdown(void)
 {
-    assert(!sbrk.shutdown);
+    assert(!_sbrk.shutdown);
 
-    sbrk.lock.lock();
-    sbrk.end = align(sbrk.ptr, PAGESIZE);
-    sbrk.shutdown = true;
-    sbrk.lock.unlock();
+    _sbrk.lock.lock();
+    _sbrk.end = align(_sbrk.ptr, PAGESIZE);
+    _sbrk.shutdown = true;
+    _sbrk.lock.unlock();
 
-    return sbrk.end;
+    return _sbrk.end;
 }

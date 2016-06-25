@@ -130,36 +130,6 @@ int _lseek_r(int file, int ptr, int dir) {
 }
 
 /*
- sbrk
- Increase program data space.
- Malloc and related functions depend on this
- */
-extern char _end; // Defined by the linker
-caddr_t _sbrk_r(struct _reent * reent, ptrdiff_t incr) {
-//    static char *heap_end;
-//    char *prev_heap_end;
-//
-//    if (heap_end == 0) {
-//        heap_end = &_end;
-//    }
-//    prev_heap_end = heap_end;
-//
-//    char *stack = (char *) _get_stack_pointer();
-//    if (heap_end + incr > stack) {
-//		panic("Heap and stack collision. stack: %p heap_end: %p", stack, heap_end + incr);
-//    }
-//
-//    heap_end += incr;
-//    return (caddr_t) prev_heap_end;
-
-//    panic("Unimplemented");
-    kprintf("incr: %d\n", incr);
-    incr = align(incr, PAGESIZE);
-    vm_page_t* page = pm_alloc_bytes(incr);
-    return (caddr_t) page->virt_addr;
-}
-
-/*
  read
  Read a character to a file. `libc' subroutines will use this system routine for input from all files, including stdin
  Returns -1 on error or blocks until the number of characters have been read.

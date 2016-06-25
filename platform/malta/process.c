@@ -11,7 +11,7 @@
 #include <platform/kprintf.h>
 #include "pmap.h"
 
-#define VIRT_STACK_BASE 0x50000000
+#define VIRT_STACK_BASE 0x5000
 
 struct platform_process_ctx {
     pid_t pid;
@@ -38,9 +38,12 @@ struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t s
         return NULL;
     }
 
-    kprintf("Allocated stack_base: virt %p phy %p real virt %p\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
+    kprintf("Allocated stack_base: virt %08x phy %08x real virt %08x\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
 
-    pmap_map(&pctx->pmap, VIRT_STACK_BASE, pctx->stack_base->phys_addr, 1 << pctx->stack_base->order, PMAP_VALID | PMAP_DIRTY);
+//    pmap_t* old_pmap = get_active_pmap();
+//    set_active_pmap(&pctx->pmap);
+//    pmap_map(&pctx->pmap, VIRT_STACK_BASE, pctx->stack_base->phys_addr, 1 << pctx->stack_base->order, PMAP_VALID | PMAP_DIRTY);
+//    set_active_pmap(old_pmap);
 
     return pctx;
 }
@@ -72,12 +75,15 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
 
     // save the old pmap and set the current one
     // then initialize it with the virt stack base
-    pmap_t* old_pmap = get_active_pmap();
-    set_active_pmap(&pctx->pmap);
-    struct user_regs* context = (struct user_regs*)(VIRT_STACK_BASE + pctx->stack_size - sizeof(struct user_regs));
+//    pmap_t* old_pmap = get_active_pmap();
+//    set_active_pmap(&pctx->pmap);
+//    struct user_regs* context = (struct user_regs*)(VIRT_STACK_BASE + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
+    struct user_regs* context = (struct user_regs*)(pctx->stack_base->virt_addr + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
     context->epc = (uint32_t)info->entryPoint;
     context->a0 = (uint32_t)info->argument;
-    set_active_pmap(old_pmap);
+//    set_active_pmap(old_pmap);
+
+    kprintf("new context %p\n", context);
 
     return context;
 }

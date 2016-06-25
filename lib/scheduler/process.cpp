@@ -7,6 +7,8 @@
 #include <cstring>
 #include <platform/process.h>
 #include <atomic>
+#include <platform/panic.h>
+#include <platform/kprintf.h>
 
 static std::atomic<pid_t> g_next_pid(0);
 static pid_t generate_pid(void)
@@ -33,6 +35,10 @@ Process::Process(const char *name,
 
     struct process_entry_info info{Process::processMainLoop, this};
     _pctx = platform_initialize_process_ctx(_pid, stackSize);
+    if (!_pctx) {
+        panic("Failed to initialize process ctx");
+    }
+
     _context = platform_initialize_process_stack(_pctx, &info);
 }
 
@@ -49,6 +55,7 @@ void Process::processMainLoop(void* argument)
 
     self->_exitCode = self->_entryPoint((int) self->_arguments.size(), self->_arguments.data());
     self->_state = State::TERMINATED;
+    kprintf("%s: terminated with exit code %d\n", self->_name, self->_exitCode);
 
     while (true);
 }

@@ -3,7 +3,7 @@
 
 #include <tlb.h>
 #include <vm.h>
-#include <queue.h>
+#include <lib/primitives/sys/queue.h>
 
 /* Page is in every address space, note that this sets up only one page table */
 #define PMAP_GLOBAL G_MASK

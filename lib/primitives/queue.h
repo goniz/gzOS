@@ -22,7 +22,6 @@ public:
     }
 
     inline bool push(const T& value) {
-		kputs("queue::push(const T&)\n");
         if (this->full()) {
             return false;
         }
@@ -32,7 +31,6 @@ public:
     }
 
     inline bool push(T&& value) {
-		kputs("queue::push(const T&&)\n");
         if (this->full()) {
             return false;
         }

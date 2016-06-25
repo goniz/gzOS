@@ -13,7 +13,7 @@ private:
     enum State{Locked, Unlocked};
 
 public:
-    spinlock_mutex(void);
+    spinlock_mutex(void) : _value(State::Unlocked) {}
 
     void lock(void);
     void unlock(void);

@@ -3,11 +3,14 @@
 #include <mips/cpu.h>
 #include <tlb.h>
 #include <platform/panic.h>
+#include <platform/kprintf.h>
 #include "pm.h"
+#include "pmap.h"
 
 #define PTE_INDEX(x)  (((x) & 0xfffff000) >> 12)
 #define PDE_INDEX(x) (((x) & 0xffc00000) >> 22)
 
+// TODO: add lock/unlock in this file (mutex/di)
 static pmap_t *active_pmap = NULL;
 
 void pmap_init(pmap_t *pmap) {
@@ -72,10 +75,17 @@ void pmap_unmap(pmap_t *pmap, vm_addr_t vaddr, size_t npages) {
 }
 
 void set_active_pmap(pmap_t *pmap) {
-  active_pmap = pmap;
-  mips32_set_c0(C0_ENTRYHI, pmap->asid);
+    if (pmap == active_pmap) {
+        return;
+    }
+
+    active_pmap = pmap;
+    if (pmap) {
+        mips32_set_c0(C0_ENTRYHI, pmap->asid);
+    }
 }
 
 pmap_t *get_active_pmap() {
   return active_pmap;
 }
+

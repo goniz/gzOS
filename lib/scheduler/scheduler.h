@@ -27,7 +27,7 @@ public:
                                   size_t stackSize, int initialQuantum = DefaultPreemptiveQuantum);
     pid_t createResponsiveProcess(const char* name,
                                   Process::EntryPointFunction main, std::vector<const char*>&& arguments,
-                                  size_t stackSize);
+                                  size_t stackSize, int initialQuantum = DefaultResponsiveQuantum);
 
     void setDebugMode(void);
 

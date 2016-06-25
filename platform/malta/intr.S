@@ -158,6 +158,8 @@ irq_handler:
         mfc0    $k0, C0_EPC
         sw      $k0, (30 * 4)($sp)
 
+        # setup gp as per linker _gp symbol
+        la      $gp, _gp
         move    $a0, $sp
 
         /* Call the C routine. */

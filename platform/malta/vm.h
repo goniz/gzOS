@@ -1,8 +1,8 @@
 #ifndef _VIRT_MEM_H_
 #define _VIRT_MEM_H_
 
-#include "platform/malta/queue.h"
-#include "platform/malta/tree.h"
+#include <lib/primitives/sys/queue.h>
+#include <lib/primitives/sys/tree.h>
 #include <stddef.h>
 #include <stdint.h>
 

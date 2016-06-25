@@ -4,12 +4,6 @@
 
 #include <lib/primitives/spinlock_mutex.h>
 
-spinlock_mutex::spinlock_mutex(void)
-    : _value(State::Unlocked)
-{
-
-}
-
 void spinlock_mutex::lock(void)
 {
     State oldValue = State::Unlocked;
