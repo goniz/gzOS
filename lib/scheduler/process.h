@@ -19,12 +19,12 @@ class Process
     enum Type { Responsive, Preemptive };
 
 public:
-    using EntryPointFunction = std::function<int(int, const char**)>;
+    using EntryPointFunction = int (*)(int, const char**);
 
     Process(const char* name,
             EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
             size_t stackSize,
-            enum Type procType, uint32_t initialQuantum);
+            enum Type procType, int initialQuantum);
 
     ~Process(void);
 
@@ -37,8 +37,8 @@ private:
     static void processMainLoop(void* argument);
 
     struct user_regs* _context;
-    uint32_t _quantum;
-    uint32_t _resetQuantum;
+    int _quantum;
+    int _resetQuantum;
     enum State _state;
     char _name[64];
     pid_t _pid;

@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <lib/scheduler/scheduler.h>
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -6,21 +7,17 @@ static void invoke_constructors(void);
 extern int __init_array_start;
 extern int __init_array_end;
 
-extern int main(int argc, char **argv, char **envp);
-void system_init(int argc, char **argv, char **envp)
+extern int main(int argc, const char** argv);
+void system_init(int argc, const char **argv, const char **envp)
 {
 	initialize_stdio();
 	invoke_constructors();
 
-    /* We should never return from main ... */
-    main(argc, argv, envp);
+    scheduler_init(10, 10, main, argc, argv);
 
     /* ... but if we do, safely trap here */
 	printf("main function exited. hanging.\n");
-    while(1)
-    {
-        /* EMPTY! */
-    }
+    while(1);
 }
 
 static void initialize_stdio(void)

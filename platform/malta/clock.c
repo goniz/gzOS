@@ -35,6 +35,12 @@ uint32_t clock_get_ms()
     return timer_ms_count;
 }
 
+void clock_delay_ms(uint32_t ms)
+{
+    const uint32_t target_ms = timer_ms_count + ms;
+    while (target_ms > timer_ms_count);
+}
+
 struct user_regs* clock_tick_isr(struct user_regs* regs)
 {
     uint32_t compare = mips32_get_c0(C0_COMPARE);

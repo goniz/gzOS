@@ -38,7 +38,8 @@ struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t s
         return NULL;
     }
 
-    kprintf("Allocated stack_base: virt %08x phy %08x real virt %08x\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
+    // TODO: enable virt stack mapping after mapping swap on ctx switch is implemented..
+//    kprintf("Allocated stack_base: virt %08x phy %08x real virt %08x\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
 
 //    pmap_t* old_pmap = get_active_pmap();
 //    set_active_pmap(&pctx->pmap);
@@ -68,7 +69,10 @@ void platform_free_process_ctx(struct platform_process_ctx* pctx)
 struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
                                                     struct process_entry_info* info)
 {
-    kprintf("in platform_initialize_process_stack: epc %p a0 %p\n", info->entryPoint, info->argument);
+    kprintf("platform_initialize_process_stack: epc %p a0 %p stack base %p stack size %d\n",
+            info->entryPoint, info->argument,
+            pctx->stack_base, pctx->stack_size
+    );
 
     // stack is in a descending order
     // and should be initialized with struct user_regs in order to start
@@ -82,8 +86,6 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
     context->epc = (uint32_t)info->entryPoint;
     context->a0 = (uint32_t)info->argument;
 //    set_active_pmap(old_pmap);
-
-    kprintf("new context %p\n", context);
 
     return context;
 }

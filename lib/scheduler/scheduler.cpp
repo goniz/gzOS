@@ -12,21 +12,31 @@
 #include <lib/primitives/spinlock_mutex.h>
 #include <lib/primitives/lock_guard.h>
 #include <platform/process.h>
+#include <lib/syscall/syscall.h>
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
+
+static std::unique_ptr<ProcessScheduler> global_scheduler;
+
+extern "C"
+void scheduler_init(size_t initialProcSize, size_t initialQueueSize, init_main_t init_main, int argc, const char** argv)
+{
+    global_scheduler = std::make_unique<ProcessScheduler>(initialProcSize, initialQueueSize);
+
+//    global_scheduler->setDebugMode();
+    std::vector<const char*> arguments(argv, argv + argc);
+    global_scheduler->createPreemptiveProcess("init", init_main, std::move(arguments), 4096);
+//    syscall(0, "init", init_main, argc, argv, 4096);
+
+    clock_set_handler(ProcessScheduler::onTickTimer, global_scheduler.get());
+    interrupts_enable_all();
+}
 
 __attribute__((noreturn))
 static int idleProcMain(int argc, const char** argv)
 {
     kputs("Idle thread is running!\n");
-    while (true) {
-        auto clock = clock_get_ms();
-        if (clock % 1000) {
-            // InterruptGuard guard;
-            // kprintf("IdleProc: count %ld\n", clock_get_ms());
-			kputs("idleProcMain\n");
-        }
-    }
+    while (true);
 }
 
 ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSize)
@@ -66,7 +76,7 @@ Process* ProcessScheduler::handleResponsiveProc(void)
 {
     // if the process is a responsive one, keep it running until he yield()s
     // but if he passes the intentionally-very-long-quantum value, kill it.
-    if (0 == _currentProc->_quantum) {
+    if (0 >= _currentProc->_quantum) {
         _currentProc->_exitCode = -127;
         _currentProc->_state = Process::State::TERMINATED;
         return this->andTheWinnerIs();
@@ -93,7 +103,7 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
 
     if (_currentProc->_state != Process::State::TERMINATED) {
         // first, check if we're out of quantum
-        if (0 == currentQuantum) {
+        if (0 >= currentQuantum) {
             _currentProc->_state = Process::State::READY;
             _currentProc->_quantum = _currentProc->_resetQuantum;
             _preemptiveQueue.push(_currentProc);
@@ -101,7 +111,6 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
         }
     } else {
         // little hack to stop terminated procs from continuing their run
-        _currentProc->_quantum = 0;
         currentQuantum = 0;
     }
 
@@ -198,7 +207,14 @@ void ProcessScheduler::setDebugMode(void)
     _debugMode = true;
 }
 
+DEFINE_SYSCALL(0, create_preemptive_process)
+{
+    SYSCALL_ARG(const char*, name);
+    SYSCALL_ARG(Process::EntryPointFunction, main);
+    SYSCALL_ARG(int, argc);
+    SYSCALL_ARG(const char**, argv);
+    SYSCALL_ARG(size_t, stackSize);
 
-
-
-
+    std::vector<const char*> arguments(argv, argv + argc);
+    return global_scheduler->createPreemptiveProcess(name, main, std::move(arguments), stackSize);
+}

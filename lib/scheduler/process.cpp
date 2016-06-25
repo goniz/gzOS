@@ -19,7 +19,7 @@ static pid_t generate_pid(void)
 Process::Process(const char *name,
                  EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
                  size_t stackSize,
-                 enum Type procType, uint32_t initialQuantum)
+                 enum Type procType, int initialQuantum)
 
     : _context(nullptr),
       _quantum(initialQuantum),

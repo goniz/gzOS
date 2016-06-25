@@ -5,15 +5,19 @@
 #ifndef GZOS_SCHEDULER_H
 #define GZOS_SCHEDULER_H
 
+#ifdef __cplusplus
 #include <vector>
 #include <memory>
+#include <lib/primitives/spinlock_mutex.h>
 #include <lib/scheduler/process.h>
 #include <lib/primitives/queue.h>
 #include <platform/interrupts.h>
-#include <lib/primitives/spinlock_mutex.h>
+#endif
 
 #define DefaultPreemptiveQuantum 100
 #define DefaultResponsiveQuantum 1500
+
+#ifdef __cplusplus
 
 class ProcessScheduler
 {
@@ -47,5 +51,17 @@ private:
     spinlock_mutex                          _mutex;
     bool                                    _debugMode;
 };
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+typedef int (*init_main_t)(int argc, const char** argv);
+void scheduler_init(size_t initialProcSize, size_t initialQueueSize, init_main_t init_main, int argc, const char** argv);
+
+#ifdef __cplusplus
+};
+#endif
 
 #endif //GZOS_SCHEDULER_H

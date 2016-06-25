@@ -7,10 +7,10 @@
 #include "pm.h"
 #include "tlb.h"
 
-extern void system_init(int argc, char **argv, char **envp);
+extern void system_init(int argc, const char **argv, const char **envp);
 extern void malloc_init(void* start, size_t size);
 
-void platform_init(int argc, char **argv, char **envp)
+void platform_init(int argc, const char **argv, const char **envp)
 {
 	uart_init();
 	uart_puts("in platform_init!!\n");

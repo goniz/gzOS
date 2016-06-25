@@ -32,6 +32,11 @@ SECTIONS
     . = ALIGN (4);
     *(.rodata .rodata.*)
 	*(.gcc_except_table .gcc_except_table.*)
+	. = ALIGN(4);
+	PROVIDE(__syscalls_start = .);
+	PROVIDE(syscall_table = .);
+	KEEP(*(.syscalls))
+	PROVIDE(__syscalls_end = .);
 
     PROVIDE(__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))

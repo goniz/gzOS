@@ -59,7 +59,8 @@ general_exception:
         nop
 
         /* syscalls not implemented yet */
-2:      b       2b
+2:      la		$k1, syscall_exception_handler
+		b		irq_handler
         nop
 
         .org 0x200

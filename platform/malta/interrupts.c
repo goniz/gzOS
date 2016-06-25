@@ -7,6 +7,7 @@
 #include <platform/panic.h>
 #include <platform/kprintf.h>
 #include <assert.h>
+#include <lib/syscall/syscall.h>
 #include "tlb.h"
 #include "pmap.h"
 
@@ -113,6 +114,29 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
     return regs;
 }
 
+extern struct kernel_syscall syscall_table[];
+extern uint8_t __syscalls_start;
+extern uint8_t __syscalls_end;
+struct user_regs* syscall_exception_handler(struct user_regs* regs)
+{
+    const size_t n_syscalls = ((&__syscalls_end - &__syscalls_start) / sizeof(struct kernel_syscall));
+    struct user_regs* ctx_regs = regs;
+    int ret = -1;
+
+    for (size_t i = 0; i < n_syscalls; i++) {
+        struct kernel_syscall* currrent = &syscall_table[i];
+        if (regs->a0 == currrent->number) {
+            kprintf("%s: calling syscall %d handler %p\n", __FUNCTION__, currrent->number, currrent->handler);
+            ret = currrent->handler(&ctx_regs, (va_list)regs->a1);
+            break;
+        }
+    }
+
+    ctx_regs->v0 = (uint32_t) ret;
+    ctx_regs->epc += 4;
+    return ctx_regs;
+}
+
 void kernel_oops() {
     uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
 
@@ -147,5 +171,6 @@ void *general_exception_table[32] = {
     [EXC_MOD]    = tlb_exception_handler,
     [EXC_TLBL] = tlb_exception_handler,
     [EXC_TLBS] = tlb_exception_handler,
+    [EXC_SYS] = syscall_exception_handler,
 };
 
