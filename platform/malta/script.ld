@@ -58,7 +58,7 @@ SECTIONS
   .bss ADDR (.data) + SIZEOF (.data) (NOLOAD) :
   {
     __bss = ABSOLUTE(.);
-    *(.sbss .scommon)
+    *(.sbss .sbss.* .scommon)
     *(.bss .bss.*)
     *(COMMON)
     . = ALIGN (4);

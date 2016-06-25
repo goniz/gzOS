@@ -37,10 +37,13 @@ struct user_regs {
     uint32_t v0;
     uint32_t v1;
     uint32_t ra;
+    uint32_t at;
+    uint32_t fp;
+    uint32_t gp;
     uint32_t lo;
     uint32_t hi;
     uint32_t epc;
-};
+} __attribute__((packed));
 
 #ifdef __cplusplus
 }

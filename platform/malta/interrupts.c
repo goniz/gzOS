@@ -1,10 +1,14 @@
 #include <stdint.h>
 #include <mips.h>
 #include <platform/interrupts.h>
+#include <platform/malta/interrupts.h>
 //#include <tlb.h>
 //#include <pmap.h>
 #include <platform/panic.h>
 #include <platform/kprintf.h>
+#include <assert.h>
+#include "tlb.h"
+#include "pmap.h"
 
 extern const char _ebase[];
 extern int uart_puts(const char* s);
@@ -75,34 +79,42 @@ static const char *exceptions[32] = {
 
 struct user_regs* tlb_exception_handler(struct user_regs* regs)
 {
-    int code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
+    uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
     uint32_t vaddr = mips32_get_c0(C0_BADVADDR);
-    kprintf("[tlb] %s at $%08lx!\n", exceptions[code], mips32_get_c0(C0_EPC));
-    kprintf("[tlb] Caused by reference to $%08lx!\n", vaddr);
+    uint32_t epc = mips32_get_c0(C0_EPC);
 
-    panic("TLB exception not implemented!");
-	return regs;
-#if 0
-    assert(PTE_BASE <= vaddr && vaddr < PTE_BASE+PTE_SIZE);
+    kprintf("[tlb] %s at $%08x!\n", exceptions[code], epc);
+    kprintf("[tlb] Caused by reference to $%08x!\n", vaddr);
+
+//    assert(PTE_BASE <= vaddr && vaddr < PTE_BASE+PTE_SIZE);
     /* If the fault was in virtual pt range it means it's time to refill */
     kprintf("[tlb] pde_refill\n");
     uint32_t id = PDE_ID_FROM_PTE_ADDR(vaddr);
+    kprintf("[tlb] pde id %ld\n", id);
     tlbhi_t entryhi = mips32_get_c0(C0_ENTRYHI);
+    kprintf("[tlb] entryhi %08x\n", entryhi);
 
     pmap_t *active_pmap = get_active_pmap();
-    if(!(active_pmap->pde[id] & V_MASK))
+    kprintf("[tlb] active_pmap %p\n", active_pmap);
+    if ((void*)0 == active_pmap) {
+        kprintf("[tlb] no active pmap\n");
+        panic("NO ACTIVE PMAP..");
+    }
+
+    if(!(active_pmap->pde[id] & V_MASK)) {
         panic("Trying to access unmapped memory region.\
-              You probably deferred NULL or there was stack overflow. ");
+            You probably deferred NULL or there was stack overflow. ");
+    }
 
     id &= ~1;
     pte_t entrylo0 = active_pmap->pde[id];
     pte_t entrylo1 = active_pmap->pde[id+1];
     tlb_overwrite_random(entryhi, entrylo0, entrylo1);
-#endif
+    return regs;
 }
 
 void kernel_oops() {
-    int code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
+    uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
 
     kprintf("[oops] %s at $%08x!\n", exceptions[code], mips32_get_c0(C0_EPC));
     if (code == EXC_ADEL || code == EXC_ADES) {
@@ -110,6 +122,16 @@ void kernel_oops() {
     }
 
     panic("Unhandled exception");
+}
+
+void print_user_regs(struct user_regs* regs)
+{
+    kprintf("$a0 %08x $a1 %08x $a2 %08x $a3 %08x\n", regs->a0, regs->a1, regs->a2, regs->a3);
+    kprintf("$t0 %08x $t1 %08x $t2 %08x $t3 %08x $t4 %08x $t5 %08x $t6 %08x $t7 %08x $t8 %08x $t9 %08x\n",
+            regs->t0, regs->t1, regs->t2, regs->t3, regs->t4, regs->t5, regs->t6, regs->t7, regs->t8, regs->t9);
+    kprintf("$s0 %08x $s1 %08x $s2 %08x $s3 %08x $s4 %08x $s5 %08x $s6 %08x $s7 %08x\n",
+            regs->s0, regs->s1, regs->s2, regs->s3, regs->s4, regs->s5, regs->s6, regs->s7);
+    kprintf("$fp %08x $at %08x $gp %08x $hi %08x $lo %08x $ra %08x $epc %08x\n", regs->fp, regs->at, regs->gp, regs->hi, regs->lo, regs->ra, regs->epc);
 }
 
 /* 

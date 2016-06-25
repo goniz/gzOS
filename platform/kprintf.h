@@ -16,6 +16,8 @@ void vkprintf(const char *fmt, va_list arg);
 
 void kprintf(const char *fmt, ...);
 
+void kputs(const char* s);
+
 #ifdef __cplusplus
 }
 #endif

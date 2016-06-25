@@ -6,27 +6,40 @@
 #include <lib/scheduler/process.h>
 #include <cstring>
 #include <platform/process.h>
+#include <atomic>
+
+static std::atomic<pid_t> g_next_pid(0);
+static pid_t generate_pid(void)
+{
+    return g_next_pid.fetch_add(1, std::memory_order::memory_order_relaxed);
+}
 
 Process::Process(const char *name,
                  EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
                  size_t stackSize,
                  enum Type procType, uint32_t initialQuantum)
 
-    : _state(State::READY),
-      _type(procType),
-      _context(nullptr),
+    : _context(nullptr),
       _quantum(initialQuantum),
+      _resetQuantum(initialQuantum),
+      _state(State::READY),
+      _pid(generate_pid()),
+      _type(procType),
       _exitCode(0),
-      _stackSize(stackSize),
-      _stack(std::make_unique<uint8_t[]>(stackSize)),
       _entryPoint(entryPoint),
       _arguments(std::move(arguments))
 {
     strncpy(_name, name, sizeof(_name));
-    memset(_stack.get(), 0, _stackSize);
 
     struct process_entry_info info{Process::processMainLoop, this};
-    _context = platform_initialize_process_stack(_stack.get(), _stackSize, &info);
+    _pctx = platform_initialize_process_ctx(_pid, stackSize);
+    _context = platform_initialize_process_stack(_pctx, &info);
+}
+
+
+Process::~Process(void)
+{
+    platform_free_process_ctx(_pctx);
 }
 
 __attribute__((noreturn))
@@ -34,11 +47,13 @@ void Process::processMainLoop(void* argument)
 {
     Process* self = (Process*)argument;
 
-    self->_exitCode = self->_entryPoint(self->_arguments.size(), self->_arguments.data());
+    self->_exitCode = self->_entryPoint((int) self->_arguments.size(), self->_arguments.data());
     self->_state = State::TERMINATED;
 
     while (true);
 }
+
+
 
 
 

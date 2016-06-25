@@ -13,3 +13,9 @@ void kprintf(const char* fmt, ...)
     vkprintf(fmt, arg);
     va_end(arg);
 }
+
+void kputs(const char* s)
+{
+	extern void uart_puts(const char*);
+	uart_puts(s);
+}

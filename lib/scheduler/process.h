@@ -9,6 +9,7 @@
 #include <memory>
 #include <functional>
 #include <vector>
+#include <sys/types.h>
 
 class ProcessScheduler;
 class Process
@@ -25,20 +26,27 @@ public:
             size_t stackSize,
             enum Type procType, uint32_t initialQuantum);
 
+    ~Process(void);
+
+    inline pid_t pid(void) const {
+        return _pid;
+    }
+
 private:
     __attribute__((noreturn))
     static void processMainLoop(void* argument);
 
-    char _name[64];
-    enum State _state;
-    enum Type _type;
     struct user_regs* _context;
     uint32_t _quantum;
+    uint32_t _resetQuantum;
+    enum State _state;
+    char _name[64];
+    pid_t _pid;
+    enum Type _type;
     int _exitCode;
-    size_t _stackSize;
-    std::unique_ptr<uint8_t[]> _stack;
     EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
+	struct platform_process_ctx* _pctx;
 };
 
 #endif //GZOS_PROCESS_H

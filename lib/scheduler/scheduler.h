@@ -10,15 +10,26 @@
 #include <lib/scheduler/process.h>
 #include <lib/primitives/queue.h>
 #include <platform/interrupts.h>
+#include <lib/primitives/spinlock_mutex.h>
+
+#define DefaultPreemptiveQuantum 100
+#define DefaultResponsiveQuantum 1500
 
 class ProcessScheduler
 {
 private:
-    static constexpr uint32_t DefaultPreemptiveQuantum = 100;
-    static constexpr uint32_t DefaultResponsiveQuantum = 1500;
 
 public:
     ProcessScheduler(size_t initialProcSize, size_t initialQueueSize);
+
+    pid_t createPreemptiveProcess(const char* name,
+                                  Process::EntryPointFunction main, std::vector<const char*>&& arguments,
+                                  size_t stackSize, int initialQuantum = DefaultPreemptiveQuantum);
+    pid_t createResponsiveProcess(const char* name,
+                                  Process::EntryPointFunction main, std::vector<const char*>&& arguments,
+                                  size_t stackSize);
+
+    void setDebugMode(void);
 
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
@@ -33,6 +44,8 @@ private:
     queue<Process*>                         _preemptiveQueue;
     Process                                 _idleProc;
     std::vector<std::unique_ptr<Process>>   _processList;
+    spinlock_mutex                          _mutex;
+    bool                                    _debugMode;
 };
 
 #endif //GZOS_SCHEDULER_H

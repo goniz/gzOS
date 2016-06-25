@@ -8,15 +8,23 @@
 #include <platform/kprintf.h>
 #include <lib/primitives/queue.h>
 #include <platform/clock.h>
+#include <lib/primitives/interrupts_guard.h>
+#include <lib/primitives/spinlock_mutex.h>
+#include <lib/primitives/lock_guard.h>
+#include <platform/process.h>
+
+#define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
 __attribute__((noreturn))
 static int idleProcMain(int argc, const char** argv)
 {
-    printf("Idle thread is running!\n");
+    kputs("Idle thread is running!\n");
     while (true) {
         auto clock = clock_get_ms();
         if (clock % 1000) {
-            printf("IdleProc: count %ld\n", clock_get_ms());
+            // InterruptGuard guard;
+            // kprintf("IdleProc: count %ld\n", clock_get_ms());
+			kputs("idleProcMain\n");
         }
     }
 }
@@ -26,25 +34,29 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
       _idleProc("IdleProc", idleProcMain, {}, 1024, Process::Type::Preemptive, DefaultPreemptiveQuantum),
-      _processList()
+      _processList(),
+      _mutex()
 {
     _processList.reserve(initialProcSize);
 }
 
-Process *ProcessScheduler::andTheWinnerIs(void)
+Process* ProcessScheduler::andTheWinnerIs(void)
 {
-    Process* newProc;
+    Process* newProc = nullptr;
 
     // first, try getting a task from _responsiveQueue
     if (_responsiveQueue.pop(newProc)) {
+        debug_log("andTheWinnerIs: responsive newProc %p name %s", newProc, newProc->_name);
         return newProc;
     }
 
     // then try getting a task from _preemptiveQueue
     if (_preemptiveQueue.pop(newProc)) {
+        debug_log("andTheWinnerIs: preemptive newProc %p name %s", newProc, newProc->_name);
         return newProc;
     }
 
+    debug_log("andTheWinnerIs: idle proc");
     // and if that fails.. get the _idleProc...
     return &_idleProc;
 }
@@ -63,14 +75,14 @@ Process* ProcessScheduler::handleResponsiveProc(void)
     return _currentProc;
 }
 
-static void print_queue(const queue<Process*>& q)
-{
-    kprintf("Queue size: %d var[0]: %p\n", q.size(), q.underlying_data()[0]);
-    for (const auto& var : q.underlying_data())
-    {
-        kprintf("var: %p\n", var);
-    }
-}
+//static void print_queue(const queue<Process*>& q)
+//{
+//    kprintf("Queue size: %d var[0]: %p\n", q.size(), q.underlying_data()[0]);
+//    for (const auto& var : q.underlying_data())
+//    {
+//        kprintf("var: %p\n", var);
+//    }
+//}
 
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handlePreemptiveProc(void)
@@ -78,12 +90,19 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
     Process* newProc = nullptr;
     const auto currentQuantum = _currentProc->_quantum;
 
+    debug_log("Current quantom: %d", currentQuantum);
+
+	if (currentQuantum > 0) {
+		return _currentProc;
+	}
+
     // first, check if we're out of quantum
-    if (0 == _currentProc->_quantum) {
-        _currentProc->_quantum = DefaultPreemptiveQuantum;
+    if (0 == currentQuantum) {
+		_currentProc->_state = Process::State::READY;
+        _currentProc->_quantum = _currentProc->_resetQuantum;
         _preemptiveQueue.push(_currentProc);
         kprintf("%s: out of quantum, rescheduling\n", _currentProc->_name);
-        print_queue(_preemptiveQueue);
+//        print_queue(_preemptiveQueue);
     }
 
     // then we give _responsiveQueue a chance before we continue
@@ -92,22 +111,17 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
         return newProc;
     }
 
-    if (currentQuantum > 0) {
-        // now, if we still got quantum, keep running (yes, double check..)
-        return _currentProc;
-    } else {
-        kprintf("%s: yielding in favor of preemptive task %s\n", _currentProc->_name, "");
-        print_queue(_preemptiveQueue);
-        // but if we dont, pop another preemptive task
-        // we dont check for pop() retval because we just pushed to _preemptiveQueue
-        auto ret = _preemptiveQueue.pop(newProc);
-        kprintf("%s: after pop newProc %p retval %s\n", _currentProc->_name, newProc, ret ? "true" : "false");
-        return newProc;
-    }
+	// but if we dont, pop another preemptive task
+	// we dont check for pop() retval because we just pushed to _preemptiveQueue
+	auto ret = _preemptiveQueue.pop(newProc);
+	kprintf("%s: after pop newProc %p retval %s\n", _currentProc->_name, newProc, ret ? "true" : "false");
+	kprintf("%s: yielding in favor of preemptive task %s\n", _currentProc->_name, newProc->_name);
+	return newProc;
 }
 
 struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
 {
+    lock_guard<spinlock_mutex> guard(_mutex);
     // a normal schedule starts here..
     // we've got an existing proc and a potential new one
     if (NULL != _currentProc)
@@ -140,6 +154,7 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
 
     // return the context user_regs of the new/existing current proc entry
     _currentProc->_state = Process::State::RUNNING;
+    platform_set_active_process_ctx(_currentProc->_pctx);
     return _currentProc->_context;
 }
 
@@ -150,3 +165,38 @@ struct user_regs *ProcessScheduler::onTickTimer(void *argument, struct user_regs
 
     return self->schedule(regs);
 }
+
+//_idleProc("IdleProc", idleProcMain, {}, 1024, Process::Type::Preemptive, DefaultPreemptiveQuantum),
+pid_t ProcessScheduler::createPreemptiveProcess(const char *name, Process::EntryPointFunction main,
+                                                std::vector<const char*>&& arguments, size_t stackSize, int initialQuantum)
+{
+    InterruptGuard guard;
+    std::unique_ptr<Process> newProc = std::make_unique<Process>(name, main, std::move(arguments),
+                                                                 stackSize, Process::Type::Preemptive,
+                                                                 initialQuantum);
+
+    pid_t newPid = newProc->pid();
+    kprintf("newProc: %p newPid: %d\n", newProc.get(), newPid);
+    _preemptiveQueue.push(newProc.get());
+    kprintf("newProc: %p newPid: %d\n", newProc.get(), newPid);
+    kprintf("newProc: %p name: %s\n", newProc.get(), newProc->_name);
+    _processList.push_back(std::move(newProc));
+    return newPid;
+}
+
+pid_t ProcessScheduler::createResponsiveProcess(const char *name, Process::EntryPointFunction main,
+                                                std::vector<const char*>&& arguments, size_t stackSize)
+{
+    return 0;
+}
+
+void ProcessScheduler::setDebugMode(void)
+{
+    lock_guard<spinlock_mutex> guard(_mutex);
+    _debugMode = true;
+}
+
+
+
+
+

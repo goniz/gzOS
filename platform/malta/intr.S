@@ -105,7 +105,7 @@ irq7:
 
         .org 0x300
 
-#define REG_STACK_STORE_SIZE (27 * 4)
+#define REG_STACK_STORE_SIZE (31 * 4)
 
         .set	noat            // Don't allow the assembler to use r1(at) for synthetic instr.
 
@@ -120,8 +120,6 @@ irq_handler:
          * Save registers on the stack.
          * Saving all t, a and v registers, as well as LO and HI.
          * k registers do not require saving.
-         * s and sp registers are saved by compiler-generated
-         * procedure entry, if the procedure modifies them.
          */
         sw      $t0, (0  * 4)($sp)
         sw      $t1, (1  * 4)($sp)
@@ -147,15 +145,18 @@ irq_handler:
         sw      $s7, (21 * 4)($sp) 
         sw      $v0, (22 * 4)($sp) 
         sw      $v1, (23 * 4)($sp) 
-        sw      $ra, (24 * 4)($sp) 
+        sw      $ra, (24 * 4)($sp)
+        sw      $at, (25 * 4)($sp)
+        sw      $fp, (26 * 4)($sp)
+        sw      $gp, (27 * 4)($sp)
 
         mflo    $k0
-        sw      $k0, (25 * 4)($sp)
+        sw      $k0, (28 * 4)($sp)
         mfhi    $k0
-        sw      $k0, (26 * 4)($sp)
+        sw      $k0, (29 * 4)($sp)
 
         mfc0    $k0, C0_EPC
-        sw      $k0, (27 * 4)($sp)
+        sw      $k0, (30 * 4)($sp)
 
         move    $a0, $sp
 
@@ -170,15 +171,18 @@ irq_handler:
         movn    $sp, $v0, $v0
 
         /* Restore registers. */
-        lw      $k0, (27 * 4)($sp)
+        lw      $k0, (30 * 4)($sp)
         mtc0    $k0, C0_EPC
 
-        lw      $k0, (26 * 4)($sp)
+        lw      $k0, (29 * 4)($sp)
         mthi    $k0
 
-        lw      $k0, (25 * 4)($sp)
+        lw      $k0, (28 * 4)($sp)
         mtlo    $k0
 
+        lw      $gp, (27 * 4)($sp)
+        lw      $fp, (26 * 4)($sp)
+        lw      $at, (25 * 4)($sp)
         lw      $ra, (24 * 4)($sp) 
         lw      $v1, (23 * 4)($sp) 
         lw      $v0, (22 * 4)($sp) 

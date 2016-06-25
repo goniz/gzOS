@@ -5,21 +5,89 @@
 #include <platform/process.h>
 #include <platform/malta/interrupts.h>
 #include <stdio.h>
+#include <platform/malta/pm.h>
+#include <lib/primitives/align.h>
+#include <stdlib.h>
+#include <platform/kprintf.h>
+#include "pmap.h"
 
-struct user_regs* platform_initialize_process_stack(uint8_t* stackPointer, size_t stackSize,
-                                                    struct process_entry_info* info)
+#define VIRT_STACK_BASE 0x50000000
+
+struct platform_process_ctx {
+    pid_t pid;
+    size_t stack_size;
+    struct pmap pmap;
+    vm_page_t* stack_base;
+};
+
+struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t stackSize)
 {
-    // stack is in a descending order
-    // and should be initialized with struct user_regs in order to start
-    if (stackSize < sizeof(struct user_regs)) {
+    struct platform_process_ctx* pctx = malloc(sizeof(struct platform_process_ctx));
+    if (NULL == pctx) {
         return NULL;
     }
 
-    struct user_regs* context = (struct user_regs*)(stackPointer + stackSize - sizeof(struct user_regs));
+    pctx->pid = pid;
+    pctx->stack_size = stackSize;
+    pmap_init(&pctx->pmap);
+    pctx->pmap.asid = 10;
+
+    pctx->stack_base = pm_alloc_bytes(stackSize);
+    if (NULL == pctx->stack_base) {
+        platform_free_process_ctx(pctx);
+        return NULL;
+    }
+
+    kprintf("Allocated stack_base: virt %p phy %p real virt %p\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
+
+    pmap_map(&pctx->pmap, VIRT_STACK_BASE, pctx->stack_base->phys_addr, 1 << pctx->stack_base->order, PMAP_VALID | PMAP_DIRTY);
+
+    return pctx;
+}
+
+void platform_free_process_ctx(struct platform_process_ctx* pctx)
+{
+    if (NULL == pctx) {
+        return;
+    }
+
+    pctx->pid = 0;
+    pctx->stack_size = 0;
+    pmap_delete(&pctx->pmap);
+
+    if (NULL != pctx->stack_base) {
+        pm_free(pctx->stack_base);
+    }
+
+    free(pctx);
+}
+
+struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
+                                                    struct process_entry_info* info)
+{
+    kprintf("in platform_initialize_process_stack: epc %p a0 %p\n", info->entryPoint, info->argument);
+
+    // stack is in a descending order
+    // and should be initialized with struct user_regs in order to start
+
+    // save the old pmap and set the current one
+    // then initialize it with the virt stack base
+    pmap_t* old_pmap = get_active_pmap();
+    set_active_pmap(&pctx->pmap);
+    struct user_regs* context = (struct user_regs*)(VIRT_STACK_BASE + pctx->stack_size - sizeof(struct user_regs));
     context->epc = (uint32_t)info->entryPoint;
     context->a0 = (uint32_t)info->argument;
-
-    printf("in platform_initialize_process_stack: epc %p a0 %p\n", info->entryPoint, info->argument);
+    set_active_pmap(old_pmap);
 
     return context;
+}
+
+void platform_set_active_process_ctx(struct platform_process_ctx* pctx)
+{
+    set_active_pmap(&pctx->pmap);
+}
+
+void platform_leave_process_ctx(void)
+{
+    set_active_pmap(NULL);
 }

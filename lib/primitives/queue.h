@@ -22,6 +22,7 @@ public:
     }
 
     inline bool push(const T& value) {
+		kputs("queue::push(const T&)\n");
         if (this->full()) {
             return false;
         }
@@ -30,14 +31,15 @@ public:
         return true;
     }
 
-//    inline bool push(T&& value) {
-//        if (this->full()) {
-//            return false;
-//        }
-//
-//        _data.push_back(std::move(value));
-//        return true;
-//    }
+    inline bool push(T&& value) {
+		kputs("queue::push(const T&&)\n");
+        if (this->full()) {
+            return false;
+        }
+
+        _data.push_back(std::move(value));
+        return true;
+    }
 
     inline bool pop(T& out) {
         if (this->empty()) {

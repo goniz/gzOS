@@ -12,6 +12,9 @@
 #include <cstdio>
 #include <string>
 #include <platform/panic.h>
+#include <platform/malta/pm.h>
+#include <lib/primitives/align.h>
+#include <platform/kprintf.h>
 
 extern "C" {
 
@@ -133,22 +136,27 @@ int _lseek_r(int file, int ptr, int dir) {
  */
 extern char _end; // Defined by the linker
 caddr_t _sbrk_r(struct _reent * reent, ptrdiff_t incr) {
-    static char *heap_end;
-    char *prev_heap_end;
+//    static char *heap_end;
+//    char *prev_heap_end;
+//
+//    if (heap_end == 0) {
+//        heap_end = &_end;
+//    }
+//    prev_heap_end = heap_end;
+//
+//    char *stack = (char *) _get_stack_pointer();
+//    if (heap_end + incr > stack) {
+//		panic("Heap and stack collision. stack: %p heap_end: %p", stack, heap_end + incr);
+//    }
+//
+//    heap_end += incr;
+//    return (caddr_t) prev_heap_end;
 
-    if (heap_end == 0) {
-        heap_end = &_end;
-    }
-    prev_heap_end = heap_end;
-
-    char *stack = (char *) _get_stack_pointer();
-    if (heap_end + incr > stack) {
-		panic("Heap and stack collision. stack: %p heap_end: %p", stack, heap_end + incr);
-    }
-
-    heap_end += incr;
-    return (caddr_t) prev_heap_end;
-
+//    panic("Unimplemented");
+    kprintf("incr: %d\n", incr);
+    incr = align(incr, PAGESIZE);
+    vm_page_t* page = pm_alloc_bytes(incr);
+    return (caddr_t) page->virt_addr;
 }
 
 /*
