@@ -33,6 +33,12 @@ public:
                                   Process::EntryPointFunction main, std::vector<const char*>&& arguments,
                                   size_t stackSize, int initialQuantum = DefaultResponsiveQuantum);
 
+    struct user_regs* yield(struct user_regs* regs);
+
+    pid_t getCurrentPid(void) const {
+        return (_currentProc ? _currentProc->_pid : -1);
+    }
+
     void setDebugMode(void);
 
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);

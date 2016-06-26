@@ -74,6 +74,26 @@ Process* ProcessScheduler::andTheWinnerIs(void)
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handleResponsiveProc(void)
 {
+    if (_currentProc->_state == Process::State::YIELDING) {
+        // choose a new proc before pushing current proc to responsive queue
+        Process* newProc = this->andTheWinnerIs();
+
+        // reset current proc and push to queue
+        _currentProc->_quantum = _currentProc->_resetQuantum;
+        _currentProc->_state = Process::State::READY;
+
+        // if we picked the idle proc, it means we've got no one else to run but us.
+        // then keep running
+        if (newProc == &_idleProc) {
+            newProc = _currentProc;
+        } else {
+            // but if we found some one else to actually run, queue us for later
+            _responsiveQueue.push(_currentProc);
+        }
+
+        return newProc;
+    }
+
     // if the process is a responsive one, keep it running until he yield()s
     // but if he passes the intentionally-very-long-quantum value, kill it.
     if (0 >= _currentProc->_quantum) {
@@ -85,15 +105,6 @@ Process* ProcessScheduler::handleResponsiveProc(void)
     return _currentProc;
 }
 
-//static void print_queue(const queue<Process*>& q)
-//{
-//    kprintf("Queue size: %d var[0]: %p\n", q.size(), q.underlying_data()[0]);
-//    for (const auto& var : q.underlying_data())
-//    {
-//        kprintf("var: %p\n", var);
-//    }
-//}
-
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handlePreemptiveProc(void)
 {
@@ -101,21 +112,19 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
 
     debug_log("Current quantum: %d", currentQuantum);
 
-    if (_currentProc->_state != Process::State::TERMINATED) {
-        // first, check if we're out of quantum
-        if (0 >= currentQuantum) {
-            _currentProc->_state = Process::State::READY;
-            _currentProc->_quantum = _currentProc->_resetQuantum;
-            _preemptiveQueue.push(_currentProc);
-            debug_log("%s: out of quantum, rescheduling\n", _currentProc->_name);
-        }
-    } else {
-        // little hack to stop terminated procs from continuing their run
-        currentQuantum = 0;
+    // little hack to stop terminated procs from continuing their run
+    if (_currentProc->_state == Process::State::TERMINATED) {
+        return this->andTheWinnerIs();
     }
 
     if (currentQuantum > 0) {
         return _currentProc;
+    } else {
+        // check if we're out of quantum
+        _currentProc->_state = Process::State::READY;
+        _currentProc->_quantum = _currentProc->_resetQuantum;
+        _preemptiveQueue.push(_currentProc);
+        debug_log("%s: out of quantum, rescheduling\n", _currentProc->_name);
     }
 
     return this->andTheWinnerIs();
@@ -207,7 +216,18 @@ void ProcessScheduler::setDebugMode(void)
     _debugMode = true;
 }
 
-DEFINE_SYSCALL(0, create_preemptive_process)
+struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
+{
+    if (!_currentProc) {
+        panic("wtf.. yielding with no current proc...");
+    }
+
+    _currentProc->_state = Process::State::YIELDING;
+    return this->schedule(regs);
+}
+
+
+DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
 {
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Process::EntryPointFunction, main);
@@ -217,4 +237,27 @@ DEFINE_SYSCALL(0, create_preemptive_process)
 
     std::vector<const char*> arguments(argv, argv + argc);
     return global_scheduler->createPreemptiveProcess(name, main, std::move(arguments), stackSize);
+}
+
+DEFINE_SYSCALL(SYS_NR_CREATE_RESPONSIVE_PROC, create_responsive_process)
+{
+    SYSCALL_ARG(const char*, name);
+    SYSCALL_ARG(Process::EntryPointFunction, main);
+    SYSCALL_ARG(int, argc);
+    SYSCALL_ARG(const char**, argv);
+    SYSCALL_ARG(size_t, stackSize);
+
+    std::vector<const char*> arguments(argv, argv + argc);
+    return global_scheduler->createResponsiveProcess(name, main, std::move(arguments), stackSize);
+}
+
+DEFINE_SYSCALL(SYS_NR_GET_PID, get_pid)
+{
+    return global_scheduler->getCurrentPid();
+}
+
+DEFINE_SYSCALL(SYS_NR_YIELD, yield)
+{
+    *regs = global_scheduler->yield(*regs);
+    return 0;
 }

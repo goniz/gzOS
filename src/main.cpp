@@ -32,7 +32,7 @@ static int dummyResponsiveProcMain(int argc, const char** argv)
 {
     while (true) {
         kputs("Responsive Proc\n");
-        int retval = syscall(10, "test");
+        int retval = syscall(SYS_NR_YIELD);
         kprintf("retval: %d\n", retval);
     }
 }
@@ -53,9 +53,9 @@ int main(int argc, const char** argv)
 //    clock_delay_ms(10);
 
     std::vector<const char*> args{};
-    printf("new pid: %d\n", syscall(0, "Dummy1Proc", dummy1ProcMain, args.size(), args.data(), 4096));
-    printf("new pid: %d\n", syscall(0, "Dummy2Proc", dummy2ProcMain, args.size(), args.data(), 4096));
-    printf("new pid: %d\n", syscall(0, "Dummy3Proc", dummyResponsiveProcMain, args.size(), args.data(), 4096));
+    printf("new pid: %d\n", syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Dummy1Proc", dummy1ProcMain, args.size(), args.data(), 4096));
+    printf("new pid: %d\n", syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Dummy2Proc", dummy2ProcMain, args.size(), args.data(), 4096));
+    printf("new pid: %d\n", syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Dummy3Proc", dummyResponsiveProcMain, args.size(), args.data(), 4096));
 
     //	scheduler.createPreemptiveProcess("Dummy1Proc", dummy1ProcMain, {}, 4096);
 //	scheduler.createPreemptiveProcess("Dummy3Proc", dummy2ProcMain, {}, 4096);

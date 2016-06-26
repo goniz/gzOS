@@ -117,24 +117,24 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
 extern struct kernel_syscall syscall_table[];
 extern uint8_t __syscalls_start;
 extern uint8_t __syscalls_end;
-struct user_regs* syscall_exception_handler(struct user_regs* regs)
+struct user_regs* syscall_exception_handler(struct user_regs* current_regs)
 {
     const size_t n_syscalls = ((&__syscalls_end - &__syscalls_start) / sizeof(struct kernel_syscall));
-    struct user_regs* ctx_regs = regs;
     int ret = -1;
+    struct user_regs* ctx_switch_in_regs = current_regs;
 
     for (size_t i = 0; i < n_syscalls; i++) {
         struct kernel_syscall* currrent = &syscall_table[i];
-        if (regs->a0 == currrent->number) {
+        if (current_regs->a0 == currrent->number) {
             kprintf("%s: calling syscall %d handler %p\n", __FUNCTION__, currrent->number, currrent->handler);
-            ret = currrent->handler(&ctx_regs, (va_list)regs->a1);
+            ret = currrent->handler(&ctx_switch_in_regs, (va_list)current_regs->a1);
             break;
         }
     }
 
-    ctx_regs->v0 = (uint32_t) ret;
-    ctx_regs->epc += 4;
-    return ctx_regs;
+    current_regs->v0 = (uint32_t) ret;
+    current_regs->epc += 4;
+    return ctx_switch_in_regs;
 }
 
 void kernel_oops() {

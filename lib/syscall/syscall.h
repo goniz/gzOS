@@ -43,8 +43,19 @@ struct kernel_syscall {
 #define SYSCALL_ARG(type, name) \
             type name = va_arg(args, type)
 
+#define DECLARE_SYSCALL_NR(name) SYS_NR_ ##name
+
 /* basic syscall invocation call */
 int syscall(int number, ...);
+
+enum system_call_numbers
+{
+    DECLARE_SYSCALL_NR(CREATE_PREEMPTIVE_PROC),
+    DECLARE_SYSCALL_NR(CREATE_RESPONSIVE_PROC),
+    DECLARE_SYSCALL_NR(GET_PID),
+    DECLARE_SYSCALL_NR(YIELD),
+};
+
 
 #ifdef __cplusplus
 };
