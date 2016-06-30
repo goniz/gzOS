@@ -5,14 +5,12 @@
 #include <lib/scheduler/scheduler.h>
 #include <platform/panic.h>
 #include <cstdio>
-#include <platform/kprintf.h>
-#include <lib/primitives/queue.h>
 #include <platform/clock.h>
 #include <lib/primitives/interrupts_mutex.h>
-#include <lib/primitives/spinlock_mutex.h>
 #include <lib/primitives/lock_guard.h>
 #include <platform/process.h>
 #include <lib/syscall/syscall.h>
+#include <lib/scheduler/signals.h>
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
@@ -112,11 +110,6 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
 
     debug_log("Current quantum: %d", currentQuantum);
 
-    // little hack to stop terminated procs from continuing their run
-    if (_currentProc->_state == Process::State::TERMINATED) {
-        return this->andTheWinnerIs();
-    }
-
     if (currentQuantum > 0) {
         return _currentProc;
     } else {
@@ -142,6 +135,13 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
         // play the quantum card
         _currentProc->_quantum--;
 
+        this->handleSignal(_currentProc);
+
+        if (_currentProc->_state == Process::State::TERMINATED) {
+            _currentProc = this->andTheWinnerIs();
+            goto switch_to_proc;
+        }
+
         // handle the actual switching logic
         switch (_currentProc->_type)
         {
@@ -156,13 +156,17 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
             default:
                 panic("%s: Unknown proc type %d", _currentProc->_name, _currentProc->_type);
         }
+
+        goto switch_to_proc;
     }
     else
     {
         // first run, _currentProc is NULL and will be chosen for the first time! YAY!
         _currentProc = this->andTheWinnerIs();
+        goto switch_to_proc;
     }
 
+switch_to_proc:
     // return the context user_regs of the new/existing current proc entry
     _currentProc->_state = Process::State::RUNNING;
     platform_set_active_process_ctx(_currentProc->_pctx);
@@ -177,7 +181,6 @@ struct user_regs *ProcessScheduler::onTickTimer(void *argument, struct user_regs
     return self->schedule(regs);
 }
 
-//_idleProc("IdleProc", idleProcMain, {}, 1024, Process::Type::Preemptive, DefaultPreemptiveQuantum),
 pid_t ProcessScheduler::createPreemptiveProcess(const char *name, Process::EntryPointFunction main,
                                                 std::vector<const char*>&& arguments, size_t stackSize, int initialQuantum)
 {
@@ -226,6 +229,55 @@ struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
     return this->schedule(regs);
 }
 
+bool ProcessScheduler::signalProc(pid_t pid, int signal) const
+{
+    Process* proc = this->getProcessByPid(pid);
+    if (!proc) {
+        return false;
+    }
+
+    if (Process::State::TERMINATED == proc->_state) {
+        return false;
+    }
+
+    return proc->signal(signal);
+
+}
+
+Process* ProcessScheduler::getProcessByPid(pid_t pid) const
+{
+    for (const auto& proc : _processList)
+    {
+        if (proc->pid() != pid) {
+            continue;
+        }
+
+        return proc.get();
+    }
+
+    return nullptr;
+}
+
+void ProcessScheduler::handleSignal(Process *proc) const
+{
+    const int sig_nr = proc->_pending_signal_nr.exchange(SIG_NONE);
+
+    switch (sig_nr)
+    {
+        case SIG_KILL:
+            proc->_exitCode = -127;
+            proc->_state = Process::State::TERMINATED;
+            break;
+
+        case SIG_STOP:
+            proc->_state = Process::State::SUSPENDING;
+            break;
+
+        default:
+            break;
+    }
+}
+
 
 DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
 {
@@ -259,5 +311,17 @@ DEFINE_SYSCALL(SYS_NR_GET_PID, get_pid)
 DEFINE_SYSCALL(SYS_NR_YIELD, yield)
 {
     *regs = global_scheduler->yield(*regs);
+    return 0;
+}
+
+DEFINE_SYSCALL(SYS_NR_SIGNAL, signal)
+{
+    SYSCALL_ARG(pid_t, pid);
+    SYSCALL_ARG(int, signal_nr);
+
+    if (!global_scheduler->signalProc(pid, signal_nr)) {
+        return -1;
+    }
+
     return 0;
 }

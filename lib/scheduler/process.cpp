@@ -6,11 +6,11 @@
 #include <lib/scheduler/process.h>
 #include <cstring>
 #include <platform/process.h>
-#include <atomic>
 #include <platform/panic.h>
 #include <platform/kprintf.h>
+#include <lib/scheduler/signals.h>
 
-static std::atomic<pid_t> g_next_pid(0);
+static std::atomic<pid_t> g_next_pid(1);
 static pid_t generate_pid(void)
 {
     return g_next_pid.fetch_add(1, std::memory_order::memory_order_relaxed);
@@ -29,7 +29,8 @@ Process::Process(const char *name,
       _type(procType),
       _exitCode(0),
       _entryPoint(entryPoint),
-      _arguments(std::move(arguments))
+      _arguments(std::move(arguments)),
+      _pending_signal_nr((int)SIG_NONE)
 {
     strncpy(_name, name, sizeof(_name));
 
@@ -48,6 +49,12 @@ Process::~Process(void)
     platform_free_process_ctx(_pctx);
 }
 
+bool Process::signal(int sig_nr)
+{
+    int oldValue = SIG_NONE;
+    return _pending_signal_nr.compare_exchange_weak(oldValue, sig_nr);
+}
+
 __attribute__((noreturn))
 void Process::processMainLoop(void* argument)
 {
@@ -59,7 +66,6 @@ void Process::processMainLoop(void* argument)
 
     while (true);
 }
-
 
 
 

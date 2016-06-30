@@ -10,12 +10,13 @@
 #include <functional>
 #include <vector>
 #include <sys/types.h>
+#include <atomic>
 
 class ProcessScheduler;
 class Process
 {
     friend class ProcessScheduler;
-    enum State { READY, RUNNING, SUSPENDED, YIELDING, TERMINATED };
+    enum State { READY, RUNNING, SUSPENDING, SUSPENDED, YIELDING, TERMINATED };
     enum Type { Responsive, Preemptive };
 
 public:
@@ -27,6 +28,8 @@ public:
             enum Type procType, int initialQuantum);
 
     ~Process(void);
+
+    bool signal(int sig_nr);
 
     inline pid_t pid(void) const {
         return _pid;
@@ -47,6 +50,7 @@ private:
     EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
 	struct platform_process_ctx* _pctx;
+    std::atomic<int> _pending_signal_nr;
 };
 
 #endif //GZOS_PROCESS_H

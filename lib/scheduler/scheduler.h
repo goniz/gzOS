@@ -35,6 +35,9 @@ public:
 
     struct user_regs* yield(struct user_regs* regs);
 
+    bool signalProc(pid_t pid, int signal) const;
+    Process* getProcessByPid(pid_t pid) const;
+
     pid_t getCurrentPid(void) const {
         return (_currentProc ? _currentProc->_pid : -1);
     }
@@ -46,6 +49,7 @@ public:
 private:
     struct user_regs* schedule(struct user_regs* regs);
     Process* andTheWinnerIs(void);
+    void handleSignal(Process *proc) const;
     Process* handleResponsiveProc(void);
     Process* handlePreemptiveProc(void);
 

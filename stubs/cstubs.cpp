@@ -15,6 +15,7 @@
 #include <platform/malta/pm.h>
 #include <lib/primitives/align.h>
 #include <platform/kprintf.h>
+#include <lib/syscall/syscall.h>
 
 extern "C" {
 
@@ -80,8 +81,9 @@ int _fstat_r(int file, struct stat *st) {
  getpid
  Process-ID; this is sometimes used to generate strings unlikely to conflict with other processes. Minimal implementation, for a system without processes:
  */
-int _getpid_r() {
-    return 1;
+pid_t getpid(void)
+{
+    return syscall(SYS_NR_GET_PID);
 }
 
 /*
@@ -106,9 +108,9 @@ int _isatty_r(int file) {
  kill
  Send a signal. Minimal implementation:
  */
-int _kill_r(int pid, int sig) {
-    errno = EINVAL;
-    return (-1);
+int kill(int pid, int sig)
+{
+    return syscall(SYS_NR_SIGNAL, pid, sig);
 }
 
 /*
