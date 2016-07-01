@@ -6,9 +6,11 @@
 #include "malta.h"
 #include "pm.h"
 #include "tlb.h"
+#include <platform/malta/pci.h>
 
 extern void system_init(int argc, const char **argv, const char **envp);
 extern void malloc_init(void* start, size_t size);
+extern void platform_init_bar_registers(void);
 
 void platform_init(int argc, const char **argv, const char **envp)
 {
@@ -17,7 +19,9 @@ void platform_init(int argc, const char **argv, const char **envp)
 
 	platform_read_cpu_config();
     platform_dump_additional_cpu_info();
+//    platform_init_bar_registers();
 
+    pci_init();
     pm_init();
     tlb_init();
 
