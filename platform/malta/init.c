@@ -26,7 +26,7 @@ void platform_init(int argc, const char **argv, const char **envp)
         panic("Failed to alloc kmalloc pages");
     }
 
-    malloc_init((void*)malloc_page->virt_addr, (size_t) (1 << malloc_page->order));
+    malloc_init((void*)malloc_page->vaddr, (size_t) malloc_page->size * PAGESIZE);
 
 	interrupts_init();
 	clock_init();

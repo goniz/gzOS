@@ -16,7 +16,7 @@ static pmap_t *active_pmap = NULL;
 void pmap_init(pmap_t *pmap) {
   pmap->pte = (pte_t *)PTE_BASE;
   pmap->pde_page = pm_alloc(1);
-  pmap->pde = (pte_t *)pmap->pde_page->virt_addr;
+  pmap->pde = (pte_t *)pmap->pde_page->vaddr;
   TAILQ_INIT(&pmap->pte_pages);
 }
 
@@ -36,7 +36,7 @@ static void pde_map(pmap_t *pmap, vaddr_t vaddr) {
     vm_page_t *pg = pm_alloc(1);
     TAILQ_INSERT_TAIL(&pmap->pte_pages, pg, pt.list);
 
-    ENTRYLO_SET_PADDR(pmap->pde[pde_index], pg->phys_addr);
+    ENTRYLO_SET_PADDR(pmap->pde[pde_index], pg->paddr);
     ENTRYLO_SET_V(pmap->pde[pde_index], 1);
     ENTRYLO_SET_D(pmap->pde[pde_index], 1);
   }

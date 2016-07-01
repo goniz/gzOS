@@ -84,7 +84,7 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
     uint32_t vaddr = mips32_get_c0(C0_BADVADDR);
     uint32_t epc = mips32_get_c0(C0_EPC);
 
-    kprintf("[tlb] %s at $%08x!\n", exceptions[code], epc);
+    kprintf("[tlb] %s at %08x!\n", exceptions[code], epc);
     kprintf("[tlb] Caused by reference to $%08x!\n", vaddr);
 
 //    assert(PTE_BASE <= vaddr && vaddr < PTE_BASE+PTE_SIZE);

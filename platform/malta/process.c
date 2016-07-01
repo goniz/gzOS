@@ -83,7 +83,7 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
 //    pmap_t* old_pmap = get_active_pmap();
 //    set_active_pmap(&pctx->pmap);
 //    struct user_regs* context = (struct user_regs*)(VIRT_STACK_BASE + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
-    struct user_regs* context = (struct user_regs*)(pctx->stack_base->virt_addr + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
+    struct user_regs* context = (struct user_regs*)(pctx->stack_base->vaddr + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
     context->epc = (uint32_t)info->entryPoint;
     context->a0 = (uint32_t)info->argument;
     context->gp = (uint32_t) &_gp;
