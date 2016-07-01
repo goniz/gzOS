@@ -55,6 +55,26 @@ bool Process::signal(int sig_nr)
     return _pending_signal_nr.compare_exchange_weak(oldValue, sig_nr);
 }
 
+const char *Process::name(void) const
+{
+    return _name;
+}
+
+int Process::exit_code(void) const
+{
+    return _exitCode;
+}
+
+int Process::state(void) const
+{
+    return (int)_state;
+}
+
+int Process::type(void) const
+{
+    return (int)_type;
+}
+
 __attribute__((noreturn))
 void Process::processMainLoop(void* argument)
 {

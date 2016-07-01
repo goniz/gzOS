@@ -42,6 +42,10 @@ public:
         return (_currentProc ? _currentProc->_pid : -1);
     }
 
+    const std::vector<std::unique_ptr<Process>>& processList(void) const {
+        return _processList;
+    }
+
     void setDebugMode(void);
 
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
@@ -52,6 +56,7 @@ private:
     void handleSignal(Process *proc) const;
     Process* handleResponsiveProc(void);
     Process* handlePreemptiveProc(void);
+    friend int sys_ps(struct user_regs **regs, va_list args);
 
     Process*                                _currentProc;
     queue<Process*>                         _responsiveQueue;
@@ -61,6 +66,15 @@ private:
     spinlock_mutex                          _mutex;
     bool                                    _debugMode;
 };
+
+struct ps_ent {
+    pid_t pid;
+    int exit_code;
+    const char* state;
+    const char* type;
+    char name[64];
+};
+
 #endif
 
 #ifdef __cplusplus

@@ -126,7 +126,7 @@ struct user_regs* syscall_exception_handler(struct user_regs* current_regs)
     for (size_t i = 0; i < n_syscalls; i++) {
         struct kernel_syscall* currrent = &syscall_table[i];
         if (current_regs->a0 == currrent->number) {
-            kprintf("%s: calling syscall %d handler %p\n", __FUNCTION__, currrent->number, currrent->handler);
+//            kprintf("%s: calling syscall %d handler %p\n", __FUNCTION__, currrent->number, currrent->handler);
             ret = currrent->handler(&ctx_switch_in_regs, (va_list)current_regs->a1);
             break;
         }

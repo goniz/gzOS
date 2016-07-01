@@ -35,9 +35,9 @@ struct kernel_syscall {
 };
 
 #define DEFINE_SYSCALL(number, name) \
-            static int sys_ ##name(struct user_regs** regs, va_list args); \
+            int sys_ ##name(struct user_regs** regs, va_list args); \
             __attribute__((section(".syscalls"),used)) \
-            static struct kernel_syscall __sys_ ##name## _ks = { (number), (sys_handler_t) sys_ ##name }; \
+            struct kernel_syscall __sys_ ##name## _ks = { (number), (sys_handler_t) sys_ ##name }; \
             int sys_ ##name(struct user_regs** regs, va_list args)
 
 #define SYSCALL_ARG(type, name) \
@@ -55,6 +55,7 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(GET_PID),
     DECLARE_SYSCALL_NR(YIELD),
     DECLARE_SYSCALL_NR(SIGNAL),
+    DECLARE_SYSCALL_NR(PS),
 };
 
 

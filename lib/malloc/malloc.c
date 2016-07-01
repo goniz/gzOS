@@ -154,6 +154,30 @@ void kfree(malloc_pool_t *mp, void *addr) {
   }
 }
 
+void* krealloc(malloc_pool_t* mp, void* ptr, size_t size, uint16_t flags)
+{
+    mem_block_t *mb = (mem_block_t *)(((char *)ptr) - sizeof(mem_block_t));
+
+    if (mb->mb_magic != MB_MAGIC ||
+        mp->mp_magic != MB_MAGIC ||
+        mb->mb_size >= 0) {
+        panic("Memory corruption detected!");
+    }
+
+    if (0 == size) {
+        return NULL;
+    }
+
+    void* new_ptr = kmalloc(mp, size, flags);
+    if (NULL == new_ptr) {
+        return NULL;
+    }
+
+    memcpy(new_ptr, ptr, (size_t)abs(mb->mb_size));
+    kfree(mp, ptr);
+    return new_ptr;
+}
+
 void kmalloc_dump(malloc_pool_t *mp) {
   mem_arena_t *arena = NULL;
   kprintf("[kmalloc] malloc_pool at %p:\n", mp);

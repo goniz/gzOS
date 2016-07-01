@@ -35,6 +35,11 @@ public:
         return _pid;
     }
 
+    const char* name(void) const;
+    int exit_code(void) const;
+    int state(void) const;
+    int type(void) const;
+
 private:
     __attribute__((noreturn))
     static void processMainLoop(void* argument);
