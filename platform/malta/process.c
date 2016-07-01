@@ -66,6 +66,7 @@ void platform_free_process_ctx(struct platform_process_ctx* pctx)
     free(pctx);
 }
 
+extern uint32_t _gp;
 struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
                                                     struct process_entry_info* info)
 {
@@ -85,6 +86,7 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
     struct user_regs* context = (struct user_regs*)(pctx->stack_base->virt_addr + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
     context->epc = (uint32_t)info->entryPoint;
     context->a0 = (uint32_t)info->argument;
+    context->gp = (uint32_t) &_gp;
 //    set_active_pmap(old_pmap);
 
     return context;
