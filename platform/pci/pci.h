@@ -54,14 +54,21 @@ void platform_pci_driver_probe(void);
 void platform_pci_bus_dump(const pci_bus_t *pcibus);
 void platform_pci_bus_assign_space(pci_bus_t *pcibus, intptr_t mem_base, intptr_t io_base);
 
+uint32_t platform_pci_bus_read_word(int dev, int devfn, int reg);
+void platform_pci_bus_write_word(int dev, int devfn, int reg, uint32_t value);
+uint32_t platform_pci_dev_read_word(const pci_device_t* pcidev, int reg);
+void platform_pci_dev_write_word(const pci_device_t *pcidev, int reg, uint32_t value);
+
 void platform_pci_bus_enumerate(pci_bus_t *pcibus);
 intptr_t platform_pci_memory_base(void);
 intptr_t platform_pci_io_base(void);
+uintptr_t platform_pci_device_get_iobase(pci_device_t* pcidev);
 
 #ifdef __cplusplus
 }
 #endif
 
 #include <platform/pci/pci_drivers.h>
+#include <platform/pci/pci_commands.h>
 #include <platform/pci/pci_ids.h>
 #endif //GZOS_PCI_H

@@ -1,12 +1,11 @@
 //
 // Created by gz on 7/2/16.
 //
-#include <pci/pci.h>
+#include <platform/pci/pci.h>
 #include <platform/kprintf.h>
 #include <platform/sbrk.h>
 #include <cstdlib>
 #include <cstdio>
-#include "pci.h"
 
 static pci_bus_t pci_bus;
 
@@ -178,4 +177,21 @@ void platform_pci_bus_dump(const pci_bus_t *pcibus)
         pci_device_t *pcidev = &pcibus->dev[j];
         platform_pci_dev_dump(pcidev);
     }
+}
+
+extern "C"
+uintptr_t platform_pci_device_get_iobase(pci_device_t* pcidev)
+{
+    if (NULL == pcidev) {
+        return 0;
+    }
+
+    for (unsigned int i = 0; i < pcidev->nbars; i++) {
+        const pci_bar_t* bar = &pcidev->bar[i];
+        if (!(bar->phy_addr & PCI_BAR_IO)) {
+            return (bar->phy_addr & ~PCI_BAR_MEMORY_MASK);
+        }
+    }
+
+    return 0;
 }

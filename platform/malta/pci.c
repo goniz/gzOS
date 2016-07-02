@@ -25,6 +25,28 @@
 
 /* For reference look at: http://wiki.osdev.org/PCI */
 
+uint32_t platform_pci_bus_read_word(int dev, int devfn, int reg)
+{
+    PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, reg));
+    return PCI0_CFG_DATA_R;
+}
+
+void platform_pci_bus_write_word(int dev, int devfn, int reg, uint32_t value)
+{
+    PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, reg));
+    PCI0_CFG_DATA_R = value;
+}
+
+uint32_t platform_pci_dev_read_word(const pci_device_t* pcidev, int reg)
+{
+    return platform_pci_bus_read_word(pcidev->addr.device, pcidev->addr.function, reg);
+}
+
+void platform_pci_dev_write_word(const pci_device_t *pcidev, int reg, uint32_t value)
+{
+    platform_pci_bus_write_word(pcidev->addr.device, pcidev->addr.function, reg, value);
+}
+
 void platform_pci_bus_enumerate(pci_bus_t *pcibus)
 {
     pcibus->dev = kernel_sbrk(0);

@@ -8,6 +8,26 @@
 #include <platform/pci/pci.h>
 
 #ifdef __cplusplus
+
+class pcnet_drv
+{
+public:
+    pcnet_drv(pci_device_t* pci_dev);
+    pcnet_drv(pcnet_drv&& other);
+
+    const char* name(void) const {
+        return _name;
+    }
+
+private:
+    char _name[16];
+    pci_device_t* _pcidev;
+    uintptr_t _iobase;
+};
+
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 

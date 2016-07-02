@@ -50,7 +50,7 @@ void pm_dump() {
   pm_seg_t *seg_it;
   vm_page_t *pg_it;
 
-kprintf("START %08x END %08x _memsize %08x KSEG0 %08x\n", MALTA_PHYS_SDRAM_BASE, MALTA_PHYS_SDRAM_BASE + _memsize, _memsize, MIPS_KSEG0_START);
+  kprintf("START %08x END %08x _memsize %08x KSEG0 %08x\n", MALTA_PHYS_SDRAM_BASE, MALTA_PHYS_SDRAM_BASE + _memsize, _memsize, MIPS_KSEG0_START);
   TAILQ_FOREACH(seg_it, &seglist, segq) {
     kprintf("[pmem] segment %p - %p:\n",
             (void *)seg_it->start, (void *)seg_it->end);
@@ -257,8 +257,8 @@ vm_page_t *pm_alloc(size_t npages) {
   TAILQ_FOREACH(seg_it, &seglist, segq) {
     vm_page_t *page;
     if ((page = pm_alloc_from_seg(seg_it, npages))) {
-      kprintf("[pmem] pm_alloc {paddr:%lx size:%d}\n", 
-              page->paddr, page->size);
+      // kprintf("[pmem] pm_alloc {paddr:%lx size:%d}\n", 
+      //        page->paddr, page->size);
       return page;
     }
   }
@@ -295,8 +295,8 @@ static void pm_free_from_seg(pm_seg_t *seg, vm_page_t *page) {
 void pm_free(vm_page_t *page) {
   pm_seg_t *seg_it = NULL;
 
-  kprintf("[pmem] pm_free {paddr:%lx size:%d}\n",
-          page->paddr, page->size);
+  //kprintf("[pmem] pm_free {paddr:%lx size:%d}\n",
+  //        page->paddr, page->size);
 
   TAILQ_FOREACH(seg_it, &seglist, segq) {
     if (PG_START(page) >= seg_it->start && PG_END(page) <= seg_it->end) {

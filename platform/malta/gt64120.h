@@ -1,7 +1,7 @@
 #ifndef __GT64120_H__
 #define __GT64120_H__
 
-#include <malta.h>
+#include <platform/malta/malta.h>
 #include <stdint.h>
 
 #define GT_R(x) *((volatile uint32_t *) \
