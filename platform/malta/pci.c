@@ -7,7 +7,7 @@
 #include <platform/sbrk.h>
 #include <platform/kprintf.h>
 #include <platform/cpu.h>
-#include <platform/pci.h>
+#include <platform/pci/pci.h>
 
 #define PCI0_CFG_ADDR_R GT_R(GT_PCI0_CFG_ADDR)
 #define PCI0_CFG_DATA_R GT_R(GT_PCI0_CFG_DATA)

@@ -1,35 +1,35 @@
-#include <platform/pci.h>
+#include <pci/pci.h>
 
 /* Taken from http://pciids.sourceforge.net/v2.2/pci.ids */
 
 static const pci_device_id pci_vendor_1013[] = {
-  { 0x00b8, "GD 5446" },
+  { PCI_DEVICE_ID_CIRRUS_5446, "GD 5446" },
   { 0, 0 }
 };
 
 static const pci_device_id pci_vendor_1022[] = {
-  { 0x2000, "79c970 [PCnet32 LANCE]" },
+  { PCI_DEVICE_ID_AMD_LANCE, "79c970 [PCnet32 LANCE]" },
   { 0, 0 }
 };
 
 static const pci_device_id pci_vendor_11ab[] = {
-  { 0x4620, "GT-64120/64120A/64121A System Controller" },
+  { PCI_DEVICE_ID_MARVELL_GT64120, "GT-64120/64120A/64121A System Controller" },
   { 0, 0 }
 };
 
 static const pci_device_id pci_vendor_8086[] = {
-  { 0x7110, "82371AB/EB/MB PIIX4 ISA" },
-  { 0x7111, "82371AB/EB/MB PIIX4 IDE" },
-  { 0x7112, "82371AB/EB/MB PIIX4 USB" },
-  { 0x7113, "82371AB/EB/MB PIIX4 ACPI" },
+  { PCI_DEVICE_ID_INTEL_82371AB_0,  "82371AB/EB/MB PIIX4 ISA" },
+  { PCI_DEVICE_ID_INTEL_82371AB,    "82371AB/EB/MB PIIX4 IDE" },
+  { PCI_DEVICE_ID_INTEL_82371AB_2,  "82371AB/EB/MB PIIX4 USB" },
+  { PCI_DEVICE_ID_INTEL_82371AB_3,  "82371AB/EB/MB PIIX4 ACPI" },
   { 0, 0 }
 };
 
 const pci_vendor_id pci_vendor_list[] = {
-  { 0x1013, "Cirrus Logic", pci_vendor_1013 },
-  { 0x1022, "Advanced Micro Devices, Inc.", pci_vendor_1022 },
-  { 0x11ab, "Marvell Technology Group Ltd.", pci_vendor_11ab },
-  { 0x8086, "Intel Corporation", pci_vendor_8086 },
+  { PCI_VENDOR_ID_CIRRUS,   "Cirrus Logic", pci_vendor_1013 },
+  { PCI_VENDOR_ID_AMD,      "Advanced Micro Devices, Inc.", pci_vendor_1022 },
+  { PCI_VENDOR_ID_MARVELL,  "Marvell Technology Group Ltd.", pci_vendor_11ab },
+  { PCI_VENDOR_ID_INTEL,    "Intel Corporation", pci_vendor_8086 },
   { 0, 0, 0 }
 };
 

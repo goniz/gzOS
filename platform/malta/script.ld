@@ -38,6 +38,12 @@ SECTIONS
 	KEEP(*(.syscalls))
 	PROVIDE(__syscalls_end = .);
 
+	. = ALIGN(4);
+    PROVIDE(__pci_drv_start = .);
+    PROVIDE(pci_drivers_table = .);
+    KEEP(*(.pci_drivers))
+    PROVIDE(__pci_drv_end = .);
+
     PROVIDE(__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))
     KEEP (*(.init_array))

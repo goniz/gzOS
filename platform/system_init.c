@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <lib/scheduler/scheduler.h>
-#include <platform/pci.h>
+#include <pci/pci.h>
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);

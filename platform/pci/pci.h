@@ -24,20 +24,6 @@ extern "C" {
 #define PCI_BAR_MEMORY_MASK  15
 
 typedef struct {
-    uint16_t id;
-    const char *name;
-} pci_device_id;
-
-typedef struct {
-    uint16_t id;
-    const char *name;
-    const pci_device_id *devices;
-} pci_vendor_id;
-
-extern const pci_vendor_id pci_vendor_list[];
-extern const char *pci_class_code[];
-
-typedef struct {
     uint32_t phy_addr;
     size_t size;
 } pci_bar_t;
@@ -75,4 +61,7 @@ intptr_t platform_pci_io_base(void);
 #ifdef __cplusplus
 }
 #endif
+
+#include <platform/pci/pci_drivers.h>
+#include <platform/pci/pci_ids.h>
 #endif //GZOS_PCI_H

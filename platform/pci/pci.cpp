@@ -1,11 +1,12 @@
 //
 // Created by gz on 7/2/16.
 //
-#include <platform/pci.h>
+#include <pci/pci.h>
 #include <platform/kprintf.h>
 #include <platform/sbrk.h>
 #include <cstdlib>
 #include <cstdio>
+#include "pci.h"
 
 static pci_bus_t pci_bus;
 
@@ -20,12 +21,30 @@ void platform_pci_init(void)
     platform_pci_bus_dump(&pci_bus);
 }
 
+extern const struct pci_driver_ent pci_drivers_table[];
+extern const uint8_t __pci_drv_start;
+extern const uint8_t __pci_drv_end;
+
 extern "C"
 void platform_pci_driver_probe()
 {
-    for (unsigned int j = 0; j < pci_bus.ndevs; j++) {
-//        pci_device_t *pcidev = &pci_bus.dev[j];
-        
+    const size_t n_drivers = ((&__pci_drv_end - &__pci_drv_start) / sizeof(struct pci_driver_ent));
+
+    for (unsigned int dev_index = 0; dev_index < pci_bus.ndevs; dev_index++) {
+        pci_device_t *pcidev = &pci_bus.dev[dev_index];
+
+        for (unsigned int drv_index = 0; drv_index < n_drivers; drv_index++) {
+            const struct pci_driver_ent *driver = &pci_drivers_table[drv_index];
+            if (pcidev->vendor_id == driver->vendor_id &&
+                pcidev->device_id == driver->device_id) {
+
+                kprintf("[pci] Probing %s PCI driver\n", driver->driver_name);
+                int ret = driver->probe_func(pcidev);
+                if (0 == ret) {
+                    kprintf("[pci] PCI driver %s initialized successfully.\n", driver->driver_name);
+                }
+            }
+        }
     }
 }
 
