@@ -27,8 +27,7 @@
 /* For reference look at: http://wiki.osdev.org/PCI */
 
 static const pci_device_id *pci_find_device(const pci_vendor_id *vendor,
-                                            uint16_t device_id)
-{
+                                            uint16_t device_id) {
     if (vendor) {
         const pci_device_id *device = vendor->devices;
         while (device->name) {
@@ -51,61 +50,74 @@ static const pci_vendor_id *pci_find_vendor(uint16_t vendor_id) {
 }
 
 static void pci_bus_enumerate(pci_bus_t *pcibus) {
-  pcibus->dev = kernel_sbrk(0);
-  pcibus->ndevs = 0;
+    pcibus->dev = kernel_sbrk(0);
+    pcibus->ndevs = 0;
 
-  for (int dev = 0; dev < 32; dev++) {
-    for (int devfn = 0; devfn < 8; devfn++) {
-      PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 0));
+    for (int dev = 0; dev < 32; dev++) {
+        for (int devfn = 0; devfn < 8; devfn++) {
+            PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 0));
 
-      if (PCI0_CFG_DATA_R == -1) {
-          continue;
-      }
+            if (PCI0_CFG_DATA_R == -1) {
+                continue;
+            }
 
-      pci_device_t *pcidev = kernel_sbrk(sizeof(pci_device_t));
+            pci_device_t *pcidev = kernel_sbrk(sizeof(pci_device_t));
 
-      pcidev->addr.bus = 0;
-      pcidev->addr.device = (uint8_t) dev;
-      pcidev->addr.function = (uint8_t) devfn;
+            pcidev->addr.bus = 0;
+            pcidev->addr.device = (uint8_t) dev;
+            pcidev->addr.function = (uint8_t) devfn;
 
-      uint32_t device_vendor = PCI0_CFG_DATA_R;
-      pcidev->device_id = (uint16_t) (device_vendor >> 16);
-      pcidev->vendor_id = (uint16_t) device_vendor;
+            uint32_t device_vendor = (PCI0_CFG_DATA_R);
+            if (0 == dev && 0 == devfn) {
+                device_vendor = le32_to_cpu(device_vendor);
+            }
 
-      PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 2));
-      uint32_t class_code = PCI0_CFG_DATA_R;
-      pcidev->class_code = (uint8_t) ((class_code & 0xff000000) >> 24);
+            pcidev->device_id = (uint16_t) (device_vendor >> 16);
+            pcidev->vendor_id = (uint16_t) (device_vendor);
 
-      PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 15));
-      uint32_t pin_and_irq = PCI0_CFG_DATA_R;
-      pcidev->pin = (uint8_t) ((pin_and_irq >> 8));
-      pcidev->irq = (uint8_t) (pin_and_irq);
+            PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 2));
+            uint32_t class_code = (PCI0_CFG_DATA_R);
+            if (0 == dev && 0 == devfn) {
+                class_code = le32_to_cpu(class_code);
+            }
 
-      for (int i = 0; i < 6; i++) {
-        PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(pcidev->addr.device, pcidev->addr.function, 4 + i));
-        uint32_t addr = PCI0_CFG_DATA_R;
-        PCI0_CFG_DATA_R = (uint32_t) -1;
-        uint32_t size = PCI0_CFG_DATA_R;
-        if (size == 0 || addr == size) {
-            continue;
+            pcidev->class_code = (uint8_t) ((class_code & 0xff000000) >> 24);
+
+            PCI0_CFG_ADDR_R = cpu_to_le32(PCI0_CFG_ENABLE | PCI0_CFG_REG(dev, devfn, 15));
+            uint32_t pin_and_irq = PCI0_CFG_DATA_R;
+            if (0 == dev && 0 == devfn) {
+                pin_and_irq = le32_to_cpu(pin_and_irq);
+            }
+
+            pcidev->pin = (uint8_t) ((pin_and_irq >> 8));
+            pcidev->irq = (uint8_t) (pin_and_irq);
+
+            for (int i = 0; i < 6; i++) {
+                PCI0_CFG_ADDR_R = cpu_to_le32(
+                        PCI0_CFG_ENABLE | PCI0_CFG_REG(pcidev->addr.device, pcidev->addr.function, 4 + i));
+                uint32_t addr = PCI0_CFG_DATA_R;
+                PCI0_CFG_DATA_R = (uint32_t) -1;
+                uint32_t size = PCI0_CFG_DATA_R;
+                if (size == 0 || addr == size) {
+                    continue;
+                }
+
+                size &= (addr & PCI_BAR_IO) ? ~PCI_BAR_IO_MASK : ~PCI_BAR_MEMORY_MASK;
+                size = (uint32_t) -size;
+
+                pci_bar_t *bar = &pcidev->bar[pcidev->nbars++];
+                bar->addr = addr;
+                bar->size = size;
+            }
+
+            pcibus->ndevs++;
         }
-
-        size &= (addr & PCI_BAR_IO) ? ~PCI_BAR_IO_MASK : ~PCI_BAR_MEMORY_MASK;
-        size = (uint32_t) -size;
-
-        pci_bar_t *bar = &pcidev->bar[pcidev->nbars++];
-        bar->addr = addr;
-        bar->size = size;
-      }
-
-      pcibus->ndevs++;
     }
-  }
 }
 
 static int pci_bar_compare(const void *a, const void *b) {
-    const pci_bar_t *bar0 = *(const pci_bar_t **)a;
-    const pci_bar_t *bar1 = *(const pci_bar_t **)b;
+    const pci_bar_t *bar0 = *(const pci_bar_t **) a;
+    const pci_bar_t *bar1 = *(const pci_bar_t **) b;
 
     if (bar0->size < bar1->size) {
         return 1;
@@ -116,8 +128,7 @@ static int pci_bar_compare(const void *a, const void *b) {
     return 0;
 }
 
-static void pci_bus_assign_space(pci_bus_t *pcibus, intptr_t mem_base, intptr_t io_base)
-{
+static void pci_bus_assign_space(pci_bus_t *pcibus, intptr_t mem_base, intptr_t io_base) {
     pci_bar_t **bars = kernel_sbrk(0);
     unsigned nbars = 0;
 
@@ -155,14 +166,14 @@ static void pci_bus_dump(pci_bus_t *pcibus) {
         char devstr[16];
 
         snprintf(devstr, sizeof(devstr), "[pci:%02x:%02x.%02x]",
-                         pcidev->addr.bus,
-                         pcidev->addr.device,
-                         pcidev->addr.function);
+                 pcidev->addr.bus,
+                 pcidev->addr.device,
+                 pcidev->addr.function);
 
         const pci_vendor_id *vendor =
-            pci_find_vendor(pcidev->vendor_id);
+                pci_find_vendor(pcidev->vendor_id);
         const pci_device_id *device =
-            pci_find_device(vendor, pcidev->device_id);
+                pci_find_device(vendor, pcidev->device_id);
 
         kprintf("%s %s", devstr, pci_class_code[pcidev->class_code]);
 
@@ -178,7 +189,7 @@ static void pci_bus_dump(pci_bus_t *pcibus) {
 
         if (pcidev->pin)
             kprintf("%s Interrupt: pin %c routed to IRQ %d\n",
-                            devstr, 'A' + pcidev->pin - 1, pcidev->irq);
+                    devstr, 'A' + pcidev->pin - 1, pcidev->irq);
 
         for (int i = 0; i < pcidev->nbars; i++) {
             pci_bar_t *bar = &pcidev->bar[i];
@@ -197,7 +208,7 @@ static void pci_bus_dump(pci_bus_t *pcibus) {
                 addr &= ~PCI_BAR_MEMORY_MASK;
             }
             kprintf("%s Region %d: %s at %p [size=$%x]\n",
-                            devstr, i, type, (void *)addr, (unsigned)size);
+                    devstr, i, type, (void *) addr, (unsigned) size);
         }
     }
 }

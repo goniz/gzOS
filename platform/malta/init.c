@@ -19,7 +19,6 @@ void platform_init(int argc, const char **argv, const char **envp)
 
 	platform_read_cpu_config();
     platform_dump_additional_cpu_info();
-//    platform_init_bar_registers();
 
     pci_init();
     pm_init();
