@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <lib/scheduler/scheduler.h>
+#include <platform/pci.h>
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -10,9 +11,10 @@ extern int __init_array_end;
 extern int main(int argc, const char** argv);
 void system_init(int argc, const char **argv, const char **envp)
 {
-	initialize_stdio();
-	invoke_constructors();
+    initialize_stdio();
+    invoke_constructors();
 
+    platform_pci_driver_probe();
     scheduler_init(10, 10, main, argc, argv);
 
     /* ... but if we do, safely trap here */
@@ -29,7 +31,7 @@ static void initialize_stdio(void)
 
 static void invoke_constructors(void)
 {
-	typedef void (*func_t)(void);
+    typedef void (*func_t)(void);
     int* init_array = &__init_array_start;
     int* init_array_end = &__init_array_end;
 

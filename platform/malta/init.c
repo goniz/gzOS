@@ -14,13 +14,13 @@ extern void platform_init_bar_registers(void);
 
 void platform_init(int argc, const char **argv, const char **envp)
 {
-	uart_init();
-	uart_puts("in platform_init!!\n");
+    uart_init();
+    uart_puts("in platform_init!!\n");
 
-	platform_read_cpu_config();
+    platform_read_cpu_config();
     platform_dump_additional_cpu_info();
 
-    pci_init();
+    platform_pci_init();
     pm_init();
     tlb_init();
 
