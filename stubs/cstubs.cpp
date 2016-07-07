@@ -12,7 +12,7 @@
 #include <cstdio>
 #include <string>
 #include <platform/panic.h>
-#include <platform/malta/pm.h>
+#include <platform/malta/physmem.h>
 #include <lib/primitives/align.h>
 #include <platform/kprintf.h>
 #include <lib/syscall/syscall.h>

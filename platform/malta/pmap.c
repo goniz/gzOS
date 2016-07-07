@@ -4,7 +4,7 @@
 #include <tlb.h>
 #include <platform/panic.h>
 #include <platform/kprintf.h>
-#include "pm.h"
+#include "physmem.h"
 #include "pmap.h"
 
 #define PTE_INDEX(x)  (((x) & 0xfffff000) >> 12)
@@ -50,7 +50,7 @@ static void pde_map(pmap_t *pmap, vaddr_t vaddr) {
 }
 
 static void pt_map(pmap_t *pmap, vm_addr_t vaddr, pm_addr_t paddr,
-                   uint32_t flags) {
+                   uint8_t flags) {
   pde_map(pmap, vaddr);
   pte_t entry = flags;
   uint32_t pt_index = PTE_INDEX(vaddr);
@@ -65,7 +65,7 @@ static void pt_map(pmap_t *pmap, vm_addr_t vaddr, pm_addr_t paddr,
 }
 
 void pmap_map(pmap_t *pmap, vm_addr_t vaddr, pm_addr_t paddr, size_t npages,
-              uint32_t flags) {
+              uint8_t flags) {
   for (size_t i = 0; i < npages; i++)
     pt_map(pmap, vaddr + i * PAGESIZE, paddr + i * PAGESIZE, flags);
 }

@@ -5,6 +5,9 @@
 #define roundup(x, y)   ((((x) + ((y) - 1)) / (y)) * (y))
 #define powerof2(x)     ((((x) - 1) & (x)) == 0)
 #define log2(x)         (__builtin_ffs(x) - 1)
+#define ffs(x)          (__builtin_ffs(x))
+#define clz(x)          (__builtin_clz(x))
+#define ctz(x)          (__builtin_ctz(x))
 
 /* Aligns the address to given size (must be power of 2) */
 #define align(addr, size) ({                \

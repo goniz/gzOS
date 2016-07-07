@@ -14,14 +14,15 @@
 #define PG_VADDR_START(pg) ((pg)->vaddr)
 #define PG_VADDR_END(pg) ((pg)->vaddr + PG_SIZE(pg))
 
-#define PG_VALID 0x1
-#define PG_DIRTY 0x2
+#define PG_VALID 0x2 /* Same as TLB valid mask */
+#define PG_DIRTY 0x4 /* Same as TLB dirty mask */
 
 typedef uintptr_t vm_addr_t;
 typedef uintptr_t pm_addr_t;
 
 typedef struct vm_page {
   union {
+    TAILQ_ENTRY(vm_page) freeq; /* list of free pages for buddy system */
     struct {
       TAILQ_ENTRY(vm_page) list;
       RB_ENTRY(vm_page) tree; 
@@ -35,8 +36,10 @@ typedef struct vm_page {
   pm_addr_t paddr;              /* physical address of page */
   uint8_t vm_flags;             /* state of page (valid or dirty) */
   uint8_t pm_flags;             /* flags used by pm system */
-  TAILQ_ENTRY(vm_page) freeq;   /* entry in free queue */
   unsigned size;                /* size of page in PAGESIZE units */
 } vm_page_t;
+
+TAILQ_HEAD(pg_list, vm_page);
+typedef struct pg_list pg_list_t;
 
 #endif /* _VIRT_MEM_H_ */

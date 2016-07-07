@@ -4,7 +4,7 @@
 #include <platform/panic.h>
 #include "clock.h"
 #include "malta.h"
-#include "pm.h"
+#include "physmem.h"
 #include "tlb.h"
 #include <platform/malta/pci.h>
 

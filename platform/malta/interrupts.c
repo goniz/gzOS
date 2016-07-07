@@ -87,13 +87,12 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
     kprintf("[tlb] %s at %08x!\n", exceptions[code], epc);
     kprintf("[tlb] Caused by reference to $%08x!\n", vaddr);
 
-//    assert(PTE_BASE <= vaddr && vaddr < PTE_BASE+PTE_SIZE);
+  if(PTE_BASE <= vaddr && vaddr < PTE_BASE+PTE_SIZE)
+  {
     /* If the fault was in virtual pt range it means it's time to refill */
     kprintf("[tlb] pde_refill\n");
     uint32_t id = PDE_ID_FROM_PTE_ADDR(vaddr);
-    kprintf("[tlb] pde id %ld\n", id);
     tlbhi_t entryhi = mips32_get_c0(C0_ENTRYHI);
-    kprintf("[tlb] entryhi %08x\n", entryhi);
 
     pmap_t *active_pmap = get_active_pmap();
     kprintf("[tlb] active_pmap %p\n", active_pmap);
@@ -112,6 +111,20 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
     pte_t entrylo1 = active_pmap->pde[id+1];
     tlb_overwrite_random(entryhi, entrylo0, entrylo1);
     return regs;
+  }
+
+  /* In future calling proper pager handler will be here */
+  if (code == EXC_TLBL)
+  {
+  	panic("Tried to load invalid addres.");
+  }
+
+  if (code == EXC_TLBS)
+  {
+  	panic("Cannot write to that address: $%08x\n", vaddr);
+  }
+
+  return regs;
 }
 
 extern struct kernel_syscall syscall_table[];

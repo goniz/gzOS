@@ -5,7 +5,7 @@
 #include <platform/process.h>
 #include <platform/malta/interrupts.h>
 #include <stdio.h>
-#include <platform/malta/pm.h>
+#include <platform/malta/physmem.h>
 #include <lib/primitives/align.h>
 #include <stdlib.h>
 #include <platform/kprintf.h>
