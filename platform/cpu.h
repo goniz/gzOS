@@ -13,6 +13,10 @@ extern "C" {
 
 int platform_read_cpu_config(void);
 void platform_dump_additional_cpu_info(void);
+uintptr_t platform_iomem_phy_to_virt(uintptr_t iomem);
+uintptr_t platform_iomem_virt_to_phy(uintptr_t ioport);
+uintptr_t platform_ioport_to_phy(uintptr_t ioport);
+uintptr_t platform_ioport_to_virt(uintptr_t ioport);
 
 #if BYTE_ORDER == BIG_ENDIAN
     #define cpu_to_be32(x)  (x)

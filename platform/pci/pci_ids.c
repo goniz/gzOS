@@ -22,6 +22,7 @@ static const pci_device_id pci_vendor_8086[] = {
   { PCI_DEVICE_ID_INTEL_82371AB,    "82371AB/EB/MB PIIX4 IDE" },
   { PCI_DEVICE_ID_INTEL_82371AB_2,  "82371AB/EB/MB PIIX4 USB" },
   { PCI_DEVICE_ID_INTEL_82371AB_3,  "82371AB/EB/MB PIIX4 ACPI" },
+  { PCI_DEVICE_ID_INTEL_82540EM,    "82540EM e1000 Network Adapter"},
   { 0, 0 }
 };
 
@@ -53,3 +54,5 @@ const char *pci_class_code[] = {
   "Encryption/Decryption Controllers",
   "Data Acquisition and Signal Processing Controllers"
 };
+
+

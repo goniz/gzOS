@@ -128,3 +128,23 @@ void platform_dump_additional_cpu_info(void)
   kprintf ("ErrPC    : $%08x\n", (unsigned)mips32_get_c0(C0_ERRPC));
   kprintf ("EBase    : $%08x\n", (unsigned)mips32_get_c0(C0_EBASE));
 }
+
+uintptr_t platform_iomem_phy_to_virt(uintptr_t iomem_phy)
+{
+    return MIPS_PHYS_TO_KSEG1(iomem_phy);
+}
+
+uintptr_t platform_iomem_virt_to_phy(uintptr_t iomem_virt)
+{
+    return MIPS_KSEG1_TO_PHYS(iomem_virt);
+}
+
+uintptr_t platform_ioport_to_phy(uintptr_t ioport)
+{
+    return MALTA_PCI0_IO_ADDR(ioport);
+}
+
+uintptr_t platform_ioport_to_virt(uintptr_t ioport)
+{
+    return MIPS_PHYS_TO_KSEG1(platform_ioport_to_phy(ioport));
+}

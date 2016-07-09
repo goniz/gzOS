@@ -20,7 +20,6 @@ void platform_init(int argc, const char **argv, const char **envp)
     platform_read_cpu_config();
     platform_dump_additional_cpu_info();
 
-    platform_pci_init();
     pm_init();
     tlb_init();
 
@@ -34,5 +33,6 @@ void platform_init(int argc, const char **argv, const char **envp)
 	interrupts_init();
 	clock_init();
 
+    platform_pci_init();
 	system_init(argc, argv, envp);
 }

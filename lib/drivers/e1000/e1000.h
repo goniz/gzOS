@@ -9,11 +9,11 @@
 
 #ifdef __cplusplus
 
-class pcnet_drv
+class e1000_drv
 {
 public:
-    pcnet_drv(PCIDevice* pci_dev);
-    pcnet_drv(pcnet_drv&& other);
+    e1000_drv(PCIDevice* pci_dev);
+    e1000_drv(e1000_drv&& other);
 
     bool initialize(void);
 
@@ -45,7 +45,7 @@ private:
 private:
     char _name[16];
     PCIDevice* _pcidev;
-    uintptr_t _ioport;
+    uintptr_t _iobase;
     bool _dwio;
 };
 
@@ -55,7 +55,7 @@ private:
 extern "C" {
 #endif
 
-int pcnet_pci_probe(PCIDevice* pci_dev);
+int e1000_pci_probe(PCIDevice* pci_dev);
 
 #ifdef __cplusplus
 }

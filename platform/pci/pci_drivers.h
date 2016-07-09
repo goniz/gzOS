@@ -11,7 +11,8 @@
 extern "C" {
 #endif
 
-typedef int (*pci_driver_probe_func_t)(pci_device_t* pci_dev);
+struct PCIDevice;
+typedef int (*pci_driver_probe_func_t)(struct PCIDevice* pci_dev);
 
 struct pci_driver_ent {
     uint16_t vendor_id;
