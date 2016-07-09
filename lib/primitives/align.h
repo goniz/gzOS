@@ -21,9 +21,12 @@
     intptr_t _size = (intptr_t)(size);      \
     !(_addr & (_size - 1)); })
 
-#define swap(a,b) ({        \
-    typeof (a) _a = (a);    \
-    typeof (a) _b = (b);    \
-    (a) = _b; (b) = _a; })
+// C++ already have std::swap
+#ifndef __cplusplus
+    #define swap(a,b) ({        \
+        typeof (a) _a = (a);    \
+        typeof (a) _b = (b);    \
+        (a) = _b; (b) = _a; })
+#endif
 
 #endif // __ALIGN_H__

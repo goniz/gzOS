@@ -230,10 +230,11 @@ void platform_pci_driver_probe()
             if (dev.vendorId() == driver->vendor_id &&
                 dev.deviceId() == driver->device_id) {
 
-                kprintf("[pci] Probing %s PCI driver\n", driver->driver_name);
                 int ret = driver->probe_func((PCIDevice *) &dev);
                 if (0 == ret) {
-                    kprintf("[pci] PCI driver %s initialized successfully.\n", driver->driver_name);
+                    kprintf("[pci] loaded driver %s.\n", driver->driver_name);
+                } else {
+                    kprintf("[pci] failed to load driver %s. (%d)\n", driver->driver_name, ret);
                 }
             }
         }

@@ -102,7 +102,7 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
     }
 
     if(!(active_pmap->pde[id] & V_MASK)) {
-        panic("Trying to access unmapped memory region.\
+        panic("Trying to access unmapped memory region. \
             You probably deferred NULL or there was stack overflow. ");
     }
 
@@ -116,7 +116,7 @@ struct user_regs* tlb_exception_handler(struct user_regs* regs)
   /* In future calling proper pager handler will be here */
   if (code == EXC_TLBL)
   {
-  	panic("Tried to load invalid addres.");
+  	panic("Tried to load invalid address.");
   }
 
   if (code == EXC_TLBS)

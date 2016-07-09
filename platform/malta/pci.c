@@ -13,8 +13,8 @@
 #define __GT_READ(ofs)	        (*(volatile uint32_t *)(MIPS_PHYS_TO_KSEG1(MALTA_CORECTRL_BASE + (ofs))))
 #define __GT_WRITE(ofs, data)	do { *(volatile uint32_t*)(MIPS_PHYS_TO_KSEG1(MALTA_CORECTRL_BASE + (ofs))) = (data); } while (0)
 
-#define GT_READ(ofs)		le32_to_cpu(__GT_READ(ofs))
-#define GT_WRITE(ofs, data)	__GT_WRITE(ofs, cpu_to_le32(data))
+#define GT_READ(ofs)		    le32_to_cpu(__GT_READ(ofs))
+#define GT_WRITE(ofs, data)	    __GT_WRITE(ofs, cpu_to_le32(data))
 
 enum PCIConfigAccess {
     PCI_ACCESS_READ,
