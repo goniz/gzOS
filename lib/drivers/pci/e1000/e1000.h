@@ -22,7 +22,7 @@ public:
     }
 
 private:
-    /* Offsets from base I/O address for WIO mode */
+    /* Offsets from buf I/O address for WIO mode */
     static constexpr int RegistersBase = 0x10;
     enum class Registers {
         RDP = 0,

@@ -31,6 +31,24 @@ void interrupts_enable(unsigned int mask)
 	asm volatile("mtc0 %0, $12" : : "r"(mask));
 }
 
+void platform_enable_hw_irq(int irq)
+{
+    assert(irq >= 0 && irq <= 7);
+
+    unsigned int irqMask = interrupts_disable();
+    irqMask |= (1 << (SR_IMASK_SHIFT + irq));
+    interrupts_enable(irqMask);
+}
+
+void platform_disable_hw_irq(int irq)
+{
+    assert(irq >= 0 && irq <= 7);
+
+    unsigned int irqMask = interrupts_disable();
+    irqMask &= ~(1 << (SR_IMASK_SHIFT + irq));
+    interrupts_enable(irqMask);
+}
+
 void interrupts_init() {
     /*
      * Enable Vectored Interrupt Mode as described in „MIPS32® 24KETM Processor
@@ -44,7 +62,6 @@ void interrupts_init() {
     mips32_bs_c0(C0_CAUSE, CR_IV);
     /* Set vector spacing for 0x20. */
     mips32_set_c0(C0_INTCTL, INTCTL_VS_32);
-//    write_c0_intctl(read_c0_intctl() | 1 << 5);
 
     /*
      * Mask out software and hardware interrupts. 
@@ -152,8 +169,13 @@ struct user_regs* syscall_exception_handler(struct user_regs* current_regs)
 
 void kernel_oops() {
     uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
+    uint32_t ip = (mips32_get_c0(C0_CAUSE) & CR_IP_MASK) >> CR_IP_SHIFT;
+    uint32_t im = (mips32_get_c0(C0_STATUS) & SR_IMASK) >> SR_IMASK_SHIFT;
 
-    kprintf("[oops] %s at $%08x!\n", exceptions[code], mips32_get_c0(C0_EPC));
+    kprintf("IP: %08x\n", ip);
+    kprintf("IM: %08x\n", im);
+
+    kprintf("[oops] %s (IP&IM: %08x) at $%08x!\n", exceptions[code], ip & im, mips32_get_c0(C0_EPC));
     if (code == EXC_ADEL || code == EXC_ADES) {
         kprintf("[oops] Caused by reference to $%08x!\n", mips32_get_c0(C0_BADVADDR));
     }
@@ -187,3 +209,18 @@ void *general_exception_table[32] = {
     [EXC_SYS] = syscall_exception_handler,
 };
 
+#define IRQ_STUB(num) \
+    __attribute__((weak)) \
+    struct user_regs* mips_hw_irq ##num (struct user_regs* regs) { \
+        kernel_oops(); \
+        return regs; \
+    }
+
+IRQ_STUB(0);
+IRQ_STUB(1);
+IRQ_STUB(2);
+IRQ_STUB(3);
+IRQ_STUB(4);
+IRQ_STUB(5);
+IRQ_STUB(6);
+IRQ_STUB(7);

@@ -2,7 +2,7 @@
 // Created by gz on 7/2/16.
 //
 
-#include <lib/drivers/e1000/e1000.h>
+#include <e1000.h>
 #include <platform/kprintf.h>
 #include <atomic>
 #include <cstdio>
@@ -131,16 +131,16 @@ bool e1000_drv::initialize(void)
 //    _pcidev->writeWord(PCI_BASE_ADDRESS_0, 0xffffffff);
     kprintf("%s: PCI_BASE_ADDRESS_0 = %08x\n", _name, _pcidev->readWord(PCI_BASE_ADDRESS_0));
 
-    uint32_t config_register = le32_to_cpu(_pcidev->readWord(PCI_COMMAND));
+    uint16_t config_register = le16_to_cpu(_pcidev->readHalf(PCI_COMMAND));
 
-    config_register &= 0xffff0000;        // preserve new_config_reg register, clear config register
+//    config_register &= 0xffff0000;        // preserve new_config_reg register, clear config register
 //    config_register |= PCI_COMMAND_IO;    // enable IO access
     config_register |= PCI_COMMAND_MEMORY;// enable memory access
     config_register |= PCI_COMMAND_MASTER;// enable master access
 
-    _pcidev->writeWord(PCI_COMMAND, (config_register));
+    _pcidev->writeHalf(PCI_COMMAND, (config_register));
 
-    uint32_t new_config_reg = _pcidev->readWord(PCI_COMMAND);
+    uint32_t new_config_reg = _pcidev->readHalf(PCI_COMMAND);
     if ((new_config_reg & config_register) != config_register) {
         kprintf("%s: Could not enable IO access or Bus Mastering.. got %08x expected %08x\n", _name, new_config_reg, config_register);
         return false;

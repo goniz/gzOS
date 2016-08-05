@@ -13,7 +13,13 @@ extern "C" {
 
 int platform_read_cpu_config(void);
 void platform_dump_additional_cpu_info(void);
-int platform_cpu_cacheline_size(void);
+int platform_cpu_dcacheline_size(void);
+int platform_cpu_icacheline_size(void);
+
+void flush_cache(uintptr_t start_addr, uintptr_t size);
+void flush_dcache_range(uintptr_t start_addr, uintptr_t stop);
+void invalidate_dcache_range(uintptr_t start_addr, uintptr_t stop);
+
 uintptr_t platform_virt_to_phy(uintptr_t virt);
 uintptr_t platform_iomem_phy_to_virt(uintptr_t iomem);
 uintptr_t platform_iomem_virt_to_phy(uintptr_t iomem);

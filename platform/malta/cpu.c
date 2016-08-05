@@ -116,8 +116,8 @@ void platform_dump_additional_cpu_info(void)
            (sr & SR_IMASK) >> SR_IMASK_SHIFT,
            (sr & SR_KSU_MASK) >> SR_KSU_SHIFT,
            (sr & SR_ERL) >> SR_ERL_SHIFT,
-           (sr & SR_EXL) >> SR_ERL_SHIFT,
-           (sr & SR_IE) >> SR_ERL_SHIFT);
+           (sr & SR_EXL) >> SR_EXL_SHIFT,
+           (sr & SR_IE) >> SR_IE_SHIFT);
   kprintf ("IntCtl   : IPTI:%d IPPCI:%d VS:%d\n",
            (intctl & INTCTL_IPTI) >> INTCTL_IPTI_SHIFT,
            (intctl & INTCTL_IPPCI) >> INTCTL_IPPCI_SHIFT,
@@ -159,7 +159,12 @@ uintptr_t platform_buffered_virt_to_unbuffered_virt(uintptr_t virt)
     return platform_iomem_phy_to_virt(platform_virt_to_phy(virt));
 }
 
-int platform_cpu_cacheline_size(void)
+int platform_cpu_dcacheline_size(void)
 {
     return cpuinfo.dc_linesize;
+}
+
+int platform_cpu_icacheline_size(void)
+{
+    return cpuinfo.ic_linesize;
 }

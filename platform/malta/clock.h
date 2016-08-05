@@ -17,7 +17,7 @@ void clock_init();
 uint32_t clock_get_ms();
 
 /* Processes core timer interrupts. */
-struct user_regs* clock_tick_isr(struct user_regs* regs);
+struct user_regs* mips_hw_irq7(struct user_regs* regs);
 
 #ifdef __cplusplus
 }

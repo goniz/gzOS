@@ -58,49 +58,55 @@ general_exception:
 1:      jal     kernel_oops
         nop
 
-        /* syscalls not implemented yet */
 2:      la		$k1, syscall_exception_handler
 		b		irq_handler
         nop
 
         .org 0x200
 irq0:
-1:      b       1b
+        la      $k1, mips_hw_irq0
+        b       irq_handler
         nop
 
         .org 0x220
 irq1:
-1:      b       1b
+        la      $k1, mips_hw_irq1
+        b       irq_handler
         nop
 
         .org 0x240
 irq2:
-1:      b       1b
+        la      $k1, mips_hw_irq2
+        b       irq_handler
         nop
 
         .org 0x260
 irq3:
-1:      b       1b
+        la      $k1, mips_hw_irq3
+        b       irq_handler
         nop
 
         .org 0x280
 irq4:
-1:      b       1b
+        la      $k1, mips_hw_irq4
+        b       irq_handler
         nop
 
         .org 0x2a0
 irq5:
-1:      b       1b
+        la      $k1, mips_hw_irq5
+        b       irq_handler
         nop
 
         .org 0x2c0
 irq6:
-1:      b       1b
+        la      $k1, mips_hw_irq6
+        b       irq_handler
         nop
 
         .org 0x2e0
 irq7:
-        la      $k1,clock_tick_isr
+        la      $k1, mips_hw_irq7
         b       irq_handler
         nop
 

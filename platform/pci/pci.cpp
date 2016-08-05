@@ -23,7 +23,7 @@ PCIDevice::PCIDevice(int bus, int dev, int function)
 
 void PCIDevice::assign_memory_region(uintptr_t* pci_mem_pos, uintptr_t* pci_io_pos)
 {
-    this->writeWord(PCI_COMMAND, 0);
+    this->writeHalf(PCI_COMMAND, 0);
 
     for (int barReg = PCI_BASE_ADDRESS_0; barReg <= PCI_BASE_ADDRESS_5; barReg += 4)
     {
@@ -93,9 +93,14 @@ PCIBus::PCIBus(intptr_t pci_mem_base, size_t pci_mem_size,
     _pci_io_pos = (uintptr_t) pci_io_base;
 }
 
+// TODO: give access the bars with their original index number
 intptr_t PCIDevice::iomem(int idx)
 {
     if (_bars.empty()) {
+        return 0;
+    }
+
+    if (((size_t)idx > _bars.size()) || (idx < 0)) {
         return 0;
     }
 
@@ -129,7 +134,7 @@ void PCIBus::assign_memory_regions(void)
         pcidev.assign_memory_region(&_pci_memory_pos, &_pci_io_pos);
 
         /* Configure Cache Line Size Register */
-        pcidev.writeByte(PCI_CACHE_LINE_SIZE, 0x08);
+        pcidev.writeByte(PCI_CACHE_LINE_SIZE, (uint8_t) platform_cpu_dcacheline_size());
 
         /* Configure Latency Timer */
         pcidev.writeByte(PCI_LATENCY_TIMER, 0x80);
@@ -211,6 +216,12 @@ void platform_pci_init(void)
     _pci_bus->enumerate();
     _pci_bus->assign_memory_regions();
     _pci_bus->dump();
+}
+
+extern "C"
+PCIBus* platform_pci_bus(void)
+{
+    return _pci_bus;
 }
 
 extern const struct pci_driver_ent pci_drivers_table[];

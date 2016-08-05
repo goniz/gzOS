@@ -41,7 +41,7 @@ void clock_delay_ms(uint32_t ms)
     while (target_ms > timer_ms_count);
 }
 
-struct user_regs* clock_tick_isr(struct user_regs* regs)
+DEFINE_HW_IRQ(7)
 {
     uint32_t compare = mips32_get_c0(C0_COMPARE);
     uint32_t count = mips32_get_c0(C0_COUNT);

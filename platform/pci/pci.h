@@ -27,6 +27,10 @@ extern "C" {
 #define PCI_BAR_IO_MASK       3
 #define PCI_BAR_MEMORY_MASK  15
 
+#define PCI_DEVFN(slot, func)   ((((slot) & 0x1f) << 3) | ((func) & 0x07))
+#define PCI_SLOT(devfn)         (((devfn) >> 3) & 0x1f)
+#define PCI_FUNC(devfn)         ((devfn) & 0x07)
+
 #ifdef __cplusplus
 
 struct PCIBar
@@ -89,6 +93,10 @@ public:
         return _irq;
     }
 
+    void setIrq(uint8_t irq) {
+        _irq = irq;
+    }
+
     const std::vector<PCIBar>& bars(void) const {
         return _bars;
     }
@@ -115,7 +123,7 @@ public:
     void assign_memory_regions(void);
     void dump(void) const;
 
-    const std::vector<PCIDevice>& devices(void) const {
+    std::vector<PCIDevice>& devices(void) {
         return _devices;
     }
 
@@ -132,6 +140,8 @@ private:
 
 void platform_pci_init(void);
 void platform_pci_driver_probe(void);
+
+struct PCIBus* platform_pci_bus(void);
 
 // bus functions
 uint32_t platform_pci_bus_read_word(int dev, int devfn, int reg);

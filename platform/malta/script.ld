@@ -31,6 +31,7 @@ SECTIONS
     __rodata = ABSOLUTE(.);
     . = ALIGN (4);
     *(.rodata .rodata.*)
+    KEEP(*(.strings))
 	*(.gcc_except_table .gcc_except_table.*)
 	. = ALIGN(4);
 	PROVIDE(__syscalls_start = .);
@@ -43,6 +44,12 @@ SECTIONS
     PROVIDE(pci_drivers_table = .);
     KEEP(*(.pci_drivers))
     PROVIDE(__pci_drv_end = .);
+
+    . = ALIGN(4);
+    PROVIDE(__drivers_start = .);
+    PROVIDE(drivers_table = .);
+    KEEP(*(.drivers))
+    PROVIDE(__drivers_end = .);
 
     PROVIDE(__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))

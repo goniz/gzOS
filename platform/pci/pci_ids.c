@@ -26,11 +26,25 @@ static const pci_device_id pci_vendor_8086[] = {
   { 0, 0 }
 };
 
+static const pci_device_id pci_vendor_1af4[] = {
+    { PCI_DEVICE_ID_VIRTIO_NETWORK_DEVICE,  "VirtIO Network Device"         },
+    { PCI_DEVICE_ID_VIRTIO_BLOCK_DEVICE,    "VirtIO Block Device"           },
+    { PCI_DEVICE_ID_VIRTIO_CONSOLE,         "VirtIO Console"                },
+    { PCI_DEVICE_ID_VIRTIO_MEMORY_BALLOON,  "VirtIO Memory Balloon"         },
+    { PCI_DEVICE_ID_VIRTIO_SCSI,            "VirtIO SCSI"                   },
+    { PCI_DEVICE_ID_VIRTIO_FILESYSTEM,      "VirtIO Filesystem"             },
+    { PCI_DEVICE_ID_VIRTIO_GPU,             "VirtIO GPU"                    },
+    { PCI_DEVICE_ID_VIRTIO_INPUT,           "VirtIO Input"                  },
+    { PCI_DEVICE_ID_VIRTIO_SHARED_MEMORY,   "VirtIO Inter-VM shared memory" },
+    { 0, 0 }
+};
+
 const pci_vendor_id pci_vendor_list[] = {
-  { PCI_VENDOR_ID_CIRRUS,   "Cirrus Logic", pci_vendor_1013 },
-  { PCI_VENDOR_ID_AMD,      "Advanced Micro Devices, Inc.", pci_vendor_1022 },
-  { PCI_VENDOR_ID_MARVELL,  "Marvell Technology Group Ltd.", pci_vendor_11ab },
-  { PCI_VENDOR_ID_INTEL,    "Intel Corporation", pci_vendor_8086 },
+  { PCI_VENDOR_ID_CIRRUS,           "Cirrus Logic", pci_vendor_1013 },
+  { PCI_VENDOR_ID_AMD,              "Advanced Micro Devices, Inc.", pci_vendor_1022 },
+  { PCI_VENDOR_ID_MARVELL,          "Marvell Technology Group Ltd.", pci_vendor_11ab },
+  { PCI_VENDOR_ID_INTEL,            "Intel Corporation", pci_vendor_8086 },
+  { PCI_VENDOR_ID_REDHAT_QUMRANET,  "Red Hat, Inc", pci_vendor_1af4 },
   { 0, 0, 0 }
 };
 

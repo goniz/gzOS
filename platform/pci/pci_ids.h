@@ -3149,6 +3149,18 @@ extern const char *pci_class_code[];
 
 #define PCI_VENDOR_ID_OCZ		0x1b85
 
+#define PCI_VENDOR_ID_REDHAT_QUMRANET           0x1af4
+#define PCI_DEVICE_ID_VIRTIO_NETWORK_DEVICE     0x1041
+#define PCI_DEVICE_ID_VIRTIO_BLOCK_DEVICE       0x1042
+#define PCI_DEVICE_ID_VIRTIO_CONSOLE            0x1043
+#define PCI_DEVICE_ID_VIRTIO_RNG                0x1044
+#define PCI_DEVICE_ID_VIRTIO_MEMORY_BALLOON      0x1045
+#define PCI_DEVICE_ID_VIRTIO_SCSI               0x1048
+#define PCI_DEVICE_ID_VIRTIO_FILESYSTEM         0x1049
+#define PCI_DEVICE_ID_VIRTIO_GPU                0x1050
+#define PCI_DEVICE_ID_VIRTIO_INPUT              0x1052
+#define PCI_DEVICE_ID_VIRTIO_SHARED_MEMORY      0x1110
+
 #ifdef __cplusplus
 }
 #endif

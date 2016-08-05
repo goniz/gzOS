@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <lib/scheduler/scheduler.h>
 #include <platform/clock.h>
-#include <lib/primitives/interrupts_mutex.h>
 #include <lib/syscall/syscall.h>
-#include <unistd.h>
-#include <sys/signal.h>
 #include <lib/scheduler/signals.h>
+#include <platform/cpu.h>
+#include <platform/malta/mips.h>
+#include <platform/pci/pci.h>
 
 extern "C" char _end;
 extern "C" caddr_t _get_stack_pointer(void);
@@ -68,12 +68,45 @@ void printProcessList(void)
     }
 }
 
+#define MY_STRING(x)   ({                                               \
+                            __attribute__((section(".strings"),used))   \
+                            static const char* s = (x);                 \
+                            s;                                          \
+                        })
+
+
+static void print_sr()
+{
+    unsigned sr = mips32_get_c0(C0_STATUS);
+    kprintf ("Status   : CU0:%d BEV:%d NMI:%d IM:$%02x KSU:%d ERL:%d EXL:%d IE:%d\n",
+             (sr & SR_CU0) >> SR_CU0_SHIFT,
+             (sr & SR_BEV) >> SR_BEV_SHIFT,
+             (sr & SR_NMI) >> SR_NMI_SHIFT,
+             (sr & SR_IMASK) >> SR_IMASK_SHIFT,
+             (sr & SR_KSU_MASK) >> SR_KSU_SHIFT,
+             (sr & SR_ERL) >> SR_ERL_SHIFT,
+             (sr & SR_EXL) >> SR_EXL_SHIFT,
+             (sr & SR_IE) >> SR_IE_SHIFT);
+}
+
+static void print_pci_irqs()
+{
+    const auto& devices = platform_pci_bus()->devices();
+    for (const auto& dev : devices) {
+        printf("%04x:%04x pin %d line %d\n", dev.vendorId(), dev.deviceId(), dev.readByte(PCI_INTERRUPT_PIN), dev.readByte(PCI_INTERRUPT_LINE));
+    }
+}
+
+
 int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
 
 //    clock_delay_ms(10);
+
+    const char* mystring = MY_STRING("Test");
+    printf("str: %s\n", mystring);
 
     std::vector<const char*> args{};
     pid_t dummy1_pid = syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Dummy1Proc", dummy1ProcMain, args.size(), args.data(), 4096);
@@ -92,6 +125,14 @@ int main(int argc, const char** argv)
     clock_delay_ms(1000);
     printProcessList();
 
-    while (1);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
+    while (1) {
+        clock_delay_ms(1000);
+        print_sr();
+        (void)platform_print_irqs;
+        (void)print_pci_irqs;
+    }
+#pragma clang diagnostic pop
 }
 

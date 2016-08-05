@@ -7,7 +7,7 @@ project(gzOS C CXX ASM)
 add_executable(gzOS main.cpp)
 
 target_link_libraries(gzOS -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs -Wl,--no-whole-archive)
-target_link_libraries(gzOS -Wl,--whole-archive piix4 pcnet e1000 -Wl,--no-whole-archive)
+target_link_libraries(gzOS -Wl,--whole-archive i8259A piix4 pcnet e1000 virtio_shmem -Wl,--no-whole-archive)
 target_link_libraries(gzOS malloc scheduler primitives syscall)
 target_link_libraries(gzOS c stdc++ supc++)
 set_target_properties(gzOS PROPERTIES LINK_FLAGS "-Wl,-Map,${CMAKE_BINARY_DIR}/gzOS.map")

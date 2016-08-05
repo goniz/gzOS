@@ -13,6 +13,7 @@ extern "C" {
 
 int piix4_isa_pci_probe(PCIDevice* pci_dev);
 int piix4_ide_pci_probe(PCIDevice* pci_dev);
+int piix4_acpi_pci_probe(PCIDevice* pci_dev);
 
 #ifdef __cplusplus
 }

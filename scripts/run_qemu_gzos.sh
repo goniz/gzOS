@@ -8,6 +8,11 @@ qemu-system-mips 	-machine malta \
 					-serial null \
 					-serial null \
 					-serial stdio \
-					-netdev bridge,br=br0,id=hn0 \
-					-device pcnet,netdev=hn0,id=nic1 \
+					-device pcnet,netdev=net0,mac=00:11:22:33:44:55 \
+					-netdev bridge,br=br0,id=net0 \
+					-chardev socket,path=/tmp/ivshmem_socket,id=ivshmemid \
+					-device ivshmem,chardev=ivshmemid,size=1,msi=off \
+					-monitor telnet:127.0.0.1:9999,server,nowait \
+					-s \
 					$@
+

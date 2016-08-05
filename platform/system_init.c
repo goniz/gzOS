@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <lib/scheduler/scheduler.h>
-#include <pci/pci.h>
-#include "interrupts.h"
+#include <platform/pci/pci.h>
+#include <platform/drivers.h>
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -15,6 +15,7 @@ void system_init(int argc, const char **argv, const char **envp)
     initialize_stdio();
     invoke_constructors();
 
+    drivers_init();
     platform_pci_driver_probe();
     scheduler_init(10, 10, main, argc, argv);
 
@@ -42,7 +43,7 @@ static void invoke_constructors(void)
     printf("\nInvoking C++ static constructors!\n");
     while (init_array < init_array_end) {
         func_t func = (func_t)(*init_array++);
-        printf("Invoking ctor at %p\r\n", func);
+//        printf("Invoking ctor at %p\r\n", func);
         func();
     }
 }

@@ -10,7 +10,7 @@ SET(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/bin")
 set(CMAKE_INCLUDE_CURRENT_DIR 1)
 include_directories("${CMAKE_SOURCE_DIR}")
 include_directories("${CMAKE_SOURCE_DIR}/include")
-add_definitions("-Werror -Wall")
+add_definitions("-Werror -Wall -Wno-error=unknown-pragmas -Wno-unknown-pragmas")
 
 set(CMAKE_EXECUTABLE_SUFFIX ".elf")
 SET(CMAKE_C_OUTPUT_EXTENSION ".o")
