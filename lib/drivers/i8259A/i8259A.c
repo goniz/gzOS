@@ -14,7 +14,7 @@
 static volatile struct PICRegs* _pic_master;
 static volatile struct PICRegs* _pic_slave;
 
-static unsigned int _cached_irq_mask = 0xffff;
+static unsigned int _cached_irq_mask = 0xfffb;
 #define cached_master_mask  (_cached_irq_mask)
 #define cached_slave_mask   (_cached_irq_mask >> 8)
 
@@ -83,7 +83,8 @@ static void mask_and_ack_8259A(unsigned int irq)
     handle_real_irq:
     if (irq & 8) {
         /* DUMMY - (do we need this?) */
-        (void)_pic_slave->imr;
+        __unused uint8_t shit = _pic_slave->imr;
+
         /* mask out this IRQ's bit before EOI */
         _pic_slave->imr = (uint8_t) (temp_irqmask >> 8);
 
@@ -97,7 +98,7 @@ static void mask_and_ack_8259A(unsigned int irq)
         _pic_slave->imr = (uint8_t) cached_slave_mask;
     } else {
         /* DUMMY - (do we need this?) */
-        (void)_pic_master->imr;
+        __unused uint8_t shit = _pic_master->imr;
 
         /* mask out this IRQ's bit before EOI */
         _pic_master->imr = (uint8_t) (temp_irqmask & 0xff);
@@ -180,6 +181,8 @@ static int driver_i8259A_init(void)
     _pic_master->imr = (uint8_t) cached_master_mask;
     _pic_slave->imr = (uint8_t) cached_slave_mask;
 
+    clock_delay_ms(1);
+
     platform_register_irq(2, "PIC Cascaded IRQ", cascade_irq_handler, NULL);
     platform_enable_irq(2);
     platform_enable_hw_irq(2);
@@ -209,6 +212,7 @@ static uint16_t pic_get_isr(void)
     return __pic_get_irq_reg(PIC_READ_ISR);
 }
 
+__attribute__((used))
 static uint16_t pic_pending(void) {
     return (uint16_t) (pic_get_irr() & ~_cached_irq_mask);
 }
@@ -306,10 +310,6 @@ void platform_print_irqs(void)
 
 DEFINE_HW_IRQ(2)
 {
-//    uint32_t pending = pic_pending();
-//    kprintf("pending: %08x (master isr %02x (%02x) slave isr %02x (%02x))\n", pending, _pic_master->cmd, _pic_master->imr, _pic_slave->cmd, _pic_slave->imr);
-    (void)pic_pending;
-
     uint8_t irq = (uint8_t )(GT_READ(GT_PCI0_IACK_OFS) & 0xff);
     kprintf("pci iack irq: %d\n", irq);
 //
@@ -324,7 +324,7 @@ DEFINE_HW_IRQ(2)
     }
 
     const struct PICInterruptHandler* info = &_irq_handlers[irq];
-    if (NULL == info    ->handler) {
+    if (NULL == info->handler) {
         kprintf("No handler for irq %d (master %02x slave %02x). disabling irq.\n", irq, _pic_master->imr, _pic_slave->imr);
         platform_disable_irq(irq);
     } else {

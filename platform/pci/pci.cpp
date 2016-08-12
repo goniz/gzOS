@@ -215,7 +215,6 @@ void platform_pci_init(void)
 
     _pci_bus->enumerate();
     _pci_bus->assign_memory_regions();
-    _pci_bus->dump();
 }
 
 extern "C"
@@ -250,6 +249,8 @@ void platform_pci_driver_probe()
             }
         }
     }
+
+    _pci_bus->dump();
 }
 
 static const pci_device_id *pci_find_device(const pci_vendor_id *vendor,

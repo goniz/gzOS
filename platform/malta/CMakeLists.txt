@@ -18,4 +18,8 @@ add_library(malta STATIC    intr.S
                             syscall.c
                             pci.c
                             cache.c
-                            cacheops.h)
+                            cacheops.h
+                            vm_map.c
+                            vm_map.h
+                            pager.c
+                            pager.h)
