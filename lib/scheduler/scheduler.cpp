@@ -246,6 +246,7 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
         return false;
     }
 
+    // handle signals that need to be taken care of before then get to the running process..
     switch (signal)
     {
         case Signal::SIG_CONT:
@@ -284,6 +285,7 @@ Process* ProcessScheduler::getProcessByPid(pid_t pid) const
     return nullptr;
 }
 
+// handle signal as it gets to the running process.
 void ProcessScheduler::handleSignal(Process *proc)
 {
     const int sig_nr = proc->_pending_signal_nr.exchange(SIG_NONE);
