@@ -7,40 +7,11 @@
 #include <platform/malta/mips.h>
 #include <platform/pci/pci.h>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wmissing-noreturn"
 extern "C" char _end;
 extern "C" caddr_t _get_stack_pointer(void);
 extern "C" int kill(int pid, int sig);
-
-__attribute__((used))
-static int dummy2ProcMain(int argc, const char** argv)
-{
-    int test = 0;
-    while (true) {
-        if (!test) {
-//            kputs("DummyProc2\n");
-//            test = 1;
-        }
-    }
-}
-
-__attribute__((used))
-static int dummy1ProcMain(int argc, const char** argv)
-{
-    while (true) {
-//		kprintf("DummyProc1 pid %d\n", getpid());
-    }
-}
-
-__attribute__((used))
-static int dummyResponsiveProcMain(int argc, const char** argv)
-{
-    return 1337;
-    while (true) {
-//        kputs("Responsive Proc\n");
-        /*int retval = */ syscall(SYS_NR_YIELD);
-//        kprintf("retval: %d\n", retval);
-    }
-}
 
 std::vector<struct ps_ent> getProcessList(int expected_entries)
 {
@@ -68,6 +39,30 @@ void printProcessList(void)
     }
 }
 
+basic_queue<int> myqueue(10);
+
+_GLIBCXX_NORETURN
+static int ProducerMain(int argc, const char **argv)
+{
+    int i = 0;
+    while (true) {
+        clock_delay_ms(1000);
+//        printProcessList();
+        printf("pushing an %d\n", i);
+        myqueue.push(i++);
+    }
+}
+__attribute__((used))
+static int ResponsiveConsumer(int argc, const char **argv)
+{
+    while (true) {
+        int number = 0;
+        myqueue.pop(number, true);
+        printf("poped an %d\n", number);
+//        printProcessList();
+    }
+}
+
 #define MY_STRING(x)   ({                                               \
                             __attribute__((section(".strings"),used))   \
                             static const char* s = (x);                 \
@@ -84,39 +79,20 @@ int main(int argc, const char** argv)
     printf("str: %s\n", mystring);
 
     std::vector<const char*> args{};
-    pid_t dummy1_pid = syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Dummy1Proc", dummy1ProcMain, args.size(), args.data(), 4096);
-    pid_t dummy2_pid = syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Dummy2Proc", dummy2ProcMain, args.size(), args.data(), 4096);
-    pid_t dummy3_pid = syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Dummy3Proc", dummyResponsiveProcMain, args.size(), args.data(), 4096);
-
-    clock_delay_ms(1000);
-    printProcessList();
-
-    clock_delay_ms(2000);
-    kill(dummy1_pid, SIG_STOP);
-    syscall(SYS_NR_YIELD);
-
-    clock_delay_ms(1000);
-    printProcessList();
-
-    clock_delay_ms(2000);
-    kill(dummy1_pid, SIG_CONT);
-    syscall(SYS_NR_YIELD);
-
-    clock_delay_ms(1000);
-    printProcessList();
-
-    clock_delay_ms(3000);
-    kill(dummy1_pid, SIG_KILL);
-    kill(dummy2_pid, SIG_KILL);
-    kill(dummy3_pid, SIG_KILL);
+    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Producer", ProducerMain, args.size(), args.data(), 4096);
+    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Consumer", ResponsiveConsumer, args.size(), args.data(), 4096);
 
     syscall(SYS_NR_YIELD);
-    clock_delay_ms(1000);
+    clock_delay_ms(5000);
     printProcessList();
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-    while (1) {}
+    while (1) {
+
+    }
 #pragma clang diagnostic pop
 }
 
+
+#pragma clang diagnostic pop

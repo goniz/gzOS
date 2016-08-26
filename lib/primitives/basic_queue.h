@@ -1,16 +1,14 @@
-//
-// Created by gz on 6/12/16.
-//
-
 #ifndef GZOS_QUEUE_H
 #define GZOS_QUEUE_H
 
 #include <vector>
 #include <cstddef>
 #include <platform/kprintf.h>
+#include <lib/primitives/Suspendable.h>
+#include "lock_guard.h"
 
 template<typename T>
-class basic_queue
+class basic_queue : public Suspendable
 {
 public:
     using reference = typename std::vector<T>::reference;
@@ -21,29 +19,73 @@ public:
         _data.reserve(capacity);
     }
 
-    inline bool push(const T& value) {
+    inline bool push(const T& value, bool wait = false) {
+        // if wait = true and full, then just wait
+        if (this->full() && wait) {
+            this->wait();
+        }
+
+        // but if the wait is over, we want to double check the we're not full and return false if we do
+        // as we wont sleep again..
+
         if (this->full()) {
             return false;
         }
 
-        _data.push_back(value);
+        {
+            lock_guard<InterruptsMutex> guard(_mutex);
+            _data.push_back(value);
+        }
+
+        this->notifyOne();
         return true;
     }
 
-    inline bool push(T&& value) {
+    inline void push_head(const T& value) {
+        {
+            lock_guard<InterruptsMutex> guard(_mutex);
+            _data.insert(_data.begin(), value);
+        }
+
+        this->notifyOne();
+    }
+
+    inline bool push(T&& value, bool wait = false) {
+        // if wait = true and full, then just wait
+        if (this->full() && wait) {
+            this->wait();
+        }
+
+        // but if the wait is over, we want to double check the we're not full and return false if we do
+        // as we wont sleep again..
+
         if (this->full()) {
             return false;
         }
 
-        _data.push_back(std::move(value));
+        {
+            lock_guard<InterruptsMutex> guard(_mutex);
+            _data.push_back(std::move(value));
+        }
+
+        this->notifyOne();
         return true;
     }
 
-    inline bool pop(T& out) {
+    inline bool pop(T& out, bool wait = false) {
+        // if wait = true and empty, then just wait
+        if (this->empty() && wait) {
+            this->wait();
+        }
+
+        // but if the wait is over, we want to double check the we're not empty and return false if we do
+        // as we wont sleep again..
+
         if (this->empty()) {
             return false;
         }
 
+        lock_guard<InterruptsMutex> guard(_mutex);
         out = _data.front();
         _data.erase(_data.begin());
         return true;
@@ -69,11 +111,9 @@ public:
         return _data;
     }
 
-protected:
-
-
 private:
-    std::vector<T> _data;
+    std::vector<T>  _data;
+    InterruptsMutex _mutex;
 };
 
 

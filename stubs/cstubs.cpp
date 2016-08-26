@@ -110,6 +110,7 @@ int _isatty_r(int file) {
  */
 int kill(int pid, int sig)
 {
+//    kprintf("sending %d to %d\n", sig, pid);
     return syscall(SYS_NR_SIGNAL, pid, sig);
 }
 

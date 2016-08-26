@@ -256,7 +256,11 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
 
             switch (proc->_type) {
                 case Process::Responsive:
-                    _responsiveQueue.push(proc);
+                    _responsiveQueue.push_head(proc);
+                    // this is a fast path for waking up a responsive process
+                    // we just cut the quantum of the current process in order to push forward our
+                    // newly awaken responsive process forward in line
+                    _currentProc->_quantum = 1;
                     break;
                 case Process::Preemptive:
                     _preemptiveQueue.push(proc);
