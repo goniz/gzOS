@@ -10,7 +10,7 @@
 #include <memory>
 #include <lib/primitives/spinlock_mutex.h>
 #include <lib/scheduler/process.h>
-#include <lib/primitives/queue.h>
+#include <lib/primitives/basic_queue.h>
 #include <platform/interrupts.h>
 #endif
 
@@ -35,7 +35,7 @@ public:
 
     struct user_regs* yield(struct user_regs* regs);
 
-    bool signalProc(pid_t pid, int signal) const;
+    bool signalProc(pid_t pid, int signal);
     Process* getProcessByPid(pid_t pid) const;
 
     pid_t getCurrentPid(void) const {
@@ -53,14 +53,14 @@ public:
 private:
     struct user_regs* schedule(struct user_regs* regs);
     Process* andTheWinnerIs(void);
-    void handleSignal(Process *proc) const;
+    void handleSignal(Process *proc);
     Process* handleResponsiveProc(void);
     Process* handlePreemptiveProc(void);
     friend int sys_ps(struct user_regs **regs, va_list args);
 
     Process*                                _currentProc;
-    queue<Process*>                         _responsiveQueue;
-    queue<Process*>                         _preemptiveQueue;
+    basic_queue<Process*>                   _responsiveQueue;
+    basic_queue<Process*>                   _preemptiveQueue;
     Process                                 _idleProc;
     std::vector<std::unique_ptr<Process>>   _processList;
     spinlock_mutex                          _mutex;

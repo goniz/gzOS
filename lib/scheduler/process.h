@@ -16,7 +16,7 @@ class ProcessScheduler;
 class Process
 {
     friend class ProcessScheduler;
-    enum State { READY, RUNNING, SUSPENDING, SUSPENDED, YIELDING, TERMINATED };
+    enum State { READY, RUNNING, SUSPENDED, YIELDING, TERMINATED };
     enum Type { Responsive, Preemptive };
 
 public:

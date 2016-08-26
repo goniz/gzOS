@@ -79,7 +79,7 @@ int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
-    
+
     const char* mystring = MY_STRING("Test");
     printf("str: %s\n", mystring);
 
@@ -90,8 +90,22 @@ int main(int argc, const char** argv)
 
     clock_delay_ms(1000);
     printProcessList();
-    clock_delay_ms(3000);
 
+    clock_delay_ms(2000);
+    kill(dummy1_pid, SIG_STOP);
+    syscall(SYS_NR_YIELD);
+
+    clock_delay_ms(1000);
+    printProcessList();
+
+    clock_delay_ms(2000);
+    kill(dummy1_pid, SIG_CONT);
+    syscall(SYS_NR_YIELD);
+
+    clock_delay_ms(1000);
+    printProcessList();
+
+    clock_delay_ms(3000);
     kill(dummy1_pid, SIG_KILL);
     kill(dummy2_pid, SIG_KILL);
     kill(dummy3_pid, SIG_KILL);

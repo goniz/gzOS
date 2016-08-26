@@ -143,6 +143,11 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
             goto switch_to_proc;
         }
 
+        if (_currentProc->_state == Process::State::SUSPENDED) {
+            _currentProc = this->andTheWinnerIs();
+            goto switch_to_proc;
+        }
+
         // handle the actual switching logic
         switch (_currentProc->_type)
         {
@@ -230,7 +235,7 @@ struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
     return this->schedule(regs);
 }
 
-bool ProcessScheduler::signalProc(pid_t pid, int signal) const
+bool ProcessScheduler::signalProc(pid_t pid, int signal)
 {
     Process* proc = this->getProcessByPid(pid);
     if (!proc) {
@@ -241,8 +246,28 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal) const
         return false;
     }
 
-    return proc->signal(signal);
+    switch (signal)
+    {
+        case Signal::SIG_CONT:
+        {
+            proc->_quantum = proc->_resetQuantum;
+            proc->_state = Process::State::READY;
 
+            switch (proc->_type) {
+                case Process::Responsive:
+                    _responsiveQueue.push(proc);
+                    break;
+                case Process::Preemptive:
+                    _preemptiveQueue.push(proc);
+                    break;
+            }
+
+            return true;
+        }
+
+        default:
+            return proc->signal(signal);
+    }
 }
 
 Process* ProcessScheduler::getProcessByPid(pid_t pid) const
@@ -259,7 +284,7 @@ Process* ProcessScheduler::getProcessByPid(pid_t pid) const
     return nullptr;
 }
 
-void ProcessScheduler::handleSignal(Process *proc) const
+void ProcessScheduler::handleSignal(Process *proc)
 {
     const int sig_nr = proc->_pending_signal_nr.exchange(SIG_NONE);
 
@@ -271,10 +296,14 @@ void ProcessScheduler::handleSignal(Process *proc) const
             break;
 
         case SIG_STOP:
-            proc->_state = Process::State::SUSPENDING;
+            proc->_state = Process::State::SUSPENDED;
+            break;
+
+        case SIG_NONE:
             break;
 
         default:
+            kprintf("%s: unknown signal received %d\n", proc->name(), sig_nr);
             break;
     }
 }
@@ -330,7 +359,6 @@ DEFINE_SYSCALL(SYS_NR_SIGNAL, signal)
 static const char* g_states[] = {
         "Ready",
         "Running",
-        "Suspending",
         "Suspended",
         "Yielding",
         "Terminated"

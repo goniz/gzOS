@@ -331,8 +331,8 @@ bool pcnet_drv::setupInitializationBlock(void) {
 
     _initBlock->rlen = log2(RxRingSize) << 4;
     _initBlock->tlen = log2(TxRingSize) << 4;
-    _initBlock->rx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) _ringBuffers->rxRing));
-    _initBlock->tx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) _ringBuffers->txRing));
+    _initBlock->rx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringBuffers->rxRing));
+    _initBlock->tx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringBuffers->txRing));
 
     return true;
 }

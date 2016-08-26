@@ -10,13 +10,13 @@
 #include <platform/kprintf.h>
 
 template<typename T>
-class queue
+class basic_queue
 {
 public:
     using reference = typename std::vector<T>::reference;
     using const_reference = typename std::vector<T>::const_reference;
 
-    queue(size_t capacity)
+    basic_queue(size_t capacity)
     {
         _data.reserve(capacity);
     }
@@ -68,6 +68,9 @@ public:
     inline const std::vector<T>& underlying_data(void) const {
         return _data;
     }
+
+protected:
+
 
 private:
     std::vector<T> _data;
