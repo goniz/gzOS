@@ -70,7 +70,6 @@ public:
     bool initialize(void);
     bool start(void);
     bool sendPacket(const void* packet, uint16_t length);
-    bool recvPacket(void* packet, uint16_t* length);
 
     const char* name(void) const {
         return _name;
@@ -93,6 +92,7 @@ private:
     bool acquireIrq(void);
     void reset(void) const;
     bool check(void);
+    bool recvPacket(void* packet, uint16_t* length);
 
     static void irqHandler(struct user_regs* regs, void* data);
 
@@ -118,7 +118,6 @@ private:
     std::unique_ptr<RxRingBufferType> _rxBuffers;
     std::unique_ptr<RingBuffers> _ringBuffers;
     std::unique_ptr<PCnetInitializationBlock> _initBlock;
-    int _currentRxBuf;
     int _currentTxBuf;
 
     struct {

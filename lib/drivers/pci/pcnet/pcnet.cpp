@@ -53,7 +53,6 @@ pcnet_drv::pcnet_drv(PCIDevice *pci_dev)
           _rxBuffers(nullptr),
           _ringBuffers(nullptr),
           _initBlock(nullptr),
-          _currentRxBuf(0),
           _currentTxBuf(0) {
     // conditionally name the device to allow ctor reuse..
     if (_pcidev) {
@@ -74,7 +73,6 @@ pcnet_drv::pcnet_drv(pcnet_drv &&other)
     std::swap(_rxBuffers, other._rxBuffers);
     std::swap(_ringBuffers, other._ringBuffers);
     std::swap(_initBlock, other._initBlock);
-    std::swap(_currentRxBuf, other._currentRxBuf);
     std::swap(_currentTxBuf, other._currentTxBuf);
 
     strncpy(_name, other._name, 16);
@@ -291,7 +289,6 @@ bool pcnet_drv::setupBufferRings(void) {
             (RingBuffers *) platform_buffered_virt_to_unbuffered_virt((uintptr_t) ringBuffers)
     );
 
-    _currentRxBuf = 0;
     for (int i = 0; i < RxRingSize; i++) {
         PCnetRxDescriptor *rd = &(_ringBuffers->rxRing[i]);
         RxRingBufferType *buf = (RxRingBufferType *) (_rxBuffers.get() + i);
@@ -450,21 +447,21 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
     void* buf = nullptr;
     int16_t err_status = 0;
 
-    while (1) {
-        struct PCnetRxDescriptor* rdx = &_ringBuffers->rxRing[_currentRxBuf];
+    for (int i = 0; i < RxRingSize; i++) {
+        struct PCnetRxDescriptor* rdx = &_ringBuffers->rxRing[i];
 
         /*
          * If we own the next entry, it's a new packet. Send it up.
          */
         int16_t status = le16_to_cpu(rdx->status);
         if ((status & 0x8000) != 0) {
-            goto next;
+            continue;
         }
 
         err_status = status >> 8;
 
         if (err_status != 0x03) {   /* There was an error. */
-            printf("%s: Rx%d", _name, _currentRxBuf);
+            printf("%s: Rx%d", _name, i);
 
             if (err_status & 0x20) printf(" Frame");
             if (err_status & 0x10) printf(" Overflow");
@@ -476,7 +473,7 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
         } else {
             pkt_len = (le32_to_cpu(rdx->msg_length) & 0xfff) - 4;
             if (pkt_len < 60) {
-                printf("%s: Rx%d: invalid packet length %d\n", _name, _currentRxBuf, pkt_len);
+                printf("%s: Rx%d: invalid packet length %d\n", _name, i, pkt_len);
             } else {
                 buf = (void*)platform_iomem_phy_to_virt(le32_to_cpu(rdx->buf));
                 invalidate_dcache_range((unsigned long)buf,
@@ -490,11 +487,6 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
         rdx->buf_size = cpu_to_le16(-PacketSize);
         rdx->reserved = 0;
         rdx->status = cpu_to_le16(0x8000);
-
-next:
-        if (++_currentRxBuf >= RxRingSize) {
-            _currentRxBuf = 0;
-        }
 
         if (found) {
             return true;

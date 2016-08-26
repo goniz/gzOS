@@ -75,36 +75,11 @@ void printProcessList(void)
                         })
 
 
-static void print_sr()
-{
-    unsigned sr = mips32_get_c0(C0_STATUS);
-    kprintf ("Status   : CU0:%d BEV:%d NMI:%d IM:$%02x KSU:%d ERL:%d EXL:%d IE:%d\n",
-             (sr & SR_CU0) >> SR_CU0_SHIFT,
-             (sr & SR_BEV) >> SR_BEV_SHIFT,
-             (sr & SR_NMI) >> SR_NMI_SHIFT,
-             (sr & SR_IMASK) >> SR_IMASK_SHIFT,
-             (sr & SR_KSU_MASK) >> SR_KSU_SHIFT,
-             (sr & SR_ERL) >> SR_ERL_SHIFT,
-             (sr & SR_EXL) >> SR_EXL_SHIFT,
-             (sr & SR_IE) >> SR_IE_SHIFT);
-}
-
-static void print_pci_irqs()
-{
-    const auto& devices = platform_pci_bus()->devices();
-    for (const auto& dev : devices) {
-        printf("%04x:%04x pin %d line %d\n", dev.vendorId(), dev.deviceId(), dev.readByte(PCI_INTERRUPT_PIN), dev.readByte(PCI_INTERRUPT_LINE));
-    }
-}
-
-
 int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
-
-//    clock_delay_ms(10);
-
+    
     const char* mystring = MY_STRING("Test");
     printf("str: %s\n", mystring);
 
