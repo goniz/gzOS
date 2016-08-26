@@ -11,6 +11,7 @@
 #include <platform/clock.h>
 #include <malloc.h>
 #include <lib/primitives/align.h>
+#include "pcnet.h"
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, pcnet, pcnet_pci_probe);
 static std::vector<pcnet_drv> __pcnet_devices;
@@ -23,7 +24,8 @@ static int generate_dev_index(void) {
 
 extern "C"
 int pcnet_pci_probe(PCIDevice *pci_dev) {
-    pcnet_drv drv(pci_dev);
+    __pcnet_devices.emplace_back(pci_dev);
+    pcnet_drv& drv = __pcnet_devices.back();
 
     if (!drv.initialize()) {
         return 1;
@@ -33,18 +35,6 @@ int pcnet_pci_probe(PCIDevice *pci_dev) {
         return 1;
     }
 
-    char pkt[128];
-    while (0) {
-        uint16_t size = sizeof(pkt);
-        if (!drv.recvPacket(pkt, &size)) {
-            clock_delay_ms(100);
-            continue;
-        }
-
-        kprintf("Received pkt %d\n", size);
-    }
-
-    __pcnet_devices.push_back(std::move(drv));
     return 0;
 }
 
@@ -69,6 +59,10 @@ pcnet_drv::pcnet_drv(PCIDevice *pci_dev)
     if (_pcidev) {
         sprintf(_name, "pcnet%d", generate_dev_index());
     }
+
+    _counters.dropped = 0;
+    _counters.rx = 0;
+    _counters.tx = 0;
 }
 
 pcnet_drv::pcnet_drv(pcnet_drv &&other)
@@ -191,8 +185,8 @@ bool pcnet_drv::start(void) {
     // setup interrupts masks
     val = this->read_csr(3);
     val &= ~(1 << 10);  // clear rx int mask - enable rx int
-    val |= (1 << 9);    // set tx int mask - disable tx int
-    val |= (1 << 8);    // set init int mask - disable init int
+    val |=  (1 << 9);    // set tx int mask - disable tx int
+    val |=  (1 << 8);    // set init int mask - disable init int
     val &= ~(1 << 2);   // clear big endian flag
     this->write_csr(3, val);
 
@@ -227,7 +221,7 @@ bool pcnet_drv::start(void) {
     /*
      * Finally start network controller operation.
      */
-    this->write_csr(0, CSR0_NORMAL);
+    this->write_csr(0, CSR0_NORMAL | CSR0_INTEN);
     return true;
 }
 
@@ -302,8 +296,9 @@ bool pcnet_drv::setupBufferRings(void) {
         PCnetRxDescriptor *rd = &(_ringBuffers->rxRing[i]);
         RxRingBufferType *buf = (RxRingBufferType *) (_rxBuffers.get() + i);
         rd->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) buf));
-        rd->buf_size = cpu_to_le16(PacketSize);
+        rd->buf_size = cpu_to_le16(-PacketSize);
         rd->status = cpu_to_le16(0x8000);
+        rd->reserved = 0;
     }
 
     _currentTxBuf = 0;
@@ -483,7 +478,7 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
             if (pkt_len < 60) {
                 printf("%s: Rx%d: invalid packet length %d\n", _name, _currentRxBuf, pkt_len);
             } else {
-                buf = (void*)le32_to_cpu(rdx->buf);
+                buf = (void*)platform_iomem_phy_to_virt(le32_to_cpu(rdx->buf));
                 invalidate_dcache_range((unsigned long)buf,
                                         (unsigned long)buf + pkt_len);
                 *length = std::min(pkt_len, *length);
@@ -492,8 +487,9 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
             }
         }
 
-        status |= 0x8000;
-        rdx->status = cpu_to_le16(status);
+        rdx->buf_size = cpu_to_le16(-PacketSize);
+        rdx->reserved = 0;
+        rdx->status = cpu_to_le16(0x8000);
 
 next:
         if (++_currentRxBuf >= RxRingSize) {
@@ -535,7 +531,7 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
         /* Log misc errors. */
         if (csr0 & 0x4000) {
             /* Tx babble. */
-//            dev->stats.tx_errors++;
+            self->_counters.tx_errors++;
         }
 
         if (csr0 & 0x1000) {
@@ -550,30 +546,21 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
              * don't get a rx interrupt, but a missed frame
              * interrupt sooner or later.
              */
-//            dev->stats.rx_errors++; /* Missed a Rx frame. */
+            self->_counters.rx_errors++;
         }
 
         if (csr0 & 0x0800) {
             /* unlike for the lance, there is no restart needed */
         }
 
-//        if (napi_schedule_prep(&lp->napi)) {
-//            u16 val;
-//            /* set interrupt masks */
-//            val = lp->a.read_csr(ioaddr, CSR3);
-//            val |= 0x5f00;
-//            lp->a.write_csr(ioaddr, CSR3, val);
-//
-//            __napi_schedule(&lp->napi);
-//            break;
-//        }
+        char pkt[200];
+        uint16_t size = sizeof(pkt);
+        self->recvPacket(pkt, &size);
 
         csr0 = (uint16_t) self->read_csr(CSR0);
         count--;
     }
+
+    csr0 |= CSR0_INTEN;
+    self->write_csr(CSR0, csr0);
 }
-
-
-
-
-

@@ -120,6 +120,14 @@ private:
     std::unique_ptr<PCnetInitializationBlock> _initBlock;
     int _currentRxBuf;
     int _currentTxBuf;
+
+    struct {
+        int dropped;
+        int rx;
+        int tx;
+        int tx_errors;
+        int rx_errors;
+    } _counters;
 };
 
 #endif

@@ -5,11 +5,11 @@
 
 #ifdef __cplusplus
 
-struct VirtIOSharedMemoryRegs {
-    uint32_t IntMask;
-    uint32_t IntStatus;
-    uint32_t IvPosition;
-    uint32_t DoorBell;
+enum class VirtIOSharedMemoryRegs {
+    IntMask = 0,
+    IntStatus = 4,
+    IvPosition = 8,
+    DoorBell = 12
 };
 
 class virtio_shmem_drv
@@ -21,11 +21,13 @@ public:
     bool initialize(void);
 
 private:
+    void writeReg(VirtIOSharedMemoryRegs reg, uint32_t value);
+    uint32_t readReg(VirtIOSharedMemoryRegs reg);
     static void irqHandler(struct user_regs *regs, void *data);
 
     PCIDevice* _pcidev;
-    volatile struct VirtIOSharedMemoryRegs* _regs;
-    volatile void* _shared_memory_region;
+    volatile uint8_t* _regs;
+    volatile uint8_t* _shared_memory_region;
 };
 
 #endif

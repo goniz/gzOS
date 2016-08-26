@@ -15,11 +15,12 @@ static volatile struct PICRegs* _pic_master;
 static volatile struct PICRegs* _pic_slave;
 
 static unsigned int _cached_irq_mask = 0xfffb;
-#define cached_master_mask  (_cached_irq_mask)
-#define cached_slave_mask   (_cached_irq_mask >> 8)
+#define cached_master_mask  (_cached_irq_mask & 0xff)
+#define cached_slave_mask   (((_cached_irq_mask & 0xff00) >> 8) & 0xff)
 
 static struct PICInterruptHandler _irq_handlers[PIC_MAX_IRQ_NUMBER];
 
+__unused
 static void pic_ack_irq(uint8_t irq) {
     irq -= I8259A_IRQ_BASE;
 
@@ -55,6 +56,7 @@ static uint16_t pic_get_irr(void);
  * to the two 8259s is important!
  */
 static int spurious_irq_mask;
+__unused
 static void mask_and_ack_8259A(unsigned int irq)
 {
     unsigned int irqmask = (unsigned int) (1 << irq);
@@ -310,13 +312,19 @@ void platform_print_irqs(void)
 
 DEFINE_HW_IRQ(2)
 {
-    uint8_t irq = (uint8_t )(GT_READ(GT_PCI0_IACK_OFS) & 0xff);
+    __unused
+    volatile uint8_t temp = 0;
+    /* Get the Interrupt */
+    volatile uint8_t irq = (uint8_t )(GT_READ(GT_PCI0_IACK_OFS) & 0xff);
     kprintf("pci iack irq: %d\n", irq);
-//
-//  pic_ack_irq((uint8_t) irq);
-    (void)pic_ack_irq;
-    (void)_pic_master->cmd;
-    (void)_pic_slave->cmd;
+
+    /*
+     *  Mask interrupts
+     *   + Mask all except cascade on master
+     *   + Mask all on slave
+     */
+    _pic_master->imr = 0xfb;
+    _pic_slave->imr = 0xff;
 
     kprintf("irq: %d %08x\n", irq, irq);
     if (irq > PIC_MAX_IRQ_NUMBER) {
@@ -331,33 +339,28 @@ DEFINE_HW_IRQ(2)
         info->handler(regs, info->data);
     }
 
-    mask_and_ack_8259A(irq);
-    (void)mask_and_ack_8259A;
-    return regs;
-/*
-    while (pending) {
-        // process irqs from lsb to msb
-        uint32_t irq = __builtin_ctz(pending);
+    /* Reset the interrupt on the 8259 either the master or the slave chip */
+    if (irq & 8) {
+        temp = _pic_slave->imr;
 
-        kprintf("irq: %d %08x\n", irq, irq);
-        if (irq > PIC_MAX_IRQ_NUMBER) {
-            panic("irq(%d) > PIC_MAX_IRQ_NUMBER\n", irq);
-        }
+        /* Mask all */
+        _pic_slave->imr = 0xff;
+        _pic_slave->cmd = (uint8_t) (PIC_EOSI + (irq & 7));
+        _pic_master->cmd = SLAVE_PIC_EOSI;
 
-        const struct PICInterruptHandler* info = &_irq_handlers[irq];
-        if (NULL == info->handler) {
-            panic("No handler for irq %d (master %02x slave %02x)\n", irq, _pic_master->imr, _pic_slave->imr);
-        }
+    } else {
+        temp = _pic_master->imr;
 
-        info->handler(regs, info->data);
-
-        pic_ack_irq((uint8_t) irq);
-//        (void)pic_ack_irq;
-        pending &= ~(1 << irq);
+        /* Mask all except cascade */
+        _pic_master->imr = 0xfb;
+        _pic_master->cmd = (uint8_t) (PIC_EOSI + irq);
     }
 
+    /* Restore the interrupts */
+    _pic_master->imr = (uint8_t) cached_master_mask;
+    _pic_slave->imr = (uint8_t) cached_slave_mask;
+
     return regs;
-    */
 }
 
 DECLARE_DRIVER(i8259A, driver_i8259A_init);

@@ -127,12 +127,7 @@ int main(int argc, const char** argv)
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
-    while (1) {
-        clock_delay_ms(1000);
-        print_sr();
-        (void)platform_print_irqs;
-        (void)print_pci_irqs;
-    }
+    while (1) {}
 #pragma clang diagnostic pop
 }
 
