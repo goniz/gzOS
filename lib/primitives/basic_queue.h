@@ -1,8 +1,23 @@
 #ifndef GZOS_QUEUE_H
 #define GZOS_QUEUE_H
 
+#include <stdint.h>
+#include <stddef.h>
+
+// basic_queue C API
+typedef void* basic_queue_t;
+extern "C" basic_queue_t basic_queue_init(size_t elements);
+extern "C" int basic_queue_push(basic_queue_t queue, uintptr_t value, int wait);
+extern "C" void basic_queue_push_head(basic_queue_t queue, uintptr_t value);
+extern "C" int basic_queue_pop(basic_queue_t queue, uintptr_t* out_value, int wait);
+extern "C" size_t basic_queue_capacity(basic_queue_t queue);
+extern "C" size_t basic_queue_size(basic_queue_t queue);
+extern "C" int basic_queue_empty(basic_queue_t queue);
+extern "C" int basic_queue_full(basic_queue_t queue);
+
+// basic_queue<T> C++ API
+#ifdef __cplusplus
 #include <vector>
-#include <cstddef>
 #include <platform/kprintf.h>
 #include <lib/primitives/Suspendable.h>
 #include "lock_guard.h"
@@ -116,5 +131,5 @@ private:
     InterruptsMutex _mutex;
 };
 
-
+#endif // c++
 #endif //GZOS_QUEUE_H

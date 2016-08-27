@@ -6,6 +6,7 @@
 #include <platform/cpu.h>
 #include <platform/malta/mips.h>
 #include <platform/pci/pci.h>
+#include <unistd.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -86,12 +87,9 @@ int main(int argc, const char** argv)
     clock_delay_ms(5000);
     printProcessList();
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wmissing-noreturn"
-    while (1) {
-
-    }
-#pragma clang diagnostic pop
+    kill(getpid(), SIG_STOP);
+    syscall(SYS_NR_YIELD);
+    return 0;
 }
 
 
