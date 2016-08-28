@@ -7,6 +7,8 @@
 #include <platform/malta/mips.h>
 #include <platform/pci/pci.h>
 #include <unistd.h>
+#include <lib/network/packet_pool.h>
+#include <lib/network/ethernet_layer.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -40,52 +42,44 @@ void printProcessList(void)
     }
 }
 
-basic_queue<int> myqueue(10);
+static basic_queue<IncomingPacketBuffer> gInputPackets(10);
 
-_GLIBCXX_NORETURN
-static int ProducerMain(int argc, const char **argv)
-{
-    int i = 0;
-    while (true) {
-        clock_delay_ms(1000);
-//        printProcessList();
-        printf("pushing an %d\n", i);
-        myqueue.push(i++);
-    }
-}
 __attribute__((used))
-static int ResponsiveConsumer(int argc, const char **argv)
+static int EthernetEchoServer(int argc, const char **argv)
 {
     while (true) {
-        int number = 0;
-        myqueue.pop(number, true);
-        printf("poped an %d\n", number);
-//        printProcessList();
+        IncomingPacketBuffer incomingPacketBuffer;
+        if (!gInputPackets.pop(incomingPacketBuffer, true)) {
+            continue;
+        }
+
+        ethernet_send_packet("eth0", incomingPacketBuffer.header->src, incomingPacketBuffer.header->type, &incomingPacketBuffer.buffer);
     }
 }
 
-#define MY_STRING(x)   ({                                               \
-                            __attribute__((section(".strings"),used))   \
-                            static const char* s = (x);                 \
-                            s;                                          \
-                        })
-
+void arp_handler(void* user_ctx, IncomingPacketBuffer* incomingPacket)
+{
+    kprintf("arp_handler\n");
+    gInputPackets.push(*incomingPacket);
+}
 
 int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
 
-    const char* mystring = MY_STRING("Test");
-    printf("str: %s\n", mystring);
+    ethernet_register_handler(0x0806, arp_handler, NULL);
 
     std::vector<const char*> args{};
-    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Producer", ProducerMain, args.size(), args.data(), 4096);
-    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Consumer", ResponsiveConsumer, args.size(), args.data(), 4096);
+    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "EthernetEchoServer", EthernetEchoServer, args.size(), args.data(), 8096);
 
-    syscall(SYS_NR_YIELD);
-    clock_delay_ms(5000);
-    printProcessList();
+//    std::vector<const char*> args{};
+//    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Producer", ProducerMain, args.size(), args.data(), 8096);
+//    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Consumer", ResponsiveConsumer, args.size(), args.data(), 8096);
+//
+//    syscall(SYS_NR_YIELD);
+//    clock_delay_ms(5000);
+//    printProcessList();
 
     kill(getpid(), SIG_STOP);
     syscall(SYS_NR_YIELD);

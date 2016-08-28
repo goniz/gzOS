@@ -316,7 +316,6 @@ DEFINE_HW_IRQ(2)
     volatile uint8_t temp = 0;
     /* Get the Interrupt */
     volatile uint8_t irq = (uint8_t )(GT_READ(GT_PCI0_IACK_OFS) & 0xff);
-    kprintf("pci iack irq: %d\n", irq);
 
     /*
      *  Mask interrupts
@@ -326,7 +325,6 @@ DEFINE_HW_IRQ(2)
     _pic_master->imr = 0xfb;
     _pic_slave->imr = 0xff;
 
-    kprintf("irq: %d %08x\n", irq, irq);
     if (irq > PIC_MAX_IRQ_NUMBER) {
         panic("irq(%d) > PIC_MAX_IRQ_NUMBER\n", irq);
     }
@@ -363,4 +361,4 @@ DEFINE_HW_IRQ(2)
     return regs;
 }
 
-DECLARE_DRIVER(i8259A, driver_i8259A_init);
+DECLARE_DRIVER(i8259A, driver_i8259A_init, STAGE_SECOND);

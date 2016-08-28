@@ -14,8 +14,10 @@
 #include <platform/interrupts.h>
 #endif
 
-#define DefaultPreemptiveQuantum 100
-#define DefaultResponsiveQuantum 1500
+#define DefaultPreemptiveQuantum    100
+#define DefaultResponsiveQuantum    1500
+#define SCHED_INITIAL_PROC_SIZE     10
+#define SCHED_INITIAL_QUEUE_SIZE    10
 
 #ifdef __cplusplus
 
@@ -82,7 +84,7 @@ extern "C" {
 #endif
 
 typedef int (*init_main_t)(int argc, const char** argv);
-void scheduler_init(size_t initialProcSize, size_t initialQueueSize, init_main_t init_main, int argc, const char** argv);
+void scheduler_run_main(init_main_t init_main, int argc, const char** argv);
 
 #ifdef __cplusplus
 };

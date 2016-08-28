@@ -41,6 +41,7 @@ Process::Process(const char *name,
     }
 
     _context = platform_initialize_process_stack(_pctx, &info);
+    kprintf("spawn new proc with pid %d named %s\n", _pid, _name);
 }
 
 

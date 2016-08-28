@@ -76,10 +76,10 @@ extern uint32_t _gp;
 struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
                                                     struct process_entry_info* info)
 {
-    kprintf("platform_initialize_process_stack: epc %p a0 %p stack base %p stack size %d\n",
-            info->entryPoint, info->argument,
-            pctx->stack_base, pctx->stack_size
-    );
+//    kprintf("platform_initialize_process_stack: epc %p a0 %p stack base %p stack size %d\n",
+//            info->entryPoint, info->argument,
+//            pctx->stack_base, pctx->stack_size
+//    );
 
     // stack is in a descending order
     // and should be initialized with struct user_regs in order to start

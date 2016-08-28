@@ -164,8 +164,10 @@ void kfree(malloc_pool_t *mp, void *addr) {
 
     if (mb->mb_magic != MB_MAGIC ||
         mp->mp_magic != MB_MAGIC ||
-        mb->mb_size >= 0)
+        mb->mb_size >= 0) {
+        kmalloc_dump(mp);
         panic("Memory corruption detected!");
+    }
 
     mem_arena_t *current = NULL;
     TAILQ_FOREACH(current, &mp->mp_arena, ma_list) {
@@ -181,6 +183,7 @@ void *krealloc(malloc_pool_t *mp, void *ptr, size_t size, uint16_t flags) {
     if (mb->mb_magic != MB_MAGIC ||
         mp->mp_magic != MB_MAGIC ||
         mb->mb_size >= 0) {
+        kmalloc_dump(mp);
         panic("Memory corruption detected!");
     }
 

@@ -1,7 +1,3 @@
-//
-// Created by gz on 6/11/16.
-//
-
 #include <lib/scheduler/scheduler.h>
 #include <platform/panic.h>
 #include <cstdio>
@@ -12,37 +8,43 @@
 #include <lib/syscall/syscall.h>
 #include <lib/scheduler/signals.h>
 #include <cstring>
+#include <platform/drivers.h>
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
 static std::unique_ptr<ProcessScheduler> global_scheduler;
 
-extern "C"
-void scheduler_init(size_t initialProcSize, size_t initialQueueSize, init_main_t init_main, int argc, const char** argv)
+static int scheduler_init(void)
 {
-    global_scheduler = std::make_unique<ProcessScheduler>(initialProcSize, initialQueueSize);
-
+    global_scheduler = std::make_unique<ProcessScheduler>(SCHED_INITIAL_PROC_SIZE, SCHED_INITIAL_QUEUE_SIZE);
 //    global_scheduler->setDebugMode();
-    std::vector<const char*> arguments(argv, argv + argc);
-    global_scheduler->createPreemptiveProcess("init", init_main, std::move(arguments), 4096);
-//    syscall(0, "init", init_main, argc, argv, 4096);
+    return 0;
+}
 
+DECLARE_DRIVER(scheduler, scheduler_init, STAGE_FIRST);
+
+extern "C"
+void scheduler_run_main(init_main_t init_main, int argc, const char** argv)
+{
+    std::vector<const char*> arguments(argv, argv + argc);
+    global_scheduler->createPreemptiveProcess("init", init_main, std::move(arguments), 8096);
     clock_set_handler(ProcessScheduler::onTickTimer, global_scheduler.get());
-    interrupts_enable_all();
 }
 
 __attribute__((noreturn))
 static int idleProcMain(int argc, const char** argv)
 {
     kputs("Idle thread is running!\n");
-    while (true);
+    while (true) {
+        syscall(SYS_NR_YIELD);
+    }
 }
 
 ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSize)
     : _currentProc(nullptr),
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
-      _idleProc("IdleProc", idleProcMain, {}, 4096, Process::Type::Preemptive, DefaultPreemptiveQuantum),
+      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, DefaultPreemptiveQuantum),
       _processList(),
       _mutex()
 {

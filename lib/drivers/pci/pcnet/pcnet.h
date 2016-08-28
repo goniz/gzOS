@@ -8,6 +8,7 @@
 #include <platform/pci/pci.h>
 #include <platform/interrupts.h>
 #include <memory>
+#include <lib/network/packet_pool.h>
 
 #ifdef __cplusplus
 
@@ -92,9 +93,10 @@ private:
     bool acquireIrq(void);
     void reset(void) const;
     bool check(void);
-    bool recvPacket(void* packet, uint16_t* length);
+    void drainRxRing(void);
 
     static void irqHandler(struct user_regs* regs, void* data);
+    static int xmit(void* user_ctx, PacketBuffer* packetBuffer);
 
     // IO Read/Write
     uint8_t ioreg(Registers reg) const;
@@ -121,11 +123,12 @@ private:
     int _currentTxBuf;
 
     struct {
-        int dropped;
-        int rx;
-        int tx;
         int tx_errors;
         int rx_errors;
+        int rx_frame_errors;
+        int rx_over_errors;
+        int rx_crc_errors;
+        int rx_fifo_errors;
     } _counters;
 };
 

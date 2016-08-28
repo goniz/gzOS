@@ -2,6 +2,7 @@
 #include <lib/scheduler/scheduler.h>
 #include <platform/pci/pci.h>
 #include <platform/drivers.h>
+#include "interrupts.h"
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -17,7 +18,8 @@ void system_init(int argc, const char **argv, const char **envp)
 
     drivers_init();
     platform_pci_driver_probe();
-    scheduler_init(10, 10, main, argc, argv);
+    scheduler_run_main(main, argc, argv);
+    interrupts_enable_all();
 
     /* ... but if we do, safely trap here */
 	printf("main function exited. hanging.\n");

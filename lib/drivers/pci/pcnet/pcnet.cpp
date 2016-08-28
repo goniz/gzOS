@@ -1,7 +1,3 @@
-//
-// Created by gz on 7/2/16.
-//
-
 #include <pcnet.h>
 #include <platform/kprintf.h>
 #include <atomic>
@@ -11,6 +7,8 @@
 #include <platform/clock.h>
 #include <malloc.h>
 #include <lib/primitives/align.h>
+#include <lib/network/packet_pool.h>
+#include <lib/network/ethernet_layer.h>
 #include "pcnet.h"
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, pcnet, pcnet_pci_probe);
@@ -38,11 +36,6 @@ int pcnet_pci_probe(PCIDevice *pci_dev) {
     return 0;
 }
 
-extern "C"
-struct user_regs *pcnet_handler(struct user_regs *regs) {
-    return regs;
-}
-
 pcnet_drv::pcnet_drv(PCIDevice *pci_dev)
         : _pcidev(pci_dev),
           _ioport(pci_dev ? (uintptr_t) pci_dev->iomem(0) : 0),
@@ -59,9 +52,7 @@ pcnet_drv::pcnet_drv(PCIDevice *pci_dev)
         sprintf(_name, "pcnet%d", generate_dev_index());
     }
 
-    _counters.dropped = 0;
-    _counters.rx = 0;
-    _counters.tx = 0;
+    memset(&_counters, 0, sizeof(_counters));
 }
 
 pcnet_drv::pcnet_drv(pcnet_drv &&other)
@@ -134,7 +125,7 @@ bool pcnet_drv::initialize(void) {
         return false;
     }
 
-    return true;
+    return (bool) ethernet_register_device(_name, _mac, this, pcnet_drv::xmit);
 }
 
 bool pcnet_drv::start(void) {
@@ -424,13 +415,17 @@ bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     txd->status = cpu_to_le16((int16_t) 0x8300);
 
     /* Trigger an immediate send poll. */
-    this->write_csr(0, 0x0008);
+    this->write_csr(CSR0, this->read_csr(CSR0) | 0x0008);
 
 exit:
+    /* Wait for completion by testing the OWN bit */
+    for (i = 1000; i > 0; i--) {
+        status = le16_to_cpu(txd->status);
+        if ((status & 0x8000) == 0) {
+            break;
+        }
 
-    uint32_t csr0 = this->read_csr(0);
-    if (csr0 & 0x400) {
-        kprintf("some pkt recvid?? %08x\n", csr0);
+        clock_delay_ms(1);
     }
 
     if (++_currentTxBuf >= TxRingSize) {
@@ -440,12 +435,10 @@ exit:
     return ret;
 }
 
-bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
+void pcnet_drv::drainRxRing(void)
 {
-    bool found = false;
     uint16_t pkt_len = 0;
     void* buf = nullptr;
-    int16_t err_status = 0;
 
     for (int i = 0; i < RxRingSize; i++) {
         struct PCnetRxDescriptor* rdx = &_ringBuffers->rxRing[i];
@@ -458,42 +451,53 @@ bool pcnet_drv::recvPacket(void *packet, uint16_t *length)
             continue;
         }
 
-        err_status = status >> 8;
+        status >>= 8;
 
-        if (err_status != 0x03) {   /* There was an error. */
-            printf("%s: Rx%d", _name, i);
+        if (status != 0x03) {   /* There was an error. */
+            /*
+             * There is a tricky error noted by John Murphy,
+             * <murf@perftech.com> to Russ Nelson: Even with full-sized
+             * buffers it's possible for a jabber packet to use two
+             * buffers, with only the last correctly noting the error.
+             */
+            if (status & 0x01)  /* Only count a general error at the */
+                _counters.rx_errors++; /* end of a packet. */
+            if (status & 0x20)
+                _counters.rx_frame_errors++;
+            if (status & 0x10)
+                _counters.rx_over_errors++;
+            if (status & 0x08)
+                _counters.rx_crc_errors++;
+            if (status & 0x04)
+                _counters.rx_fifo_errors++;
 
-            if (err_status & 0x20) printf(" Frame");
-            if (err_status & 0x10) printf(" Overflow");
-            if (err_status & 0x08) printf(" CRC");
-            if (err_status & 0x04) printf(" Fifo");
-            printf(" Error\n");
-            status &= 0x03ff;
 
         } else {
             pkt_len = (le32_to_cpu(rdx->msg_length) & 0xfff) - 4;
-            if (pkt_len < 60) {
-                printf("%s: Rx%d: invalid packet length %d\n", _name, i, pkt_len);
+
+            /* Discard oversize frames. */
+            if ((pkt_len > PacketSize) || (pkt_len < 60)) {
+                _counters.rx_errors++;
             } else {
                 buf = (void*)platform_iomem_phy_to_virt(le32_to_cpu(rdx->buf));
                 invalidate_dcache_range((unsigned long)buf,
                                         (unsigned long)buf + pkt_len);
-                *length = std::min(pkt_len, *length);
-                memcpy(packet, buf, *length);
-                found = true;
+
+                PacketBuffer packetBuffer = packet_pool_alloc(pkt_len);
+                if (NULL == packetBuffer.buffer) {
+                    kprintf("%s: packet pool exhausted. dropping frame..\n", _name);
+                } else {
+                    memcpy(packetBuffer.buffer, buf, pkt_len);
+                    ethernet_absorbe_packet(_name, packetBuffer);
+                }
+
             }
         }
 
         rdx->buf_size = cpu_to_le16(-PacketSize);
         rdx->reserved = 0;
         rdx->status = cpu_to_le16(0x8000);
-
-        if (found) {
-            return true;
-        }
     }
-
-    return false;
 }
 
 bool pcnet_drv::acquireIrq(void)
@@ -508,8 +512,6 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
     pcnet_drv* self = (pcnet_drv *) data;
     uint16_t csr0;
     int count = 100;
-
-    kprintf("IN PCNET IRQ HANDLER!!\n");
 
     csr0 = (uint16_t) self->read_csr(CSR0);
     while (csr0 & 0x8f00 && count > 0) {
@@ -545,9 +547,7 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
             /* unlike for the lance, there is no restart needed */
         }
 
-        char pkt[200];
-        uint16_t size = sizeof(pkt);
-        self->recvPacket(pkt, &size);
+        self->drainRxRing();
 
         csr0 = (uint16_t) self->read_csr(CSR0);
         count--;
@@ -555,4 +555,10 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
 
     csr0 |= CSR0_INTEN;
     self->write_csr(CSR0, csr0);
+}
+
+int pcnet_drv::xmit(void *user_ctx, PacketBuffer* packetBuffer) {
+    pcnet_drv* self = (pcnet_drv *) user_ctx;
+
+    return self->sendPacket(packetBuffer->buffer, (uint16_t) packetBuffer->buffer_size);
 }

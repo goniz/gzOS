@@ -48,7 +48,8 @@ SECTIONS
     . = ALIGN(4);
     PROVIDE(__drivers_start = .);
     PROVIDE(drivers_table = .);
-    KEEP(*(.drivers))
+    KEEP (*(SORT(.drivers.*)))
+    KEEP (*(SORT(.drivers)))
     PROVIDE(__drivers_end = .);
 
     PROVIDE(__init_array_start = .);

@@ -18,10 +18,13 @@ struct driver_entry {
     driver_init_t init;
 };
 
+#define STAGE_FIRST     0
+#define STAGE_SECOND    1
+
 #define S(x) #x
 #define SX(x) S(x)
-#define DECLARE_DRIVER(name, init) \
-            __attribute__((section(".drivers"),used)) \
+#define DECLARE_DRIVER(name, init, stage) \
+            __attribute__((section(".drivers." SX(stage)),used)) \
             struct driver_entry __drv_ ##name = { SX(name), (driver_init_t) init }
 
 int drivers_init(void);
