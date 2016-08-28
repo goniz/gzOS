@@ -77,6 +77,8 @@ struct ps_ent {
     char name[64];
 };
 
+ProcessScheduler* scheduler(void);
+
 #endif
 
 #ifdef __cplusplus

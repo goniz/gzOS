@@ -111,7 +111,7 @@ Process* ProcessScheduler::handlePreemptiveProc(void)
 {
     auto currentQuantum = _currentProc->_quantum;
 
-    debug_log("Current quantum: %d", currentQuantum);
+//    debug_log("Current quantum: %d", currentQuantum);
 
     if (currentQuantum > 0) {
         return _currentProc;
@@ -356,7 +356,7 @@ DEFINE_SYSCALL(SYS_NR_SIGNAL, signal)
 {
     SYSCALL_ARG(pid_t, pid);
     SYSCALL_ARG(int, signal_nr);
-
+	
     if (!global_scheduler->signalProc(pid, signal_nr)) {
         return -1;
     }
@@ -422,4 +422,8 @@ DEFINE_SYSCALL(SYS_NR_PS, ps)
     }
 
     return entries;
+}
+
+ProcessScheduler *scheduler(void) {
+    return global_scheduler.get();
 }

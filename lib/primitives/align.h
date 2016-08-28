@@ -1,6 +1,8 @@
 #ifndef __ALIGN_H__
 #define __ALIGN_H__
 
+#include <stdint.h>
+
 #define rounddown(x, y) (((x) / (y)) * (y))
 #define roundup(x, y)   ((((x) + ((y) - 1)) / (y)) * (y))
 #define powerof2(x)     ((((x) - 1) & (x)) == 0)

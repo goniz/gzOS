@@ -68,7 +68,7 @@ void ethernet_absorbe_packet(const char* phy, PacketBuffer packetBuffer) {
     incomingPacketBuffer.header = (ethernet_t*)packetBuffer.buffer;
     incomingPacketBuffer.phy = phy;
 
-    kprintf("ethernet_absorbe_packet\n");
+//    kprintf("ethernet_absorbe_packet\n");
 
     if (!gRxQueue.push(incomingPacketBuffer, false)) {
         // free the packet if we cant push it..

@@ -8,13 +8,8 @@
 #include <sys/stat.h>
 #include <sys/times.h>
 #include <sys/unistd.h>
-#include <cstring>
-#include <cstdio>
 #include <string>
 #include <platform/panic.h>
-#include <platform/malta/physmem.h>
-#include <lib/primitives/align.h>
-#include <platform/kprintf.h>
 #include <lib/syscall/syscall.h>
 
 extern "C" {
@@ -160,7 +155,7 @@ int _stat(const char *filepath, struct stat *st) {
  */
 
 clock_t _times(struct tms *buf) {
-    return -1;
+    return (clock_t) -1;
 }
 
 /*
@@ -189,7 +184,7 @@ int _wait(int *status) {
 extern "C" int uart_write(const char* s, size_t n);
 int _write_r(struct _reent *ptr, int file, const char *buf, int len)
 {
-	uart_write(buf, len);
+	uart_write(buf, (size_t) len);
 	return len;
 }
 

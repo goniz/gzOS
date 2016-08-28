@@ -5,15 +5,12 @@
 #include <platform/panic.h>
 #include <platform/kprintf.h>
 #include <assert.h>
-#include <lib/syscall/syscall.h>
-#include "tlb.h"
-#include "pmap.h"
-#include <vm_map.h>
-#include <pager.h>
+#include <lib/mm/pmap.h>
 
 extern const char _ebase[];
-
+extern int is_in_irq;
 extern int uart_puts(const char *s);
+struct user_regs *syscall_exception_handler(struct user_regs *current_regs);
 
 void interrupts_enable_all(void) {
     asm volatile("ei");
@@ -43,6 +40,10 @@ void platform_disable_hw_irq(int irq) {
     unsigned int irqMask = interrupts_disable();
     irqMask &= ~(1 << (SR_IMASK_SHIFT + irq));
     interrupts_enable(irqMask);
+}
+
+int platform_is_irq_context(void) {
+	return 0 != is_in_irq;
 }
 
 void interrupts_init() {
@@ -88,88 +89,6 @@ static const char *exceptions[32] = {
         [EXC_WATCH] = "Reference to watchpoint address",
         [EXC_MCHECK] = "Machine checkcore",
 };
-
-#define PDE_ID_FROM_PTE_ADDR(x) (((x) & 0x003ff000) >> 12)
-
-static vm_map_entry_t *locate_vm_map_entry(vm_addr_t addr) {
-    return vm_map_find_entry(get_active_vm_map(), addr);
-}
-
-struct user_regs *tlb_exception_handler(struct user_regs *regs) {
-    uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;
-    uint32_t vaddr = mips32_get_c0(C0_BADVADDR);
-    uint32_t epc = mips32_get_c0(C0_EPC);
-
-    kprintf("[tlb] %s at %08x!\n", exceptions[code], epc);
-    kprintf("[tlb] Caused by reference to $%08x!\n", vaddr);
-
-    if ((PTE_BASE <= vaddr) && (vaddr < (PTE_BASE + PTE_SIZE))) {
-        /* If the fault was in virtual pt range it means it's time to refill */
-        kprintf("[tlb] pde_refill\n");
-        uint32_t id = PDE_ID_FROM_PTE_ADDR(vaddr);
-        tlbhi_t entryhi = mips32_get_c0(C0_ENTRYHI);
-
-        pmap_t *active_pmap = get_active_pmap();
-        kprintf("[tlb] active_pmap %p\n", active_pmap);
-        if (NULL == active_pmap) {
-            kprintf("[tlb] no active pmap\n");
-            panic("NO ACTIVE PMAP..");
-        }
-
-        if (!(active_pmap->pde[id] & V_MASK)) {
-            panic("Trying to access unmapped memory region. Check for null pointers and stack overflows.");
-        }
-
-        id &= ~1;
-        pte_t entrylo0 = active_pmap->pde[id];
-        pte_t entrylo1 = active_pmap->pde[id + 1];
-        tlb_overwrite_random(entryhi, entrylo0, entrylo1);
-        return regs;
-    } else if (code == (EXC_TLBL | EXC_TLBS)) {
-        vm_map_entry_t *entry = locate_vm_map_entry(vaddr);
-        if (entry) {
-            /* If access to address was ok, but didn't match entry in page table,
-             * it means it's time to call pager */
-            if (entry->flags & (VM_READ | VM_WRITE)) {
-                assert(entry->object != NULL);
-                vm_addr_t offset = vaddr - entry->start;
-                entry->object->handler(entry, offset);
-            } else {
-                /* TODO: What if processor gets here? */
-                panic("???");
-            }
-        } else {
-            panic("Address not mapped.");
-        }
-    }
-
-
-    
-    return regs;
-}
-
-extern struct kernel_syscall syscall_table[];
-extern uint8_t __syscalls_start;
-extern uint8_t __syscalls_end;
-
-struct user_regs *syscall_exception_handler(struct user_regs *current_regs) {
-    const size_t n_syscalls = ((&__syscalls_end - &__syscalls_start) / sizeof(struct kernel_syscall));
-    int ret = -1;
-    struct user_regs *ctx_switch_in_regs = current_regs;
-
-    for (size_t i = 0; i < n_syscalls; i++) {
-        struct kernel_syscall *currrent = &syscall_table[i];
-        if (current_regs->a0 == currrent->number) {
-//            kprintf("%s: calling syscall %d handler %p\n", __FUNCTION__, currrent->number, currrent->handler);
-            ret = currrent->handler(&ctx_switch_in_regs, (va_list) current_regs->a1);
-            break;
-        }
-    }
-
-    current_regs->v0 = (uint32_t) ret;
-    current_regs->epc += 4;
-    return ctx_switch_in_regs;
-}
 
 void kernel_oops() {
     uint32_t code = (mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT;

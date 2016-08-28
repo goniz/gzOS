@@ -1,15 +1,10 @@
-//
-// Created by gz on 6/25/16.
-//
-
 #include <lib/primitives/spinlock_mutex.h>
-#include <platform/malta/vm.h>
 #include <platform/sbrk.h>
 #include <platform/panic.h>
-#include <lib/primitives/lock_guard.h>
 #include <cassert>
 #include <cstring>
 #include <lib/primitives/align.h>
+#include <lib/mm/vm.h>
 
 extern "C" char _end; // Defined by the linker
 

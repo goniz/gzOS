@@ -1,22 +1,15 @@
-//
-// Created by gz on 6/12/16.
-//
-
 #include <platform/process.h>
 #include <platform/malta/interrupts.h>
-#include <stdio.h>
-#include <platform/malta/physmem.h>
-#include <lib/primitives/align.h>
 #include <stdlib.h>
-#include <platform/kprintf.h>
-#include "pmap.h"
+#include <lib/mm/vm.h>
+#include <lib/mm/physmem.h>
+#include <lib/mm/pmap.h>
 
 #define VIRT_STACK_BASE 0x5000
 
 struct platform_process_ctx {
     pid_t pid;
     size_t stack_size;
-    struct pmap pmap;
     vm_page_t* stack_base;
 };
 
@@ -29,10 +22,8 @@ struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t s
 
     pctx->pid = pid;
     pctx->stack_size = stackSize;
-    pmap_init(&pctx->pmap);
-    pctx->pmap.asid = 10;
 
-    pctx->stack_base = pm_alloc_bytes(stackSize);
+    pctx->stack_base = pm_alloc(stackSize / PAGESIZE);
     if (NULL == pctx->stack_base) {
         platform_free_process_ctx(pctx);
         return NULL;
@@ -57,7 +48,6 @@ void platform_free_process_ctx(struct platform_process_ctx* pctx)
 
     pctx->pid = 0;
     pctx->stack_size = 0;
-    pmap_delete(&pctx->pmap);
 
     if (NULL != pctx->stack_base) {
         pm_free(pctx->stack_base);
@@ -102,10 +92,10 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
 
 void platform_set_active_process_ctx(struct platform_process_ctx* pctx)
 {
-    set_active_pmap(&pctx->pmap);
+
 }
 
 void platform_leave_process_ctx(void)
 {
-    set_active_pmap(NULL);
+
 }

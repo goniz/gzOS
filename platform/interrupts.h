@@ -26,6 +26,8 @@ int platform_enable_irq(int irq);
 void platform_disable_irq(int irq);
 void platform_print_irqs(void);
 
+int platform_is_irq_context(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -3,6 +3,7 @@
 
         .set	noreorder       // Don't allow the assembler to reorder instructions.
 
+		.global is_in_irq
         .local tlb_refill
         .local cache_error
         .local general_exception
@@ -15,6 +16,10 @@
         .local irq5
         .local irq6
         .local irq7
+
+		.section .data
+is_in_irq:
+		.word 0
 
         .section .ebase
 
@@ -51,7 +56,6 @@ general_exception:
         lw      $k1, 0($k1)   /* Load the address of a handler */
         beqz    $k1, 1f       /* If NULL then call kernel_oops */
         nop
-        // jr      $k1           /* Jump to handler */ 
 		b		irq_handler
         nop
 
@@ -165,13 +169,19 @@ irq_handler:
         mfc0    $k0, C0_EPC
         sw      $k0, (30 * 4)($sp)
 
-        # setup gp as per linker _gp symbol
-        la      $gp, _gp
         move    $a0, $sp
+
+		/* store non-zero value in `is_in_irq` */
+		la		$k0, is_in_irq
+		sw		$k0, 0($k0)
 
         /* Call the C routine. */
         jalr    $k1
         nop
+
+		/* store zero value in `is_in_irq` */
+		la		$k0, is_in_irq
+		sw		$zero, 0($k0)
 
         /*
          * Support for ctx switch.

@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <lib/scheduler/signals.h>
 #include <lib/syscall/syscall.h>
+#include <lib/scheduler/scheduler.h>
 #include "Suspendable.h"
 #include "lock_guard.h"
 
@@ -24,6 +25,10 @@ Suspendable::~Suspendable(void)
 
 void Suspendable::wait(void)
 {
+    if (platform_is_irq_context()) {
+        kprintf("Cannot sleep/wait in irq context..!\n");
+        return;
+    }
 
     pid_t currentPid = getpid();
 
@@ -39,6 +44,14 @@ void Suspendable::wait(void)
     syscall(SYS_NR_YIELD);
 }
 
+static void signal(pid_t pid, int signal) {
+    if (platform_is_irq_context()) {
+        scheduler()->signalProc(pid, signal);
+    } else {
+        kill(pid, signal);
+    }
+}
+
 void Suspendable::notifyOne(void)
 {
     lock_guard<InterruptsMutex> guard(m_mutex);
@@ -50,7 +63,9 @@ void Suspendable::notifyOne(void)
     pid_t pid = m_waitingPids.back();
     m_waitingPids.pop_back();
 
-    kill(pid, SIG_CONT);
+
+    signal(pid, SIG_CONT);
+
 }
 
 void Suspendable::notifyAll(void)
@@ -58,7 +73,7 @@ void Suspendable::notifyAll(void)
     lock_guard<InterruptsMutex> guard(m_mutex);
 
     for (pid_t pid : m_waitingPids) {
-        kill(pid, SIG_CONT);
+        signal(pid, SIG_CONT);
     }
 
     m_waitingPids.clear();

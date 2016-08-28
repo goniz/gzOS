@@ -1,9 +1,10 @@
 #include <lib/malloc/malloc.h>
-#include <platform/malta/physmem.h>
 #include <assert.h>
 #include <platform/drivers.h>
 #include <stdlib.h>
 #include <platform/interrupts.h>
+#include <lib/mm/vm.h>
+#include <lib/mm/physmem.h>
 #include "packet_pool.h"
 
 static MALLOC_DEFINE(mp_packet, "Packet buffer pool");
@@ -12,7 +13,7 @@ static int packet_pool_init(void)
 {
     kmalloc_init(mp_packet);
 
-    vm_page_t* page = pm_alloc_bytes(PACKET_POOL_SIZE);
+    vm_page_t* page = pm_alloc(PACKET_POOL_SIZE / PAGESIZE);
     assert(page != NULL);
 
     kmalloc_add_arena(mp_packet, (void*)page->vaddr, PACKET_POOL_SIZE);

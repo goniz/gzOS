@@ -1,9 +1,7 @@
-//
-// Created by gz on 6/25/16.
-//
-
 #ifndef GZOS_SBRK_H
 #define GZOS_SBRK_H
+
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {

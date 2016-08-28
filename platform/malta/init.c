@@ -3,14 +3,15 @@
 #include <platform/cpu.h>
 #include <platform/panic.h>
 #include "clock.h"
-#include "malta.h"
-#include "physmem.h"
 #include "tlb.h"
 #include <platform/malta/pci.h>
+#include <lib/mm/physmem.h>
+#include <lib/mm/vm.h>
+#include <lib/mm/vm_map.h>
+#include <lib/mm/vm_object.h>
 
 extern void system_init(int argc, const char **argv, const char **envp);
 extern void malloc_init(void* start, size_t size);
-extern void platform_init_bar_registers(void);
 
 void platform_init(int argc, const char **argv, const char **envp)
 {
@@ -22,6 +23,8 @@ void platform_init(int argc, const char **argv, const char **envp)
 
     pm_init();
     tlb_init();
+    vm_object_init();
+    vm_map_init();
 
     vm_page_t* malloc_page = pm_alloc(PAGESIZE);
     if (NULL == malloc_page) {

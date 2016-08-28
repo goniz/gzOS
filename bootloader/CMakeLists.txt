@@ -6,7 +6,7 @@ project(gzLoader C CXX ASM)
 
 add_executable(gzLoader main.cpp)
 
-target_link_libraries(gzLoader -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs -Wl,--no-whole-archive)
+target_link_libraries(gzLoader -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs mm -Wl,--no-whole-archive)
 target_link_libraries(gzLoader malloc scheduler primitives syscall)
 target_link_libraries(gzLoader c stdc++ supc++)
 set_target_properties(gzLoader PROPERTIES LINK_FLAGS "-Wl,-Map,${CMAKE_BINARY_DIR}/gzLoader.map")

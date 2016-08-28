@@ -43,6 +43,7 @@ void printProcessList(void)
 }
 
 static basic_queue<IncomingPacketBuffer> gInputPackets(10);
+static std::atomic<uint32_t> gCounter(0);
 
 __attribute__((used))
 static int EthernetEchoServer(int argc, const char **argv)
@@ -53,9 +54,23 @@ static int EthernetEchoServer(int argc, const char **argv)
             continue;
         }
 
+        gCounter++;
         ethernet_send_packet("eth0", incomingPacketBuffer.header->src, incomingPacketBuffer.header->type, &incomingPacketBuffer.buffer);
     }
 }
+
+__attribute__((used))
+static int StatsPrinterMain(int argc, const char **argv) {
+    while (true) {
+        syscall(SYS_NR_YIELD);
+        clock_delay_ms(1000);
+        syscall(SYS_NR_YIELD);
+
+        uint32_t value = gCounter;
+        kprintf("stats: rx packets %d\n", value);
+    }
+}
+
 
 void arp_handler(void* user_ctx, IncomingPacketBuffer* incomingPacket)
 {
@@ -72,6 +87,7 @@ int main(int argc, const char** argv)
 
     std::vector<const char*> args{};
     syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "EthernetEchoServer", EthernetEchoServer, args.size(), args.data(), 8096);
+    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "EthernetStatsPrinter", StatsPrinterMain, args.size(), args.data(), 8096);
 
 //    std::vector<const char*> args{};
 //    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Producer", ProducerMain, args.size(), args.data(), 8096);
