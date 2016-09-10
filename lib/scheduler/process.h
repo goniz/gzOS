@@ -39,6 +39,7 @@ public:
     int exit_code(void) const;
     int state(void) const;
     int type(void) const;
+    uint64_t cpu_time(void) const;
 
 private:
     __attribute__((noreturn))
@@ -52,6 +53,7 @@ private:
     pid_t _pid;
     enum Type _type;
     int _exitCode;
+    uint64_t _cpuTime;
     EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
 	struct platform_process_ctx* _pctx;

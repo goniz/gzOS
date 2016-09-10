@@ -197,6 +197,7 @@ bool pcnet_drv::start(void) {
         if (this->read_csr(0) & CSR0_IDON) {
             break;
         }
+
         clock_delay_ms(1);
     }
 
@@ -384,17 +385,17 @@ bool pcnet_drv::check(void) {
 bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     int i = 0;
     bool ret = true;
-    short status;
+    short status = 0;
     struct PCnetTxDescriptor *txd = &_ringBuffers->txRing[_currentTxBuf];
 
     /* Wait for completion by testing the OWN bit */
-    for (i = 1000; i > 0; i--) {
+    for (i = 2000; i > 0; i--) {
         status = le16_to_cpu(txd->status);
         if ((status & 0x8000) == 0) {
             break;
         }
 
-        clock_delay_ms(1);
+        platform_cpu_wait();
     }
 
     if (i <= 0) {

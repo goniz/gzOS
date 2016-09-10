@@ -2,11 +2,12 @@
 #include <platform/malta/interrupts.h>
 #include <mips.h>
 #include <platform/clock.h>
+#include <platform/cpu.h>
 #include <platform/malta/clock.h>
 #include <stddef.h>
 
 /* This counter is incremented every millisecond. */
-static volatile uint32_t timer_ms_count = 0;
+static volatile uint64_t timer_ms_count = 0;
 
 /* this is the second stage handler to be called on every ms */
 static clock_tick_handler_t timer_tick_handler = NULL;
@@ -30,15 +31,17 @@ void clock_init()
     interrupts_enable(isrMask);
 }
 
-uint32_t clock_get_ms()
+uint64_t clock_get_ms()
 {
     return timer_ms_count;
 }
 
 void clock_delay_ms(uint32_t ms)
 {
-    const uint32_t target_ms = timer_ms_count + ms;
-    while (target_ms > timer_ms_count);
+    const uint64_t target_ms = timer_ms_count + ms;
+    while (target_ms > timer_ms_count) {
+		platform_cpu_wait();
+	}
 }
 
 DEFINE_HW_IRQ(7)

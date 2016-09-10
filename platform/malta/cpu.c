@@ -168,3 +168,8 @@ int platform_cpu_icacheline_size(void)
 {
     return cpuinfo.ic_linesize;
 }
+
+void platform_cpu_wait(void)
+{
+	asm volatile("nop\nnop\nnop\nwait\nnop\nnop\nnop\n");
+}

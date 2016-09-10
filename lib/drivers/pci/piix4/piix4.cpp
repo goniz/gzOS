@@ -83,7 +83,7 @@ int piix4_isa_pci_probe(PCIDevice* pci_dev)
     /* setup PCI interrupt routing */
     malta_piix_func0_fixup(pci_dev);
     for (unsigned int j = PCIA; j < sizeof(pci_irq); j++) {
-        kprintf("[pci] routing PIN-%c to IRQ%d\n", 'A' + j - 1, pci_irq[j]);
+        //kprintf("[pci] routing PIN-%c to IRQ%d\n", 'A' + j - 1, pci_irq[j]);
         pci_dev->writeByte(PIIX4_FUNC0_PIRQRC + j - 1, (uint8_t) pci_irq[j]);
     }
 
@@ -102,10 +102,10 @@ int piix4_isa_pci_probe(PCIDevice* pci_dev)
 
         dev.setIrq(newIrq);
         dev.writeByte(PCI_INTERRUPT_LINE, dev.irq());
-        kprintf("[pci] rerouting IRQ%d to IRQ%d for [pci:%02x:%02x.%02x]\n",
+        /*kprintf("[pci] rerouting IRQ%d to IRQ%d for [pci:%02x:%02x.%02x]\n",
                 irq,
                 dev.irq(),
-                dev.bus(), dev.dev(), dev.devfunc());
+                dev.bus(), dev.dev(), dev.devfunc());*/
     }
 
     /* Done by YAMON 2.00 onwards */
@@ -133,9 +133,6 @@ int piix4_isa_pci_probe(PCIDevice* pci_dev)
     uint16_t cmd = pci_dev->readHalf(PCI_COMMAND);
     cmd |= PCI_COMMAND_SPECIAL;
     pci_dev->writeHalf(PCI_COMMAND, cmd);
-
-    printf("PIIX4_FUNC0_SERIRQC %02x\n", pci_dev->readByte(PIIX4_FUNC0_SERIRQC));
-    printf("PIIX4_FUNC0_GENCFG %lx\n", pci_dev->readWord(PIIX4_FUNC0_GENCFG));
 
     uint8_t odlc = pci_dev->readByte(PIIX4_FUNC0_DLC);
     /* Enable passive releases and delayed transaction */

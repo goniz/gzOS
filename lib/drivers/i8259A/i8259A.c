@@ -222,10 +222,12 @@ static uint16_t pic_pending(void) {
 int platform_register_irq(int irq, const char* owner, irq_handler_t handler, void* data)
 {
     if (irq >= PIC_MAX_IRQ_NUMBER) {
+        kprintf("%s: Failed to register IRQ. illegal irq number: %d\n", owner, irq);
         return 0;
     }
 
     if (_irq_handlers[irq].handler) {
+        kprintf("%s: Failed to register IRQ. Shared IRQ still unsupported! (%d)\n", owner, irq);
         return 0;
     }
 

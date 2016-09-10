@@ -40,16 +40,7 @@ void Suspendable::wait(void)
         }
     }
 
-    kill(currentPid, SIG_STOP);
-    syscall(SYS_NR_YIELD);
-}
-
-static void signal(pid_t pid, int signal) {
-    if (platform_is_irq_context()) {
-        scheduler()->signalProc(pid, signal);
-    } else {
-        kill(pid, signal);
-    }
+    scheduler_suspend();
 }
 
 void Suspendable::notifyOne(void)
@@ -64,8 +55,7 @@ void Suspendable::notifyOne(void)
     m_waitingPids.pop_back();
 
 
-    signal(pid, SIG_CONT);
-
+    scheduler_resume(pid);
 }
 
 void Suspendable::notifyAll(void)
@@ -73,7 +63,7 @@ void Suspendable::notifyAll(void)
     lock_guard<InterruptsMutex> guard(m_mutex);
 
     for (pid_t pid : m_waitingPids) {
-        signal(pid, SIG_CONT);
+        scheduler_resume(pid);
     }
 
     m_waitingPids.clear();

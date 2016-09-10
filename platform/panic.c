@@ -1,5 +1,6 @@
 #include <platform/kprintf.h>
 #include <unistd.h>
+#include <lib/scheduler/scheduler.h>
 #include "interrupts.h"
 
 __attribute__((noreturn))
@@ -15,6 +16,6 @@ void panic(const char* fmt, ...)
     kprintf("\n");
     va_end(arg);
 
-    kprintf("[panic]: current pid %d\n", getpid());
+    kprintf("[panic]: current pid %d\n", scheduler_current_pid());
     while (1);
 }

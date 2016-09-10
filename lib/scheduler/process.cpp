@@ -28,6 +28,7 @@ Process::Process(const char *name,
       _pid(generate_pid()),
       _type(procType),
       _exitCode(0),
+      _cpuTime(0),
       _entryPoint(entryPoint),
       _arguments(std::move(arguments)),
       _pending_signal_nr((int)SIG_NONE)
@@ -74,6 +75,10 @@ int Process::state(void) const
 int Process::type(void) const
 {
     return (int)_type;
+}
+
+uint64_t Process::cpu_time(void) const {
+    return _cpuTime;
 }
 
 __attribute__((noreturn))

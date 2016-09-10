@@ -11,6 +11,8 @@
 #include <string>
 #include <platform/panic.h>
 #include <lib/syscall/syscall.h>
+#include <sys/time.h>
+#include <platform/clock.h>
 
 extern "C" {
 
@@ -186,6 +188,23 @@ int _write_r(struct _reent *ptr, int file, const char *buf, int len)
 {
 	uart_write(buf, (size_t) len);
 	return len;
+}
+
+extern "C"
+int gettimeofday(struct timeval* tv, void* tz)
+{
+    if (tz) {
+        ((struct timezone*)tz)->tz_dsttime = 0;
+        ((struct timezone*)tz)->tz_minuteswest = 0;
+    }
+
+    if (tv) {
+        uint64_t now = clock_get_ms();
+        tv->tv_sec = (time_t) (now / 1000);
+        tv->tv_usec = (suseconds_t) (now % 1000);
+    }
+
+    return 0;
 }
 
 } // extern "C"

@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <lib/syscall/syscall.h>
+#include <platform/panic.h>
 #include "interrupts.h"
 
 int syscall(int number, ...)
@@ -13,6 +14,10 @@ int syscall(int number, ...)
 
     __attribute__((unused))
     register uint32_t a1 asm("a1") = (uint32_t)arg;
+
+    if (platform_is_irq_context()) {
+        panic("System calls cannot be used in IRQ context.");
+    }
 
 	asm volatile("syscall");
     va_end(arg);

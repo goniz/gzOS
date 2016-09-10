@@ -12,7 +12,9 @@ extern "C" {
 #endif
 
 /* Returns the number of ms passed since timer started running. */
-uint32_t clock_get_ms(void);
+uint64_t clock_get_ms(void);
+
+uint64_t clock_ticks_to_ms(void);
 
 /* busy wait `ms` */
 void clock_delay_ms(uint32_t ms);

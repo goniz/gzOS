@@ -3,6 +3,7 @@
 #include <platform/pci/pci.h>
 #include <platform/drivers.h>
 #include "interrupts.h"
+#include "kprintf.h"
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -22,7 +23,7 @@ void system_init(int argc, const char **argv, const char **envp)
     interrupts_enable_all();
 
     /* ... but if we do, safely trap here */
-	printf("main function exited. hanging.\n");
+	kprintf("main function exited. hanging.\n");
     while(1);
 }
 

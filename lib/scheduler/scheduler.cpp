@@ -2,9 +2,8 @@
 #include <platform/panic.h>
 #include <cstdio>
 #include <platform/clock.h>
-#include <lib/primitives/interrupts_mutex.h>
-#include <lib/primitives/lock_guard.h>
 #include <platform/process.h>
+#include <platform/cpu.h>
 #include <lib/syscall/syscall.h>
 #include <lib/scheduler/signals.h>
 #include <cstring>
@@ -31,11 +30,47 @@ void scheduler_run_main(init_main_t init_main, int argc, const char** argv)
     clock_set_handler(ProcessScheduler::onTickTimer, global_scheduler.get());
 }
 
+extern "C"
+int scheduler_signal_process(pid_t pid, int signal) {
+    InterruptsMutex mutex;
+    mutex.lock();
+    return global_scheduler->signalProc(pid, signal);
+}
+
+extern "C"
+int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {
+    return scheduler()->setTimeout(timeout_ms, (ProcessScheduler::TimeoutCallbackFunc) callback, arg);
+}
+
+extern "C"
+void scheduler_sleep(int timeout_ms) {
+    const auto pid = scheduler()->getCurrentPid();
+    scheduler()->sleep(pid, timeout_ms);
+}
+
+extern "C"
+void scheduler_suspend(void) {
+    const auto pid = scheduler()->getCurrentPid();
+    scheduler()->suspend(pid);
+}
+
+extern "C"
+void scheduler_resume(pid_t pid) {
+    scheduler()->resume(pid);
+}
+
+extern "C"
+pid_t scheduler_current_pid(void)
+{
+    return scheduler()->getCurrentPid();
+}
+
 __attribute__((noreturn))
 static int idleProcMain(int argc, const char** argv)
 {
     kputs("Idle thread is running!\n");
     while (true) {
+		platform_cpu_wait();
         syscall(SYS_NR_YIELD);
     }
 }
@@ -49,6 +84,7 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
       _mutex()
 {
     _processList.reserve(initialProcSize);
+    _timers.reserve(200);
 }
 
 Process* ProcessScheduler::andTheWinnerIs(void)
@@ -137,6 +173,7 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
         _currentProc->_context = regs;
         // play the quantum card
         _currentProc->_quantum--;
+        _currentProc->_cpuTime++;
 
         this->handleSignal(_currentProc);
 
@@ -185,6 +222,8 @@ switch_to_proc:
 struct user_regs *ProcessScheduler::onTickTimer(void *argument, struct user_regs *regs)
 {
     ProcessScheduler* self = (ProcessScheduler*)argument;
+
+    self->doTimers();
 
     return self->schedule(regs);
 }
@@ -262,7 +301,10 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
                     // this is a fast path for waking up a responsive process
                     // we just cut the quantum of the current process in order to push forward our
                     // newly awaken responsive process forward in line
-                    _currentProc->_quantum = 1;
+                    if (_currentProc) {
+                        _currentProc->_quantum = 1;
+                    }
+
                     break;
                 case Process::Preemptive:
                     _preemptiveQueue.push(proc);
@@ -316,6 +358,81 @@ void ProcessScheduler::handleSignal(Process *proc)
     }
 }
 
+bool ProcessScheduler::setTimeout(int timeout_ms, ProcessScheduler::TimeoutCallbackFunc cb, void* arg) {
+    InterruptsMutex mutex;
+    mutex.lock();
+
+    uint64_t now = clock_get_ms();
+    _timers.push_back({(uint64_t) timeout_ms, now + timeout_ms, cb, arg});
+    return true;
+}
+
+void ProcessScheduler::doTimers(void) {
+    auto iter = _timers.begin();
+
+    while (iter != _timers.end()) {
+        bool remove = false;
+        uint64_t  now = clock_get_ms();
+        if (now >= iter->target_ms) {
+            if (iter->callbackFunc) {
+                remove = !iter->callbackFunc(this, iter->arg);
+                if (!remove) {
+                    iter->target_ms = now + iter->timeout_ms;
+                }
+            }
+        }
+
+        if (remove) {
+            iter = _timers.erase(iter);
+        } else {
+            ++iter;
+        }
+    }
+}
+
+void ProcessScheduler::sleep(pid_t pid, int ms) {
+    InterruptsMutex mutex;
+    mutex.lock();
+
+    this->signalProc(pid, SIG_STOP);
+
+    this->setTimeout(ms, [](ProcessScheduler* self, void* arg) {
+        self->signalProc((pid_t) arg, SIG_CONT);
+        return false;
+    }, (void *) pid);
+
+    mutex.unlock();
+
+    syscall(SYS_NR_YIELD);
+}
+
+void ProcessScheduler::suspend(pid_t pid) {
+    InterruptsMutex mutex;
+
+    mutex.lock();
+    this->signalProc(pid, SIG_STOP);
+    mutex.unlock();
+
+    syscall(SYS_NR_YIELD);
+}
+
+void ProcessScheduler::resume(pid_t pid) {
+    InterruptsMutex mutex;
+
+    mutex.lock();
+    this->signalProc(pid, SIG_CONT);
+    mutex.unlock();
+}
+
+ProcessScheduler *scheduler(void) {
+    auto* sched = global_scheduler.get();
+
+    if (NULL == sched) {
+        panic("global_scheduler is NULL. yayks..");
+    }
+
+    return sched;
+}
 
 DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
 {
@@ -385,6 +502,7 @@ static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_lef
 
     ent->pid = proc->pid();
     ent->exit_code = proc->exit_code();
+    ent->cpu_time = (uint32_t) proc->cpu_time();
     ent->state = g_states[proc->state()];
     ent->type = g_types[proc->type()];
     strncpy(ent->name, proc->name(), sizeof(ent->name));
@@ -422,8 +540,4 @@ DEFINE_SYSCALL(SYS_NR_PS, ps)
     }
 
     return entries;
-}
-
-ProcessScheduler *scheduler(void) {
-    return global_scheduler.get();
 }

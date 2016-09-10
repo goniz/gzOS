@@ -27,6 +27,8 @@ uintptr_t platform_ioport_to_phy(uintptr_t ioport);
 uintptr_t platform_ioport_to_virt(uintptr_t ioport);
 uintptr_t platform_buffered_virt_to_unbuffered_virt(uintptr_t virt);
 
+void platform_cpu_wait(void);
+
 #if BYTE_ORDER == BIG_ENDIAN
     #define cpu_to_be32(x)  (x)
     #define cpu_to_be16(x)  (x)

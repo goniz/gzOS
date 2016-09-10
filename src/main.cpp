@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <lib/network/packet_pool.h>
 #include <lib/network/ethernet_layer.h>
+#include <ctime>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -33,13 +34,16 @@ void printProcessList(void)
 {
     std::vector<struct ps_ent> proclist = std::move(getProcessList(10));
 
-    printf("%-7s %-20s %-10s %-10s %s\n",
-           "PID", "Name", "Type", "State", "ExitCode");
+    InterruptsMutex mutex;
+    mutex.lock();
+    printf("%-7s %-20s %-10s %-10s %-10s %s\n",
+           "PID", "Name", "Type", "State", "CPU Time", "ExitCode");
     for (const auto& proc : proclist)
     {
-        printf("%-7d %-20s %-10s %-10s %d\n",
-               proc.pid, proc.name, proc.type, proc.state, proc.exit_code);
+        printf("%-7d %-20s %-10s %-10s %-10lu %d\n",
+               proc.pid, proc.name, proc.type, proc.state, proc.cpu_time, proc.exit_code);
     }
+    mutex.unlock();
 }
 
 static basic_queue<IncomingPacketBuffer> gInputPackets(10);
@@ -59,22 +63,15 @@ static int EthernetEchoServer(int argc, const char **argv)
     }
 }
 
-__attribute__((used))
-static int StatsPrinterMain(int argc, const char **argv) {
-    while (true) {
-        syscall(SYS_NR_YIELD);
-        clock_delay_ms(1000);
-        syscall(SYS_NR_YIELD);
-
-        uint32_t value = gCounter;
-        kprintf("stats: rx packets %d\n", value);
-    }
+static timeout_callback_ret statsPrinterTimerCb(void *arg) {
+    uint32_t value = gCounter;
+    uint64_t now = clock_get_ms();
+    kprintf("%lld: stats: rx packets %d\n", now, value);
+    return TIMER_KEEP_GOING;
 }
-
 
 void arp_handler(void* user_ctx, IncomingPacketBuffer* incomingPacket)
 {
-    kprintf("arp_handler\n");
     gInputPackets.push(*incomingPacket);
 }
 
@@ -87,18 +84,28 @@ int main(int argc, const char** argv)
 
     std::vector<const char*> args{};
     syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "EthernetEchoServer", EthernetEchoServer, args.size(), args.data(), 8096);
-    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "EthernetStatsPrinter", StatsPrinterMain, args.size(), args.data(), 8096);
 
-//    std::vector<const char*> args{};
-//    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "Producer", ProducerMain, args.size(), args.data(), 8096);
-//    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "Consumer", ResponsiveConsumer, args.size(), args.data(), 8096);
-//
-//    syscall(SYS_NR_YIELD);
-//    clock_delay_ms(5000);
+    scheduler_set_timeout(1000, statsPrinterTimerCb, nullptr);
+
+    while (1) {
+        scheduler_sleep(1000);
+
+        printProcessList();
+
+        InterruptsMutex mutex;
+        mutex.lock();
+        time_t time1;
+        time(&time1);
+        struct tm cpuTime{};
+        mktime(&cpuTime);
+        printf("time1: %s\n", asctime(localtime(&time1)));
+        mutex.unlock();
+    }
+
 //    printProcessList();
-
-    kill(getpid(), SIG_STOP);
-    syscall(SYS_NR_YIELD);
+//
+//    kill(getpid(), SIG_STOP);
+//    syscall(SYS_NR_YIELD);
     return 0;
 }
 

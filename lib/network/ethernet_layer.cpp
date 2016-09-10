@@ -48,7 +48,6 @@ static int ethernet_rx_main(int argc, const char **argv)
     while (1) {
         IncomingPacketBuffer inpkt;
         if (gRxQueue.pop(inpkt, true)) {
-            kprintf("ethernet_rx_main\n");
             const EthernetHandler* handler = find_handler(inpkt.header->type);
             if (nullptr == handler) {
                 kprintf("EthernetRx: could not find handler for ethernet type %04x. dropping packet.\n", inpkt.header->type);
@@ -67,8 +66,6 @@ void ethernet_absorbe_packet(const char* phy, PacketBuffer packetBuffer) {
     incomingPacketBuffer.buffer = packet_pool_view_of_buffer(packetBuffer, 0, 0);
     incomingPacketBuffer.header = (ethernet_t*)packetBuffer.buffer;
     incomingPacketBuffer.phy = phy;
-
-//    kprintf("ethernet_absorbe_packet\n");
 
     if (!gRxQueue.push(incomingPacketBuffer, false)) {
         // free the packet if we cant push it..

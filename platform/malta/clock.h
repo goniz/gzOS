@@ -14,7 +14,7 @@ extern "C" {
 void clock_init();
 
 /* Returns the number of ms passed since timer started running. */
-uint32_t clock_get_ms();
+uint64_t clock_get_ms();
 
 /* Processes core timer interrupts. */
 struct user_regs* mips_hw_irq7(struct user_regs* regs);
