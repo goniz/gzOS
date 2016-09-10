@@ -57,6 +57,8 @@ static int ethernet_rx_main(int argc, const char **argv)
                 handler->handler(handler->user_ctx, &inpkt);
             }
         }
+
+        syscall(SYS_NR_YIELD);
     }
 }
 #pragma clang diagnostic pop
@@ -103,6 +105,7 @@ int ethernet_register_device(const char* phyName, uint8_t* mac, void* user_ctx, 
 int ethernet_send_packet(const char* devName, uint8_t* dst, uint16_t ether_type, PacketView* packetView) {
     const EthernetDevice* ethernetDevice = find_device(devName);
     if (nullptr == ethernetDevice) {
+        packet_pool_free_underlying_buffer(packetView);
         return 0;
     }
 

@@ -7,6 +7,7 @@
 
 #include <platform/interrupts.h>
 #include <stdarg.h>
+#include <stdint.h>
 
 /*
  * typical system call definition looks like this:
@@ -35,10 +36,12 @@ struct kernel_syscall {
 };
 
 #define DEFINE_SYSCALL(number, name) \
-            int sys_ ##name(struct user_regs** regs, va_list args); \
+            extern "C" \
+            __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args); \
             __attribute__((section(".syscalls"),used)) \
-            struct kernel_syscall __sys_ ##name## _ks = { (number), (sys_handler_t) sys_ ##name }; \
-            int sys_ ##name(struct user_regs** regs, va_list args)
+            static const struct kernel_syscall __sys_ ##name## _ks = { (number), (sys_handler_t) sys_ ##name }; \
+            extern "C" \
+            __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args)
 
 #define SYSCALL_ARG(type, name) \
             type name = va_arg(args, type)

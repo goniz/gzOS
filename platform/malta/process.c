@@ -4,6 +4,7 @@
 #include <lib/mm/vm.h>
 #include <lib/mm/physmem.h>
 #include <lib/mm/pmap.h>
+#include <string.h>
 
 #define VIRT_STACK_BASE 0x5000
 
@@ -11,6 +12,7 @@ struct platform_process_ctx {
     pid_t pid;
     size_t stack_size;
     vm_page_t* stack_base;
+    struct _reent reent;
 };
 
 struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t stackSize)
@@ -28,6 +30,8 @@ struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t s
         platform_free_process_ctx(pctx);
         return NULL;
     }
+
+    _REENT_INIT_PTR((&pctx->reent));
 
     // TODO: enable virt stack mapping after mapping swap on ctx switch is implemented..
 //    kprintf("Allocated stack_base: virt %08x phy %08x real virt %08x\n", pctx->stack_base->virt_addr, pctx->stack_base->phys_addr, VIRT_STACK_BASE);
@@ -52,6 +56,8 @@ void platform_free_process_ctx(struct platform_process_ctx* pctx)
     if (NULL != pctx->stack_base) {
         pm_free(pctx->stack_base);
     }
+
+    _reclaim_reent(&pctx->reent);
 
     free(pctx);
 }
@@ -92,10 +98,11 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
 
 void platform_set_active_process_ctx(struct platform_process_ctx* pctx)
 {
-
+    _REENT = &pctx->reent;
 }
 
 void platform_leave_process_ctx(void)
 {
-
+    // TODO: save original reent and restore it here..
+//    _impure_ptr = NULL;
 }

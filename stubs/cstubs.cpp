@@ -69,7 +69,7 @@ int _fork() {
  all files are regarded as character special devices.
  The `sys/stat.h' header file required is distributed in the `include' subdirectory for this C library.
  */
-int _fstat_r(int file, struct stat *st) {
+int _fstat_r(struct _reent * reent, int file, struct stat *st) {
     st->st_mode = S_IFCHR;
     return 0;
 }
@@ -87,7 +87,7 @@ pid_t getpid(void)
  isatty
  Query whether output stream is a terminal. For consistency with the other minimal implementations,
  */
-int _isatty_r(int file) {
+int _isatty_r(struct _reent * reent, int file) {
     switch (file) {
         case STDOUT_FILENO:
         case STDERR_FILENO:
@@ -125,7 +125,7 @@ int _link(char *oldName, char * newName) {
  lseek
  Set position in a file. Minimal implementation:
  */
-int _lseek_r(int file, int ptr, int dir) {
+int _lseek_r(struct _reent * reent, int file, int ptr, int dir) {
     return 0;
 }
 
@@ -146,7 +146,7 @@ int _read_r(struct _reent * reent, int file, char *ptr, int len)
  int    _EXFUN(stat,( const char *__path, struct stat *__sbuf ));
  */
 
-int _stat(const char *filepath, struct stat *st) {
+int _stat_r(struct _reent * reent, const char *filepath, struct stat *st) {
     st->st_mode = S_IFCHR;
     return 0;
 }

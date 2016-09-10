@@ -17,6 +17,9 @@
 
 #ifdef __cplusplus
 
+extern "C"
+int sys_ps(struct user_regs **regs, va_list args);
+
 class ProcessScheduler
 {
 public:
@@ -60,7 +63,7 @@ private:
     Process* handleResponsiveProc(void);
     Process* handlePreemptiveProc(void);
     void doTimers(void);
-    friend int sys_ps(struct user_regs **regs, va_list args);
+    friend int ::sys_ps(struct user_regs **regs, va_list args);
 
     struct TimerControlBlock {
         uint64_t timeout_ms;
@@ -99,8 +102,6 @@ extern "C" {
 typedef int (*init_main_t)(int argc, const char** argv);
 void scheduler_run_main(init_main_t init_main, int argc, const char** argv);
 
-int scheduler_signal_process(pid_t pid, int signal);
-
 typedef enum {
     TIMER_THATS_ENOUGH = 0,
     TIMER_KEEP_GOING = 1
@@ -112,7 +113,9 @@ int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg
 void scheduler_sleep(int timeout_ms);
 void scheduler_suspend(void);
 void scheduler_resume(pid_t pid);
+
 pid_t scheduler_current_pid(void);
+int scheduler_signal_process(pid_t pid, int signal);
 
 #ifdef __cplusplus
 };
