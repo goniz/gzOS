@@ -30,6 +30,6 @@ struct driver_entry {
 int drivers_init(void);
 
 #ifdef __cplusplus
-};
+}
 #endif
 #endif //GZOS_DRIVERS_H

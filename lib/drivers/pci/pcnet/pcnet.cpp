@@ -8,7 +8,8 @@
 #include <malloc.h>
 #include <lib/primitives/align.h>
 #include <lib/network/packet_pool.h>
-#include <lib/network/ethernet_layer.h>
+#include <lib/network/ethernet.h>
+#include <platform/malta/clock.h>
 #include "pcnet.h"
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, pcnet, pcnet_pci_probe);
@@ -345,7 +346,6 @@ uint32_t pcnet_drv::ioread(Registers reg) const {
 
 void pcnet_drv::iowrite(Registers reg, uint32_t value) {
     const uint8_t offset = this->ioreg(reg);
-//    kprintf("%s: iowrite(%d) offset 0x%02x value %08x\n", _name, reg, offset, value);
     if (_dwio) {
         *((volatile uint32_t *) (_ioport + offset)) = cpu_to_le32(value);
     } else {
@@ -389,7 +389,7 @@ bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     struct PCnetTxDescriptor *txd = &_ringBuffers->txRing[_currentTxBuf];
 
     /* Wait for completion by testing the OWN bit */
-    for (i = 2000; i > 0; i--) {
+    for (i = 1000; i > 0; i--) {
         status = le16_to_cpu(txd->status);
         if ((status & 0x8000) == 0) {
             break;
@@ -419,15 +419,15 @@ bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     this->write_csr(CSR0, this->read_csr(CSR0) | 0x0008);
 
 exit:
-    /* Wait for completion by testing the OWN bit */
-    for (i = 1000; i > 0; i--) {
-        status = le16_to_cpu(txd->status);
-        if ((status & 0x8000) == 0) {
-            break;
-        }
-
-        clock_delay_ms(1);
-    }
+//    /* Wait for completion by testing the OWN bit */
+//    for (i = 1000; i > 0; i--) {
+//        status = le16_to_cpu(txd->status);
+//        if ((status & 0x8000) == 0) {
+//            break;
+//        }
+//
+//        platform_cpu_wait();
+//    }
 
     if (++_currentTxBuf >= TxRingSize) {
         _currentTxBuf = 0;
@@ -481,6 +481,11 @@ void pcnet_drv::drainRxRing(void)
                 _counters.rx_errors++;
             } else {
                 buf = (void*)platform_iomem_phy_to_virt(le32_to_cpu(rdx->buf));
+                if (-1 == (int) buf) {
+                    goto release_rdx;
+                }
+
+                rdx->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) buf));
                 invalidate_dcache_range((unsigned long)buf,
                                         (unsigned long)buf + pkt_len);
 
@@ -489,12 +494,14 @@ void pcnet_drv::drainRxRing(void)
                     kprintf("%s: packet pool exhausted. dropping frame..\n", _name);
                 } else {
                     memcpy(packetBuffer.buffer, buf, pkt_len);
-                    ethernet_absorbe_packet(_name, packetBuffer);
+                    ethernet_absorb_packet(_name, packetBuffer);
                 }
-
             }
         }
 
+    release_rdx:
+        RxRingBufferType* origbuf = (RxRingBufferType *) (_rxBuffers.get() + i);
+        rdx->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) origbuf));
         rdx->buf_size = cpu_to_le16(-PacketSize);
         rdx->reserved = 0;
         rdx->status = cpu_to_le16(0x8000);

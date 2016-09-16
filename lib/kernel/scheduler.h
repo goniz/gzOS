@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 #include <lib/primitives/spinlock_mutex.h>
-#include <lib/scheduler/process.h>
+#include <lib/kernel/process.h>
 #include <lib/primitives/basic_queue.h>
 #include <platform/interrupts.h>
 #endif
@@ -35,6 +35,7 @@ public:
                                   size_t stackSize, int initialQuantum = DefaultResponsiveQuantum);
 
     bool signalProc(pid_t pid, int signal);
+    Process *getCurrentProcess(void) const;
     Process* getProcessByPid(pid_t pid) const;
     bool setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
     void sleep(pid_t pid, int ms);
@@ -53,7 +54,6 @@ public:
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
     void suspend(pid_t pid);
-
     void resume(pid_t pid);
 
 private:

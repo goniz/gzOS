@@ -32,12 +32,12 @@ CMAKE_FORCE_CXX_COMPILER( ${TC_PATH}${CROSS_COMPILE}g++ GNU )
 # We must set the OBJCOPY setting into cache so that it's available to the
 # whole project. Otherwise, this does not get set into the CACHE and therefore
 # the build doesn't know what the OBJCOPY filepath is
-set( CMAKE_OBJCOPY      ${TC_PATH}${CROSS_COMPILE}objcopy
-    CACHE FILEPATH "The toolchain objcopy command " FORCE )
+set( CMAKE_OBJCOPY  ${TC_PATH}${CROSS_COMPILE}objcopy
+     CACHE FILEPATH "The toolchain objcopy command " FORCE )
 
 # Set the CMAKE C flags (which should also be used by the assembler!
 set( ARCH_FLAGS "-msoft-float -march=mips32r2 -minterlink-mips16 -mno-gpopt -G 0 -mno-abicalls -fno-pic")
-set(COMMON_FLAGS "-O0 -ggdb -nostartfiles")
+set( COMMON_FLAGS "-O2 -ggdb -nostartfiles")
 # set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finstrument-functions" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAGS} ${COMMON_FLAGS} -std=gnu11" CACHE STRING "" )

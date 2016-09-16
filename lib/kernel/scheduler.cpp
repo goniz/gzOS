@@ -1,11 +1,11 @@
-#include <lib/scheduler/scheduler.h>
+#include <lib/kernel/scheduler.h>
 #include <platform/panic.h>
 #include <cstdio>
 #include <platform/clock.h>
 #include <platform/process.h>
 #include <platform/cpu.h>
 #include <lib/syscall/syscall.h>
-#include <lib/scheduler/signals.h>
+#include <lib/kernel/signals.h>
 #include <cstring>
 #include <platform/drivers.h>
 
@@ -379,6 +379,10 @@ void ProcessScheduler::resume(pid_t pid) {
     mutex.lock();
     this->signalProc(pid, SIG_CONT);
     mutex.unlock();
+}
+
+Process *ProcessScheduler::getCurrentProcess(void) const {
+    return _currentProc;
 }
 
 ProcessScheduler *scheduler(void) {

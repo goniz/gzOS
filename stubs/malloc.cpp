@@ -11,6 +11,7 @@
 #include <platform/panic.h>
 #include <cstring>
 #include <cassert>
+#include <platform/kprintf.h>
 
 static constexpr uint16_t AlignedMemBlockMagic = 0xAAFF;
 struct AlignedMemBlock {

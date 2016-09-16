@@ -3,7 +3,7 @@
 //
 
 #include <stdio.h>
-#include <lib/scheduler/scheduler.h>
+#include <lib/kernel/scheduler.h>
 #include <platform/malta/interrupts.h>
 #include <platform/panic.h>
 

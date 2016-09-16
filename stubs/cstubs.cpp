@@ -34,7 +34,7 @@ void _exit(int status) {
 	panic("_exit called.");
 }
 
-int _open(const char *pathname, int flags, mode_t mode)
+int _open_r(struct _reent * reent, const char *pathname, int flags, mode_t mode)
 {
 	errno = -ENOENT;
 	return 0;
@@ -173,7 +173,7 @@ int _unlink(char *name) {
  wait
  Wait for a child process. Minimal implementation:
  */
-int _wait(int *status) {
+int _wait_r(struct _reent *ptr, int *status) {
     errno = ECHILD;
     return -1;
 }
@@ -184,10 +184,18 @@ int _wait(int *status) {
  Returns -1 on error or number of bytes sent
  */
 extern "C" int uart_write(const char* s, size_t n);
+
+extern "C"
+int write(int file, const void* buf, size_t len)
+{
+    uart_write((const char *) buf, (size_t) len);
+    return (int) len;
+}
+
+extern "C"
 int _write_r(struct _reent *ptr, int file, const char *buf, int len)
 {
-	uart_write(buf, (size_t) len);
-	return len;
+	return write(file, buf, (size_t) len);
 }
 
 extern "C"

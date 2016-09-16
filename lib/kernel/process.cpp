@@ -3,12 +3,12 @@
 //
 
 
-#include <lib/scheduler/process.h>
+#include <lib/kernel/process.h>
 #include <cstring>
 #include <platform/process.h>
 #include <platform/panic.h>
 #include <platform/kprintf.h>
-#include <lib/scheduler/signals.h>
+#include <lib/kernel/signals.h>
 
 static std::atomic<pid_t> g_next_pid(1);
 static pid_t generate_pid(void)

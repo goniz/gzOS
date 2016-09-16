@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cstring>
 #include <atomic>
-#include "ethernet_layer.h"
+#include <cassert>
+#include <platform/malta/clock.h>
+#include "ethernet.h"
 #include "packet_pool.h"
 
 struct EthernetHandler {
@@ -17,7 +19,7 @@ struct EthernetHandler {
 struct EthernetDevice {
     char name[16];
     const char* phy;
-    uint8_t mac[6];
+    MacAddress mac;
     void* user_ctx;
     ethernet_xmit_t xmit;
 };
@@ -29,6 +31,8 @@ static const EthernetHandler* find_handler(uint16_t ether_type);
 static const EthernetDevice* find_device(const char* name);
 static const EthernetDevice* find_device_by_phy(const char* name);
 
+DECLARE_DRIVER(ethernet_layer, ethernet_layer_init, STAGE_SECOND);
+
 static basic_queue<IncomingPacketBuffer> gRxQueue(RX_QUEUE_SIZE);
 static std::vector<EthernetHandler> gHandlers;
 static std::vector<EthernetDevice> gDevices;
@@ -37,8 +41,6 @@ static std::atomic<int> gDevIndex(0);
 static int generate_dev_index(void) {
     return gDevIndex.fetch_add(1, std::memory_order::memory_order_relaxed);
 }
-
-DECLARE_DRIVER(ethernet_layer, ethernet_layer_init, STAGE_SECOND);
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -52,22 +54,28 @@ static int ethernet_rx_main(int argc, const char **argv)
             if (nullptr == handler) {
                 kprintf("EthernetRx: could not find handler for ethernet type %04x. dropping packet.\n", inpkt.header->type);
                 packet_pool_free_underlying_buffer(&inpkt.buffer);
-            } else {
-                inpkt.buffer = packet_pool_view_of_buffer(inpkt.buffer.underlyingBuffer, sizeof(ethernet_t), 0);
-                handler->handler(handler->user_ctx, &inpkt);
+                continue;
             }
-        }
 
-        syscall(SYS_NR_YIELD);
+            const EthernetDevice* ethernetDevice = find_device_by_phy(inpkt.inputDevice);
+            assert(ethernetDevice != nullptr);
+
+            // the handler wants to know the eth%d device name, not the underlying phy device..
+            // as he cant do anything with it..
+            inpkt.inputDevice = ethernetDevice->name;
+            // advance the buffer view to start after the ethernet header
+            inpkt.buffer = packet_pool_view_of_buffer(inpkt.buffer.underlyingBuffer, sizeof(ethernet_t), 0);
+            handler->handler(handler->user_ctx, &inpkt);
+        }
     }
 }
 #pragma clang diagnostic pop
 
-void ethernet_absorbe_packet(const char* phy, PacketBuffer packetBuffer) {
+void ethernet_absorb_packet(const char *phy, PacketBuffer packetBuffer) {
     IncomingPacketBuffer incomingPacketBuffer;
     incomingPacketBuffer.buffer = packet_pool_view_of_buffer(packetBuffer, 0, 0);
     incomingPacketBuffer.header = (ethernet_t*)packetBuffer.buffer;
-    incomingPacketBuffer.phy = phy;
+    incomingPacketBuffer.inputDevice = phy;
 
     if (!gRxQueue.push(incomingPacketBuffer, false)) {
         // free the packet if we cant push it..
@@ -124,6 +132,20 @@ int ethernet_send_packet(const char* devName, uint8_t* dst, uint16_t ether_type,
 
     ethernetDevice->xmit(ethernetDevice->user_ctx, &ethPacket);
     packet_pool_free(&ethPacket);
+    return 1;
+}
+
+int ethernet_device_hwaddr(const char *devName, void *buf, size_t *size) {
+    if (!devName || !buf || !size || *size != 6) {
+        return 0;
+    }
+
+    const EthernetDevice* ethernetDevice = find_device(devName);
+    if (nullptr == ethernetDevice) {
+        return 0;
+    }
+
+    memcpy(buf, ethernetDevice->mac, 6);
     return 1;
 }
 

@@ -1,7 +1,3 @@
-//
-// Created by gz on 6/11/16.
-//
-
 #ifndef GZOS_PROCESS_H
 #define GZOS_PROCESS_H
 
@@ -11,6 +7,7 @@
 #include <vector>
 #include <sys/types.h>
 #include <atomic>
+#include "FileDescriptorCollection.h"
 
 class ProcessScheduler;
 class Process
@@ -41,6 +38,10 @@ public:
     int type(void) const;
     uint64_t cpu_time(void) const;
 
+    FileDescriptorCollection& fileDescriptorCollection(void) {
+        return _fileDescriptors;
+    }
+
 private:
     __attribute__((noreturn))
     static void processMainLoop(void* argument);
@@ -58,6 +59,7 @@ private:
     std::vector<const char*> _arguments;
 	struct platform_process_ctx* _pctx;
     std::atomic<int> _pending_signal_nr;
+    FileDescriptorCollection _fileDescriptors;
 };
 
 #endif //GZOS_PROCESS_H

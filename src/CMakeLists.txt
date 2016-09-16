@@ -8,15 +8,9 @@ add_executable(gzOS main.cpp)
 
 target_link_libraries(gzOS -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs -Wl,--no-whole-archive)
 target_link_libraries(gzOS -Wl,--whole-archive i8259A piix4 pcnet e1000 virtio_shmem -Wl,--no-whole-archive)
-target_link_libraries(gzOS -Wl,--whole-archive mm network malloc scheduler primitives syscall -Wl,--no-whole-archive)
+target_link_libraries(gzOS -Wl,--whole-archive mm network malloc kernel primitives syscall -Wl,--no-whole-archive)
 target_link_libraries(gzOS c stdc++ supc++)
 set_target_properties(gzOS PROPERTIES LINK_FLAGS "-Wl,-Map,${CMAKE_BINARY_DIR}/gzOS.map")
-
-#add_custom_command(
-#        TARGET gzOS
-#        POST_BUILD
-#        COMMAND ln ./src/gzOS${CMAKE_EXECUTABLE_SUFFIX} gzOS.elf
-#        WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_custom_command(
     TARGET gzOS POST_BUILD

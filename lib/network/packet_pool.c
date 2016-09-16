@@ -11,6 +11,8 @@ static MALLOC_DEFINE(mp_packet, "Packet buffer pool");
 
 static int packet_pool_init(void)
 {
+    assert(PACKET_POOL_SIZE % PAGESIZE == 0);
+
     kmalloc_init(mp_packet);
 
     vm_page_t* page = pm_alloc(PACKET_POOL_SIZE / PAGESIZE);

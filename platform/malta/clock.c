@@ -81,3 +81,8 @@ void clock_set_handler(clock_tick_handler_t handler, void* argument)
     timer_tick_handler_arg = argument;
     interrupts_enable(isrMask);
 }
+
+uint32_t clock_get_raw_count(void)
+{
+    return mips32_get_c0(C0_COUNT);
+}
