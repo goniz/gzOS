@@ -83,12 +83,101 @@ extern void hashmap_free(map_t in);
 extern int hashmap_length(map_t in);
 
 #ifdef __cplusplus
-
-
-
+}
 #endif
 
 #ifdef __cplusplus
-}
+#include <cstring>
+#include <cstdint>
+#include <cstdio>
+
+template<typename T>
+struct StringKeyConverter;
+
+template<typename TKey, typename TValue>
+class HashMap
+{
+public:
+    static constexpr int MAX_KEY_SIZE = 16;
+    HashMap(void) {
+        _map = hashmap_new();
+    }
+
+    ~HashMap(void) {
+        hashmap_free(_map);
+    }
+
+    bool put(const TKey& key, TValue&& value) noexcept {
+        TValue* data = new (std::nothrow) TValue(std::move(value));
+        if (nullptr == data) {
+            return false;
+        }
+
+        char* stringKey = new (std::nothrow) char[MAX_KEY_SIZE];
+        if (nullptr == stringKey) {
+            delete(data);
+            return false;
+        }
+
+
+        StringKeyConverter<TKey>::generate_key(key, stringKey, MAX_KEY_SIZE);
+        hashmap_put(_map, stringKey, data);
+        return true;
+    }
+
+    TValue* get(const TKey& key) noexcept {
+        TValue* valuePtr = nullptr;
+        char stringKey[MAX_KEY_SIZE];
+        StringKeyConverter<TKey>::generate_key(key, stringKey, sizeof(stringKey));
+
+        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &valuePtr)) {
+            return nullptr;
+        }
+
+        return valuePtr;
+    }
+
+    bool remove(const TKey& key) noexcept {
+        TValue** valuePtr = nullptr;
+        char stringKey[MAX_KEY_SIZE];
+
+        StringKeyConverter<TKey>::generate_key(key, stringKey, sizeof(stringKey));
+        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &valuePtr)) {
+            return false;
+        }
+
+        TValue* value = *valuePtr;
+        char* oldKey = stringKey;
+
+        if (MAP_OK != hashmap_remove(_map, &oldKey)) {
+            return false;
+        }
+
+        delete(value);
+        delete[](oldKey);
+        return true;
+    }
+
+    void iterate(PFany f, any_t item) {
+        hashmap_iterate(_map, f, item);
+    }
+
+private:
+    map_t _map;
+};
+
+template<>
+struct StringKeyConverter<const char*> {
+    static void generate_key(const char*& key, char* output_key, size_t size) {
+        strncpy(output_key, key, size - 1);
+    }
+};
+
+template<>
+struct StringKeyConverter<uint32_t> {
+    static void generate_key(const uint32_t& key, char* output_key, size_t size) {
+        sprintf(output_key, "%08x", (unsigned int) key);
+    }
+};
 #endif
 #endif // __HASHMAP_H__

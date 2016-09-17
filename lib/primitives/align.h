@@ -31,4 +31,6 @@
         (a) = _b; (b) = _a; })
 #endif
 
+#define pointer_is_in_range(ptr, start, length) (((intptr_t)(start) <= (intptr_t)(ptr)) && ((intptr_t)(ptr) < ((intptr_t)(start) + (intptr_t)(length))))
+
 #endif // __ALIGN_H__

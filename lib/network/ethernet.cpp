@@ -6,9 +6,8 @@
 #include <cstring>
 #include <atomic>
 #include <cassert>
-#include <platform/malta/clock.h>
 #include "ethernet.h"
-#include "packet_pool.h"
+#include "nbuf.h"
 
 struct EthernetHandler {
     uint16_t ether_type;
@@ -33,7 +32,8 @@ static const EthernetDevice* find_device_by_phy(const char* name);
 
 DECLARE_DRIVER(ethernet_layer, ethernet_layer_init, STAGE_SECOND);
 
-static basic_queue<IncomingPacketBuffer> gRxQueue(RX_QUEUE_SIZE);
+static basic_queue<NetworkBuffer*> gRxQueue(RX_QUEUE_SIZE);
+static basic_queue<NetworkBuffer*> gTxQueue(RX_QUEUE_SIZE);
 static std::vector<EthernetHandler> gHandlers;
 static std::vector<EthernetDevice> gDevices;
 static std::atomic<int> gDevIndex(0);
@@ -48,39 +48,51 @@ _GLIBCXX_NORETURN
 static int ethernet_rx_main(int argc, const char **argv)
 {
     while (1) {
-        IncomingPacketBuffer inpkt;
-        if (gRxQueue.pop(inpkt, true)) {
-            const EthernetHandler* handler = find_handler(inpkt.header->type);
+        NetworkBuffer* nbuf = NULL;
+        if (gRxQueue.pop(nbuf, true)) {
+            const ethernet_t* header = ethernet_hdr(nbuf);
+            const EthernetHandler* handler = find_handler(header->type);
             if (nullptr == handler) {
-                kprintf("EthernetRx: could not find handler for ethernet type %04x. dropping packet.\n", inpkt.header->type);
-                packet_pool_free_underlying_buffer(&inpkt.buffer);
+                kprintf("EthernetRx: could not find handler for ethernet type %04x. dropping packet.\n", header->type);
+                nbuf_free(nbuf);
                 continue;
             }
 
-            const EthernetDevice* ethernetDevice = find_device_by_phy(inpkt.inputDevice);
+            const EthernetDevice* ethernetDevice = find_device_by_phy(nbuf_device(nbuf));
             assert(ethernetDevice != nullptr);
 
             // the handler wants to know the eth%d device name, not the underlying phy device..
             // as he cant do anything with it..
-            inpkt.inputDevice = ethernetDevice->name;
-            // advance the buffer view to start after the ethernet header
-            inpkt.buffer = packet_pool_view_of_buffer(inpkt.buffer.underlyingBuffer, sizeof(ethernet_t), 0);
-            handler->handler(handler->user_ctx, &inpkt);
+            nbuf_set_device(nbuf, ethernetDevice->name);
+            // set the l3 header offset
+            nbuf_set_l3(nbuf, (void*)header->data, header->type);
+
+            handler->handler(handler->user_ctx, nbuf);
         }
     }
 }
+
+_GLIBCXX_NORETURN
+static int ethernet_tx_main(int argc, const char **argv)
+{
+    while (true);
+}
+
 #pragma clang diagnostic pop
 
-void ethernet_absorb_packet(const char *phy, PacketBuffer packetBuffer) {
-    IncomingPacketBuffer incomingPacketBuffer;
-    incomingPacketBuffer.buffer = packet_pool_view_of_buffer(packetBuffer, 0, 0);
-    incomingPacketBuffer.header = (ethernet_t*)packetBuffer.buffer;
-    incomingPacketBuffer.inputDevice = phy;
+void ethernet_absorb_packet(NetworkBuffer* nbuf, const char* phyName) {
+    nbuf_use(nbuf); // increase the ref count for this function
 
-    if (!gRxQueue.push(incomingPacketBuffer, false)) {
-        // free the packet if we cant push it..
-        packet_pool_free(&packetBuffer);
+    nbuf_set_device(nbuf, phyName);
+    nbuf_set_l2(nbuf, nbuf_data(nbuf));
+
+    nbuf_use(nbuf); // increase the ref count so it wont be freed while waiting on the queue..
+    if (!gRxQueue.push(nbuf, false)) {
+        // reverse the queue's ref count
+        nbuf_free(nbuf);
     }
+
+    nbuf_free(nbuf);
 }
 
 int ethernet_register_handler(uint16_t ether_type, ethernet_handler_t handler, void *user_ctx) {
@@ -110,28 +122,21 @@ int ethernet_register_device(const char* phyName, uint8_t* mac, void* user_ctx, 
     return 1;
 }
 
-int ethernet_send_packet(const char* devName, uint8_t* dst, uint16_t ether_type, PacketView* packetView) {
-    const EthernetDevice* ethernetDevice = find_device(devName);
+int ethernet_send_packet(NetworkBuffer* nbuf, MacAddress dst) {
+    const EthernetDevice* ethernetDevice = find_device(nbuf_device(nbuf));
     if (nullptr == ethernetDevice) {
-        packet_pool_free_underlying_buffer(packetView);
+        nbuf_free(nbuf);
         return 0;
     }
 
-    PacketBuffer ethPacket = packet_pool_alloc(sizeof(ethernet_t) + packetView->size);
-    if (!ethPacket.buffer) {
-        packet_pool_free_underlying_buffer(packetView);
-        return 0;
-    }
-
-    ethernet_t* header = (ethernet_t *) ethPacket.buffer;
+    ethernet_t* header = ethernet_hdr(nbuf);
     memcpy(header->dst, dst, 6);
     memcpy(header->src, ethernetDevice->mac, 6);
-    header->type = ether_type;
-    memcpy(header->data, packetView->buffer, packetView->size);
-    packet_pool_free_underlying_buffer(packetView);
+    // header->type was already set in ethernet_alloc_nbuf()
+    assert(header->type == nbuf->l3_proto);
 
-    ethernetDevice->xmit(ethernetDevice->user_ctx, &ethPacket);
-    packet_pool_free(&ethPacket);
+    ethernetDevice->xmit(ethernetDevice->user_ctx, nbuf);
+    nbuf_free(nbuf);
     return 1;
 }
 
@@ -147,6 +152,21 @@ int ethernet_device_hwaddr(const char *devName, void *buf, size_t *size) {
 
     memcpy(buf, ethernetDevice->mac, 6);
     return 1;
+}
+
+NetworkBuffer* ethernet_alloc_nbuf(const char* device, uint16_t proto, size_t size) {
+    NetworkBuffer* nbuf = nbuf_alloc(sizeof(ethernet_t) + size);
+    if (!nbuf) {
+        return nbuf;
+    }
+
+    nbuf_set_device(nbuf, device);
+    nbuf_set_l2(nbuf, nbuf_data(nbuf));
+    nbuf_set_l3(nbuf, (char*)nbuf_data(nbuf) + sizeof(ethernet_t), proto);
+    nbuf_set_size(nbuf, nbuf_capacity(nbuf));
+
+    ethernet_hdr(nbuf)->type = proto;
+    return nbuf;
 }
 
 static const EthernetHandler* find_handler(uint16_t ether_type) {

@@ -2,109 +2,19 @@
 #include <cstring>
 #include <lib/kernel/scheduler.h>
 #include <platform/cpu.h>
-#include <platform/malta/clock.h>
-#include <unordered_map>
 #include <lib/primitives/hashmap.h>
-#include <cstdio>
 #include "arp.h"
+#include "ethernet.h"
+#include "nbuf.h"
 
 static int arp_layer_init(void);
 static timeout_callback_ret arp_timeout_callback(void* arg);
-static void arp_handler(void* user_ctx, IncomingPacketBuffer* incomingPacket);
+static void arp_handler(void* user_ctx, NetworkBuffer* nbuf);
 static bool arp_is_valid(arp_t *arp);
 static void arp_handle_request(arp_t *arp, const char *inputDevice);
 static void arp_handle_response(arp_t *arp);
 
 DECLARE_DRIVER(arp_layer, arp_layer_init, STAGE_SECOND + 1);
-
-template<typename T>
-struct StringKeyConverter;
-
-template<typename TKey, typename TValue>
-class HashMap
-{
-public:
-    static constexpr int MAX_KEY_SIZE = 16;
-    HashMap(void) {
-        _map = hashmap_new();
-    }
-
-    ~HashMap(void) {
-        hashmap_free(_map);
-    }
-
-    bool put(const TKey& key, TValue&& value) noexcept {
-        TValue* data = new (std::nothrow) TValue(std::move(value));
-        if (nullptr == data) {
-            return false;
-        }
-
-        char* stringKey = new (std::nothrow) char[MAX_KEY_SIZE];
-        if (nullptr == stringKey) {
-            delete(data);
-            return false;
-        }
-
-
-        StringKeyConverter<TKey>::generate_key(key, stringKey, MAX_KEY_SIZE);
-        hashmap_put(_map, stringKey, data);
-        return true;
-    }
-
-    TValue* get(const TKey& key) noexcept {
-        TValue* valuePtr = nullptr;
-        char stringKey[MAX_KEY_SIZE];
-        StringKeyConverter<TKey>::generate_key(key, stringKey, sizeof(stringKey));
-
-        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &valuePtr)) {
-            return nullptr;
-        }
-
-        return valuePtr;
-    }
-
-    bool remove(const TKey& key) noexcept {
-        TValue** valuePtr = nullptr;
-        char stringKey[MAX_KEY_SIZE];
-
-        StringKeyConverter<TKey>::generate_key(key, stringKey, sizeof(stringKey));
-        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &valuePtr)) {
-            return false;
-        }
-
-        TValue* value = *valuePtr;
-        char* oldKey = stringKey;
-
-        if (MAP_OK != hashmap_remove(_map, &oldKey)) {
-            return false;
-        }
-
-        delete(value);
-        delete[](oldKey);
-        return true;
-    }
-
-    void iterate(PFany f, any_t item) {
-        hashmap_iterate(_map, f, item);
-    }
-
-private:
-    map_t _map;
-};
-
-//template<>
-//struct StringKeyConverter<const char*> {
-//    static void generate_key(const char*& key, char* output_key, size_t size) {
-//        strncpy(output_key, key, size - 1);
-//    }
-//};
-
-template<>
-struct StringKeyConverter<IpAddress> {
-    static void generate_key(const IpAddress& key, char* output_key, size_t size) {
-        sprintf(output_key, "%08x", (unsigned int) key);
-    }
-};
 
 struct ArpCacheEntry {
     MacAddress mac = {0};
@@ -115,8 +25,6 @@ struct ArpCacheEntry {
     bool is_static = false;
 };
 
-//static std::unordered_map<IpAddress, ArpCacheEntry> _arp_cache;
-//static map_t _arp_cache;
 static HashMap<IpAddress, ArpCacheEntry> _arp_cache;
 
 static int arp_layer_init(void)
@@ -126,38 +34,35 @@ static int arp_layer_init(void)
     return 0;
 };
 
-static void arp_handler(void* user_ctx, IncomingPacketBuffer* incomingPacket)
+static void arp_handler(void* user_ctx, NetworkBuffer* nbuf)
 {
     (void)user_ctx;
-    arp_t arp;
-    const char* inputDevice = incomingPacket->inputDevice;
+    arp_t* arp = arp_hdr(nbuf);
+    const char* inputDevice = nbuf->device;
 
-    if (incomingPacket->buffer.size < sizeof(arp_t)) {
-        kprintf("arp: packet is too small, dropping. (buf %d arp %d)\n", incomingPacket->buffer.size, sizeof(arp_t));
-        packet_pool_free_underlying_buffer(&incomingPacket->buffer);
+    if (nbuf_size_from(nbuf, arp) < sizeof(arp_t)) {
+        kprintf("arp: packet is too small, dropping. (buf %d arp %d)\n", nbuf_size_from(nbuf, arp), sizeof(arp_t));
+        nbuf_free(nbuf);
         return;
     }
 
-    // copy the header and free the packet right away..
-    memcpy(&arp, incomingPacket->buffer.buffer, sizeof(arp_t));
+    arp->hardware_type = ntohs(arp->hardware_type);
+    arp->operation = ntohs(arp->operation);
+    arp->protocol_type = ntohs(arp->protocol_type);
+    arp->sender_ip = ntohl(arp->sender_ip);
+    arp->target_ip = ntohl(arp->target_ip);
 
-    arp.hardware_type = ntohs(arp.hardware_type);
-    arp.operation = ntohs(arp.operation);
-    arp.protocol_type = ntohs(arp.protocol_type);
-    arp.sender_ip = ntohl(arp.sender_ip);
-    arp.target_ip = ntohl(arp.target_ip);
-
-    if (!arp_is_valid(&arp)) {
+    if (!arp_is_valid(arp)) {
         return;
     }
 
-    if (ARP_OP_REQUEST == arp.operation) {
-        arp_handle_request(&arp, inputDevice);
+    if (ARP_OP_REQUEST == arp->operation) {
+        arp_handle_request(arp, inputDevice);
     } else {
-        arp_handle_response(&arp);
+        arp_handle_response(arp);
     }
 
-    packet_pool_free_underlying_buffer(&incomingPacket->buffer);
+    nbuf_free(nbuf);
 }
 
 static void arp_handle_response(arp_t *arp)
@@ -175,13 +80,12 @@ static void arp_handle_request(arp_t* arp, const char* inputDevice)
         return;
     }
 
-    PacketBuffer replyPacket = packet_pool_alloc(sizeof(arp_t));
-    if (!replyPacket.buffer) {
+    NetworkBuffer* replyPacket = ethernet_alloc_nbuf(inputDevice, ETH_P_ARP, sizeof(arp_t));
+    if (!replyPacket) {
         return;
     }
 
-    PacketView packetView = packet_pool_view_of_buffer(replyPacket, 0, replyPacket.buffer_size);
-    arp_t* replyArp = (arp_t *) packetView.buffer;
+    arp_t* replyArp = arp_hdr(replyPacket);
 
     replyArp->hardware_type = htons(ARP_HW_ETHERNET);
     replyArp->protocol_type = htons(ETH_P_IPv4);
@@ -193,7 +97,7 @@ static void arp_handle_request(arp_t* arp, const char* inputDevice)
     memcpy(replyArp->target_mac, arp->sender_mac, sizeof(MacAddress));
     replyArp->target_ip = arp->sender_ip;
 
-    ethernet_send_packet(inputDevice, arp->sender_mac, ETH_P_ARP, &packetView);
+    ethernet_send_packet(replyPacket, arp->sender_mac);
 }
 
 static bool arp_is_valid(arp_t* arp) {
@@ -293,4 +197,15 @@ void arp_print_cache(void)
                 value.ip, MAC_ARGUMENT(value.mac), value.is_static ? "true" : "false", value.timeout_seconds, value.device);
         return MAP_OK;
     }, NULL);
+}
+
+int arp_get_hwaddr(IpAddress ipAddress, uint8_t *outputMac)
+{
+    ArpCacheEntry* arpCacheEntry = _arp_cache.get(ipAddress);
+    if (nullptr == arpCacheEntry) {
+        return -1;
+    }
+
+    memcpy(outputMac, arpCacheEntry->mac, sizeof(MacAddress));
+    return 0;
 }

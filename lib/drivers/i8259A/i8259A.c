@@ -363,4 +363,4 @@ DEFINE_HW_IRQ(2)
     return regs;
 }
 
-DECLARE_DRIVER(i8259A, driver_i8259A_init, STAGE_SECOND);
+DECLARE_DRIVER(i8259A, driver_i8259A_init, STAGE_FIRST);

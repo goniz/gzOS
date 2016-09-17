@@ -7,10 +7,12 @@
 #include <platform/clock.h>
 #include <malloc.h>
 #include <lib/primitives/align.h>
-#include <lib/network/packet_pool.h>
+#include <lib/network/nbuf.h>
 #include <lib/network/ethernet.h>
 #include <platform/malta/clock.h>
 #include "pcnet.h"
+
+// BIG TODO: use nbufs in the rx + tx ring buffers to prevent copying data between the layers.. should be awesome!
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, pcnet, pcnet_pci_probe);
 static std::vector<pcnet_drv> __pcnet_devices;
@@ -489,12 +491,15 @@ void pcnet_drv::drainRxRing(void)
                 invalidate_dcache_range((unsigned long)buf,
                                         (unsigned long)buf + pkt_len);
 
-                PacketBuffer packetBuffer = packet_pool_alloc(pkt_len);
-                if (NULL == packetBuffer.buffer) {
+                NetworkBuffer* packetBuffer = nbuf_alloc(pkt_len);
+                if (!nbuf_is_valid(packetBuffer)) {
                     kprintf("%s: packet pool exhausted. dropping frame..\n", _name);
                 } else {
-                    memcpy(packetBuffer.buffer, buf, pkt_len);
-                    ethernet_absorb_packet(_name, packetBuffer);
+                    memcpy(nbuf_data(packetBuffer), buf, pkt_len);
+                    nbuf_set_size(packetBuffer, pkt_len);
+
+                    ethernet_absorb_packet(packetBuffer, _name);
+                    nbuf_free(packetBuffer);
                 }
             }
         }
@@ -565,8 +570,8 @@ void pcnet_drv::irqHandler(struct user_regs *regs, void *data)
     self->write_csr(CSR0, csr0);
 }
 
-int pcnet_drv::xmit(void *user_ctx, PacketBuffer* packetBuffer) {
+int pcnet_drv::xmit(void *user_ctx, NetworkBuffer* packetBuffer) {
     pcnet_drv* self = (pcnet_drv *) user_ctx;
 
-    return self->sendPacket(packetBuffer->buffer, (uint16_t) packetBuffer->buffer_size);
+    return self->sendPacket(nbuf_data(packetBuffer), (uint16_t) nbuf_size(packetBuffer));
 }

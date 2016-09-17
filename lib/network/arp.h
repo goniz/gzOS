@@ -2,12 +2,12 @@
 #define GZOS_ARP_H
 
 #include "ethernet.h"
+#include "ip.h"
+#include "nbuf.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef uint32_t IpAddress;
 
 // NOTE: IPv4 over Ethernet specific ARP structure..
 typedef struct {
@@ -34,7 +34,14 @@ typedef enum {
 int arp_set_entry(const char *devName, MacAddress macAddress, IpAddress ipAddress);
 int arp_set_static(IpAddress ipAddress);
 int arp_delete_entry(IpAddress ipAddress);
+int arp_get_hwaddr(IpAddress ipAddress, MacAddress outputMac);
 void arp_print_cache(void);
+
+static inline arp_t* arp_hdr(NetworkBuffer* nbuf) {
+    assert(nbuf->l3_proto == ETH_P_ARP);
+    assert(NULL != nbuf->l3_offset);
+    return (arp_t*)(nbuf->l3_offset);
+}
 
 #ifdef __cplusplus
 }

@@ -8,7 +8,7 @@
 #include <platform/pci/pci.h>
 #include <platform/interrupts.h>
 #include <memory>
-#include <lib/network/packet_pool.h>
+#include <lib/network/nbuf.h>
 
 #ifdef __cplusplus
 
@@ -96,7 +96,7 @@ private:
     void drainRxRing(void);
 
     static void irqHandler(struct user_regs* regs, void* data);
-    static int xmit(void* user_ctx, PacketBuffer* packetBuffer);
+    static int xmit(void* user_ctx, NetworkBuffer* packetBuffer);
 
     // IO Read/Write
     uint8_t ioreg(Registers reg) const;
