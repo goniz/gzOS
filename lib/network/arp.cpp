@@ -98,6 +98,7 @@ static void arp_handle_request(arp_t* arp, const char* inputDevice)
     replyArp->target_ip = arp->sender_ip;
 
     ethernet_send_packet(replyPacket, arp->sender_mac);
+    nbuf_free(replyPacket);
 }
 
 static bool arp_is_valid(arp_t* arp) {

@@ -12,7 +12,7 @@
 #include <platform/malta/clock.h>
 #include "pcnet.h"
 
-// BIG TODO: use nbufs in the rx + tx ring buffers to prevent copying data between the layers.. should be awesome!
+// BIG TODO: use nbufs in the tx ring buffers to prevent weird shit
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_AMD, PCI_DEVICE_ID_AMD_LANCE, pcnet, pcnet_pci_probe);
 static std::vector<pcnet_drv> __pcnet_devices;
@@ -46,8 +46,8 @@ pcnet_drv::pcnet_drv(PCIDevice *pci_dev)
           _dwio(false),
           _chipName(nullptr),
           _mac{},
-          _rxBuffers(nullptr),
-          _ringBuffers(nullptr),
+          _rxBuffers{},
+          _ringsStructure(nullptr),
           _initBlock(nullptr),
           _currentTxBuf(0) {
     // conditionally name the device to allow ctor reuse..
@@ -65,7 +65,7 @@ pcnet_drv::pcnet_drv(pcnet_drv &&other)
     std::swap(_dwio, other._dwio);
     std::swap(_chipName, other._chipName);
     std::swap(_rxBuffers, other._rxBuffers);
-    std::swap(_ringBuffers, other._ringBuffers);
+    std::swap(_ringsStructure, other._ringsStructure);
     std::swap(_initBlock, other._initBlock);
     std::swap(_currentTxBuf, other._currentTxBuf);
 
@@ -261,7 +261,6 @@ bool pcnet_drv::readMac(void) {
 }
 
 bool pcnet_drv::setupBufferRings(void) {
-    // allocate RX buffers, pcnet likes 16 byte alignment for things..
     void *rxBuffers = memalign(pcnet_drv::PacketSize * pcnet_drv::RxRingSize, 16);
     if (nullptr == rxBuffers) {
         return false;
@@ -269,25 +268,28 @@ bool pcnet_drv::setupBufferRings(void) {
 
     flush_dcache_range((uintptr_t) rxBuffers,
                        (uintptr_t) ((uintptr_t) rxBuffers + (pcnet_drv::PacketSize * pcnet_drv::RxRingSize)));
-    _rxBuffers = std::unique_ptr<RxRingBufferType>(
-            (RxRingBufferType *) platform_buffered_virt_to_unbuffered_virt((uintptr_t) rxBuffers)
-    );
 
-    // allocate RX/TX ring buffers
-    void *ringBuffers = memalign(sizeof(RingBuffers), 16);
-    if (nullptr == ringBuffers) {
+    // allocate RX/TX ring buffer's structure table
+    void *ringsStructure = memalign(sizeof(RingsStructure), 16);
+    if (nullptr == ringsStructure) {
         return false;
     }
 
-    flush_dcache_range((uintptr_t) ringBuffers, (uintptr_t) ((uintptr_t) ringBuffers + sizeof(RingBuffers)));
-    _ringBuffers = std::unique_ptr<RingBuffers>(
-            (RingBuffers *) platform_buffered_virt_to_unbuffered_virt((uintptr_t) ringBuffers)
+    flush_dcache_range((uintptr_t) ringsStructure, (uintptr_t) ((uintptr_t) ringsStructure + sizeof(RingsStructure)));
+    _ringsStructure = std::unique_ptr<RingsStructure>(
+            (RingsStructure *) platform_buffered_virt_to_unbuffered_virt((uintptr_t) ringsStructure)
     );
 
     for (int i = 0; i < RxRingSize; i++) {
-        PCnetRxDescriptor *rd = &(_ringBuffers->rxRing[i]);
-        RxRingBufferType *buf = (RxRingBufferType *) (_rxBuffers.get() + i);
-        rd->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) buf));
+        PCnetRxDescriptor *rd = &(_ringsStructure->rxRing[i]);
+
+        // allocate RX buffers, pcnet likes 16 byte alignment for things..
+        NetworkBuffer* buf = _rxBuffers[i] = nbuf_alloc_aligned(PacketSize, 16);
+        assert(nullptr != buf);
+
+        flush_dcache_range((uintptr_t) nbuf_data(buf), ((uintptr_t) nbuf_data(buf) + nbuf_capacity(buf)));
+
+        rd->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) nbuf_data(buf)));
         rd->buf_size = cpu_to_le16(-PacketSize);
         rd->status = cpu_to_le16(0x8000);
         rd->reserved = 0;
@@ -295,7 +297,7 @@ bool pcnet_drv::setupBufferRings(void) {
 
     _currentTxBuf = 0;
     for (int i = 0; i < TxRingSize; i++) {
-        PCnetTxDescriptor *rd = &(_ringBuffers->txRing[i]);
+        PCnetTxDescriptor *rd = &(_ringsStructure->txRing[i]);
         rd->buf = 0;
         rd->buf_size = 0;
         rd->status = 0;
@@ -326,8 +328,8 @@ bool pcnet_drv::setupInitializationBlock(void) {
 
     _initBlock->rlen = log2(RxRingSize) << 4;
     _initBlock->tlen = log2(TxRingSize) << 4;
-    _initBlock->rx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringBuffers->rxRing));
-    _initBlock->tx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringBuffers->txRing));
+    _initBlock->rx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringsStructure->rxRing));
+    _initBlock->tx_ring = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t)_ringsStructure->txRing));
 
     return true;
 }
@@ -388,7 +390,7 @@ bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     int i = 0;
     bool ret = true;
     short status = 0;
-    struct PCnetTxDescriptor *txd = &_ringBuffers->txRing[_currentTxBuf];
+    struct PCnetTxDescriptor *txd = &_ringsStructure->txRing[_currentTxBuf];
 
     /* Wait for completion by testing the OWN bit */
     for (i = 1000; i > 0; i--) {
@@ -421,15 +423,15 @@ bool pcnet_drv::sendPacket(const void *packet, uint16_t length) {
     this->write_csr(CSR0, this->read_csr(CSR0) | 0x0008);
 
 exit:
-//    /* Wait for completion by testing the OWN bit */
-//    for (i = 1000; i > 0; i--) {
-//        status = le16_to_cpu(txd->status);
-//        if ((status & 0x8000) == 0) {
-//            break;
-//        }
-//
-//        platform_cpu_wait();
-//    }
+    /* Wait for completion by testing the OWN bit */
+    for (i = 1000; i > 0; i--) {
+        status = le16_to_cpu(txd->status);
+        if ((status & 0x8000) == 0) {
+            break;
+        }
+
+        platform_cpu_wait();
+    }
 
     if (++_currentTxBuf >= TxRingSize) {
         _currentTxBuf = 0;
@@ -444,7 +446,7 @@ void pcnet_drv::drainRxRing(void)
     void* buf = nullptr;
 
     for (int i = 0; i < RxRingSize; i++) {
-        struct PCnetRxDescriptor* rdx = &_ringBuffers->rxRing[i];
+        struct PCnetRxDescriptor* rdx = &_ringsStructure->rxRing[i];
 
         /*
          * If we own the next entry, it's a new packet. Send it up.
@@ -487,26 +489,28 @@ void pcnet_drv::drainRxRing(void)
                     goto release_rdx;
                 }
 
-                rdx->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) buf));
                 invalidate_dcache_range((unsigned long)buf,
                                         (unsigned long)buf + pkt_len);
 
-                NetworkBuffer* packetBuffer = nbuf_alloc(pkt_len);
-                if (!nbuf_is_valid(packetBuffer)) {
-                    kprintf("%s: packet pool exhausted. dropping frame..\n", _name);
-                } else {
-                    memcpy(nbuf_data(packetBuffer), buf, pkt_len);
-                    nbuf_set_size(packetBuffer, pkt_len);
+                // get the nbuf associated with the rx buffer
+                NetworkBuffer* packetBuffer = _rxBuffers[i];
+                // mark the real data size
+                nbuf_set_size(packetBuffer, pkt_len);
 
-                    ethernet_absorb_packet(packetBuffer, _name);
-                    nbuf_free(packetBuffer);
-                }
+                // pass it up and free the nbuf
+                ethernet_absorb_packet(packetBuffer, _name);
+                nbuf_free(packetBuffer);
             }
         }
 
     release_rdx:
-        RxRingBufferType* origbuf = (RxRingBufferType *) (_rxBuffers.get() + i);
-        rdx->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) origbuf));
+        // allocate a new RX buffer and bail if we didnt get any..
+        NetworkBuffer* newbuf = _rxBuffers[i] = nbuf_alloc_aligned(PacketSize, 16);
+        assert(nullptr != newbuf);
+
+        flush_dcache_range((uintptr_t) nbuf_data(newbuf), ((uintptr_t) nbuf_data(newbuf) + nbuf_capacity(newbuf)));
+
+        rdx->buf = cpu_to_le32(platform_iomem_virt_to_phy((uintptr_t) nbuf_data(newbuf)));
         rdx->buf_size = cpu_to_le16(-PacketSize);
         rdx->reserved = 0;
         rdx->status = cpu_to_le16(0x8000);

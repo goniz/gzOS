@@ -58,8 +58,7 @@ public:
     static constexpr int PacketSize = 1548;
     static constexpr int RxRingSize = 32;
     static constexpr int TxRingSize = 8;
-    using RxRingBufferType = uint8_t[RxRingSize][PacketSize];
-    struct RingBuffers {
+    struct RingsStructure {
         PCnetRxDescriptor rxRing[RxRingSize];
         PCnetTxDescriptor txRing[TxRingSize];
     };
@@ -117,8 +116,8 @@ private:
     bool _dwio;
     const char* _chipName;
     uint8_t _mac[6];
-    std::unique_ptr<RxRingBufferType> _rxBuffers;
-    std::unique_ptr<RingBuffers> _ringBuffers;
+    NetworkBuffer* _rxBuffers[RxRingSize];
+    std::unique_ptr<RingsStructure> _ringsStructure;
     std::unique_ptr<PCnetInitializationBlock> _initBlock;
     int _currentTxBuf;
 

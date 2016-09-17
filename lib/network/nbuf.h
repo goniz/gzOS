@@ -34,6 +34,7 @@ typedef struct {
 } NetworkBuffer;
 
 NetworkBuffer* nbuf_alloc(size_t size);
+NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment);
 NetworkBuffer* nbuf_use(NetworkBuffer* nbuf);
 void nbuf_free(NetworkBuffer* nbuf);
 

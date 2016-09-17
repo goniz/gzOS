@@ -123,6 +123,8 @@ int ethernet_register_device(const char* phyName, uint8_t* mac, void* user_ctx, 
 }
 
 int ethernet_send_packet(NetworkBuffer* nbuf, MacAddress dst) {
+    nbuf_use(nbuf);
+
     const EthernetDevice* ethernetDevice = find_device(nbuf_device(nbuf));
     if (nullptr == ethernetDevice) {
         nbuf_free(nbuf);

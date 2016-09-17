@@ -29,7 +29,7 @@ static int nbuf_pool_init(void)
     return 0;
 }
 
-NetworkBuffer* nbuf_alloc(size_t size) {
+NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
     NetworkBuffer* nbuf = NULL;
 
     unsigned int isrMask = interrupts_disable();
@@ -39,13 +39,22 @@ NetworkBuffer* nbuf_alloc(size_t size) {
         return NULL;
     }
 
-    nbuf->buffer.buffer = kmalloc(mp_data, size, M_NOWAIT);
+    if (0 == alignment) {
+        nbuf->buffer.buffer = kmalloc(mp_data, size, M_NOWAIT);
+    } else {
+        nbuf->buffer.buffer = kmemalign(mp_data, size, alignment, M_NOWAIT);
+    }
+
     interrupts_enable(isrMask);
 
     nbuf->refcnt = 1;
     nbuf->buffer.buffer_capacity = (nbuf->buffer.buffer == NULL ? 0 : size);
     nbuf->buffer.buffer_size = 0;
     return nbuf;
+}
+
+NetworkBuffer* nbuf_alloc(size_t size) {
+    return nbuf_alloc_aligned(size, 0);
 }
 
 void nbuf_free(NetworkBuffer* nbuf) {

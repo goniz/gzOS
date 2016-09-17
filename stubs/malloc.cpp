@@ -1,7 +1,3 @@
-//
-// Created by gz on 6/25/16.
-//
-
 #include <lib/primitives/spinlock_mutex.h>
 #include <lib/primitives/lock_guard.h>
 #include <cstddef>
@@ -12,13 +8,6 @@
 #include <cstring>
 #include <cassert>
 #include <platform/kprintf.h>
-
-static constexpr uint16_t AlignedMemBlockMagic = 0xAAFF;
-struct AlignedMemBlock {
-    uint16_t magic;
-    uint16_t offset;
-    uint8_t data[0];
-};
 
 static MALLOC_DEFINE(kmalloc_pool, "Global malloc pool");
 static bool g_pool_initialized = false;
@@ -57,11 +46,6 @@ void free(void* ptr)
         return;
     }
 
-    AlignedMemBlock* header = (AlignedMemBlock *)((uintptr_t)ptr - sizeof(AlignedMemBlock));
-    if (AlignedMemBlockMagic == header->magic) {
-        ptr = (void *) ((uintptr_t)ptr - header->offset);
-    }
-
     InterruptsMutex intMutex;
     intMutex.lock();
 
@@ -92,29 +76,14 @@ void* _realloc_r(void* reent, void* ptr, size_t size)
 extern "C"
 void* memalign(size_t size, int alignment)
 {
-    const size_t padded_size = size + alignment + sizeof(AlignedMemBlock);
-    const uintptr_t ptr = (uintptr_t ) malloc(padded_size);
-    if (0 == ptr) {
+    if (!g_pool_initialized) {
         return nullptr;
     }
 
-    // leave it be if its alraedy aligned
-    if (0 == (ptr % alignment)) {
-        return (void *) ptr;
-    }
+    InterruptsMutex intMutex;
+    intMutex.lock();
 
-    const uintptr_t end_ptr = ptr + padded_size;
-    const uintptr_t plus_block = (ptr + sizeof(AlignedMemBlock));
-    const uintptr_t aligned_ptr = ((plus_block + (alignment - 1)) & ~(alignment - 1));
-
-    // make sure that we have enough room for the actual buffer size
-    assert((end_ptr - aligned_ptr) >= size);
-
-    AlignedMemBlock* header = (AlignedMemBlock *)(aligned_ptr - sizeof(AlignedMemBlock));
-    header->magic = AlignedMemBlockMagic;
-    header->offset = (uint16_t)(aligned_ptr - ptr);
-
-    return (void *) aligned_ptr;
+    return kmemalign(kmalloc_pool, size, alignment, M_NOWAIT);
 }
 
 extern "C"

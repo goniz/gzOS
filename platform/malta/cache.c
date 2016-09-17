@@ -33,7 +33,7 @@ void flush_dcache_range(uintptr_t start_addr, uintptr_t stop)
 {
     int lsize = platform_cpu_dcacheline_size();
 
-    /* aend will be miscalculated when size is zero, so we return here */
+    /* end will be miscalculated when size is zero, so we return here */
     if (start_addr == stop)
         return;
 

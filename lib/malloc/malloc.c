@@ -30,6 +30,14 @@ typedef struct mem_arena {
     uint64_t ma_data[0];              /* For alignment */
 } mem_arena_t;
 
+
+static const uint16_t AlignedMemBlockMagic = 0xAAFF;
+typedef struct {
+    uint16_t magic;
+    uint16_t offset;
+    uint8_t data[0];
+} AlignedMemBlock;
+
 static inline mem_block_t *mb_next(mem_block_t *block) {
     return (void *) block + abs(block->mb_size) + sizeof(mem_block_t);
 }
@@ -160,8 +168,12 @@ void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
 }
 
 void kfree(malloc_pool_t *mp, void *addr) {
-    mem_block_t *mb = (mem_block_t *) (((char *) addr) - sizeof(mem_block_t));
+    AlignedMemBlock* header = (AlignedMemBlock *)((uintptr_t)addr - sizeof(AlignedMemBlock));
+    if (AlignedMemBlockMagic == header->magic) {
+        addr = (void *) ((uintptr_t)addr - header->offset);
+    }
 
+    mem_block_t *mb = (mem_block_t *) (((char *) addr) - sizeof(mem_block_t));
     if (mb->mb_magic != MB_MAGIC ||
         mp->mp_magic != MB_MAGIC ||
         mb->mb_size >= 0) {
@@ -199,6 +211,33 @@ void *krealloc(malloc_pool_t *mp, void *ptr, size_t size, uint16_t flags) {
     memcpy(new_ptr, ptr, (size_t) abs(mb->mb_size));
     kfree(mp, ptr);
     return new_ptr;
+}
+
+void* kmemalign(malloc_pool_t *mp, size_t size, int alignment, uint16_t flags)
+{
+    const size_t padded_size = size + alignment + sizeof(AlignedMemBlock);
+    const uintptr_t ptr = (uintptr_t ) kmalloc(mp, padded_size, flags);
+    if (0 == ptr) {
+        return NULL;
+    }
+
+    // leave it be if its alraedy aligned
+    if (0 == (ptr % alignment)) {
+        return (void *) ptr;
+    }
+
+    const uintptr_t end_ptr = ptr + padded_size;
+    const uintptr_t plus_block = (ptr + sizeof(AlignedMemBlock));
+    const uintptr_t aligned_ptr = ((plus_block + (alignment - 1)) & ~(alignment - 1));
+
+    // make sure that we have enough room for the actual buffer size
+    assert((end_ptr - aligned_ptr) >= size);
+
+    AlignedMemBlock* header = (AlignedMemBlock *)(aligned_ptr - sizeof(AlignedMemBlock));
+    header->magic = AlignedMemBlockMagic;
+    header->offset = (uint16_t)(aligned_ptr - ptr);
+
+    return (void *) aligned_ptr;
 }
 
 void kmalloc_dump(malloc_pool_t *mp) {

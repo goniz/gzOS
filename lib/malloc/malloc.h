@@ -43,6 +43,7 @@ void kmalloc_init(malloc_pool_t *mp);
 void kmalloc_add_arena(malloc_pool_t *mp, void *start, size_t size);
 void* kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) __attribute__ ((warn_unused_result));
 void* krealloc(malloc_pool_t* mp, void* ptr, size_t size, uint16_t flags) __attribute__ ((warn_unused_result));
+void* kmemalign(malloc_pool_t *mp, size_t size, int alignment, uint16_t flags) __attribute__ ((warn_unused_result));
 void kfree(malloc_pool_t *mp, void *addr);
 
 void kmalloc_dump(malloc_pool_t *mp);
