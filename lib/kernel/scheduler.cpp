@@ -91,9 +91,11 @@ Process* ProcessScheduler::handleResponsiveProc(void)
     // if the process is a responsive one, keep it running until he yield()s
     // but if he passes the intentionally-very-long-quantum value, kill it.
     if (0 >= _currentProc->_quantum) {
-        _currentProc->_exitCode = -127;
-        _currentProc->_state = Process::State::TERMINATED;
-        return this->andTheWinnerIs();
+//        _currentProc->_exitCode = -127;
+//        _currentProc->_state = Process::State::TERMINATED;
+//        return this->andTheWinnerIs();
+        _currentProc->_quantum = _currentProc->_resetQuantum;
+        kprintf("%s: I'm a cpu hogging bitch.\n", _currentProc->_name);
     }
 
     return _currentProc;

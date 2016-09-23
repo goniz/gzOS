@@ -5,6 +5,7 @@
 #include <platform/interrupts.h>
 #include <lib/mm/vm.h>
 #include <lib/mm/physmem.h>
+#include <platform/kprintf.h>
 #include "nbuf.h"
 
 static MALLOC_DEFINE(mp_nbuf, "Network Buffer struct Pool");
@@ -45,6 +46,12 @@ NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
         nbuf->buffer.buffer = kmemalign(mp_data, size, alignment, M_NOWAIT);
     }
 
+    if (NULL == nbuf->buffer.buffer) {
+        kfree(mp_nbuf, nbuf);
+        interrupts_enable(isrMask);
+        return NULL;
+    }
+
     interrupts_enable(isrMask);
 
     nbuf->refcnt = 1;
@@ -58,6 +65,11 @@ NetworkBuffer* nbuf_alloc(size_t size) {
 }
 
 void nbuf_free(NetworkBuffer* nbuf) {
+//    kprintf("refcnt %d\n", nbuf->refcnt);
+    if (0 >= nbuf->refcnt) {
+        return;
+    }
+
     unsigned int isrMask = interrupts_disable();
     PacketBuffer* buf = &nbuf->buffer;
 
@@ -69,6 +81,7 @@ void nbuf_free(NetworkBuffer* nbuf) {
 
     if (buf->buffer) {
         kfree(mp_data, buf->buffer);
+        buf->buffer = NULL;
     }
 
     kfree(mp_nbuf, nbuf);

@@ -1,4 +1,5 @@
 #include <vector>
+#include <platform/kprintf.h>
 #include "interface.h"
 #include "route.h"
 #include "arp.h"
@@ -32,7 +33,9 @@ int interface_add(const char *device, IpAddress ip, IpAddress netmask)
     newIface.ipv4.netmask = netmask;
     gInterfaces.push_back(newIface);
 
-    ip_route_add(ip & netmask, netmask, 0, &(*gInterfaces.end()));
+
+    auto& last = gInterfaces.back();
+    ip_route_add(ip & netmask, netmask, 0, &last);
     arp_set_entry(device, deviceMac, ip);
     arp_set_static(ip);
     return 0;

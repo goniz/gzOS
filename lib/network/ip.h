@@ -41,7 +41,7 @@ typedef struct {
 #define IPPROTO_ICMP                (1)
 #define IPPROTO_TCP                 (6)
 
-int ip_recv(NetworkBuffer* incomingPacket);
+int ip_input(NetworkBuffer *incomingPacket);
 int ip_output(NetworkBuffer* packet);
 NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size);
 

@@ -6,13 +6,15 @@
 #include "arp.h"
 #include "ethernet.h"
 #include "nbuf.h"
+#include "route.h"
+#include "interface.h"
 
 static int arp_layer_init(void);
 static timeout_callback_ret arp_timeout_callback(void* arg);
 static void arp_handler(void* user_ctx, NetworkBuffer* nbuf);
 static bool arp_is_valid(arp_t *arp);
 static void arp_handle_request(arp_t *arp, const char *inputDevice);
-static void arp_handle_response(arp_t *arp);
+static void arp_handle_response(arp_t *arp, const char *string);
 
 DECLARE_DRIVER(arp_layer, arp_layer_init, STAGE_SECOND + 1);
 
@@ -26,6 +28,7 @@ struct ArpCacheEntry {
 };
 
 static HashMap<IpAddress, ArpCacheEntry> _arp_cache;
+static InterruptsMutex _mutex;
 
 static int arp_layer_init(void)
 {
@@ -59,15 +62,15 @@ static void arp_handler(void* user_ctx, NetworkBuffer* nbuf)
     if (ARP_OP_REQUEST == arp->operation) {
         arp_handle_request(arp, inputDevice);
     } else {
-        arp_handle_response(arp);
+        arp_handle_response(arp, inputDevice);
     }
 
     nbuf_free(nbuf);
 }
 
-static void arp_handle_response(arp_t *arp)
+static void arp_handle_response(arp_t *arp, const char* inputDevice)
 {
-
+    arp_set_entry(inputDevice, arp->sender_mac, ntohl(arp->sender_ip));
 }
 
 static void arp_handle_request(arp_t* arp, const char* inputDevice)
@@ -99,6 +102,42 @@ static void arp_handle_request(arp_t* arp, const char* inputDevice)
 
     ethernet_send_packet(replyPacket, arp->sender_mac);
     nbuf_free(replyPacket);
+}
+
+static MacAddress broadcastMac{0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+static int arp_send_request(IpAddress ipAddress)
+{
+    route_t route{};
+    MacAddress deviceMac{};
+
+    if (0 != ip_route_lookup(ipAddress, &route)) {
+        return -1;
+    }
+
+    if (!ethernet_device_hwaddr(route.iface->device, deviceMac)) {
+        return -1;
+    }
+
+    NetworkBuffer* nbuf = ethernet_alloc_nbuf(route.iface->device, ETH_P_ARP, sizeof(arp_t));
+    if (!nbuf) {
+        return -1;
+    }
+
+    arp_t* request = arp_hdr(nbuf);
+
+    request->hardware_type = htons(ARP_HW_ETHERNET);
+    request->protocol_type = htons(ETH_P_IPv4);
+    request->hardware_length = sizeof(MacAddress);
+    request->protocol_length = sizeof(IpAddress);
+    request->operation = htons(ARP_OP_REQUEST);
+    memcpy(request->sender_mac, deviceMac, sizeof(MacAddress));
+    request->sender_ip = htonl(route.iface->ipv4.address);
+    memset(request->target_mac, 0, sizeof(request->target_mac));
+    request->target_ip = htonl(ipAddress);
+
+    ethernet_send_packet(nbuf, broadcastMac);
+    nbuf_free(nbuf);
+    return 0;
 }
 
 static bool arp_is_valid(arp_t* arp) {
@@ -133,6 +172,7 @@ static bool arp_is_valid(arp_t* arp) {
 
 static timeout_callback_ret arp_timeout_callback(void* arg)
 {
+    lock_guard<InterruptsMutex> guard(_mutex);
     _arp_cache.iterate([](any_t, char * key, any_t data) -> int {
         ArpCacheEntry* entry = (ArpCacheEntry *) data;
         if (entry->is_static) {
@@ -147,31 +187,32 @@ static timeout_callback_ret arp_timeout_callback(void* arg)
 
     }, NULL);
 
-//    for (auto iter = _arp_cache.begin(); iter != _arp_cache.end(); ) {
-//        auto& entry = iter->second;
-//        if (entry.is_static) {
-//            iter++;
-//            continue;
-//        }
-//
-//        if (0 >= (--entry.timeout_seconds)) {
-//            iter = _arp_cache.erase(iter);
-//        } else {
-//            iter++;
-//        }
-//    }
-
     return TIMER_KEEP_GOING;
 }
 
-int arp_set_entry(const char *devName, MacAddress macAddress, IpAddress ipAddress) {
-    ArpCacheEntry arpCacheEntry;
+int arp_set_entry(const char *devName, MacAddress macAddress, IpAddress ipAddress)
+{
+    lock_guard<InterruptsMutex> guard(_mutex);
+    ArpCacheEntry* arpCacheEntry = _arp_cache.get(ipAddress);
+    if (nullptr != arpCacheEntry) {
+        if (arpCacheEntry->is_static) {
+            return 0;
+        }
 
-    arpCacheEntry.ip = ipAddress;
-    strncpy(arpCacheEntry.device, devName, sizeof(arpCacheEntry.device) - 1);
-    memcpy(arpCacheEntry.mac, macAddress, sizeof(MacAddress));
+        arpCacheEntry->timeout_seconds = 300;
+        strncpy(arpCacheEntry->device, devName, sizeof(arpCacheEntry->device) - 1);
+        memcpy(arpCacheEntry->mac, macAddress, sizeof(MacAddress));
+        return 0;
+    }
 
-    _arp_cache.put(ipAddress, std::move(arpCacheEntry));
+    ArpCacheEntry newEntry;
+    newEntry.ip = ipAddress;
+    newEntry.is_static = false;
+    newEntry.timeout_seconds = 300;
+    strncpy(newEntry.device, devName, sizeof(newEntry.device) - 1);
+    memcpy(newEntry.mac, macAddress, sizeof(MacAddress));
+
+    _arp_cache.put(ipAddress, std::move(newEntry));
     return 0;
 }
 
@@ -208,5 +249,73 @@ int arp_get_hwaddr(IpAddress ipAddress, uint8_t *outputMac)
     }
 
     memcpy(outputMac, arpCacheEntry->mac, sizeof(MacAddress));
+    return 0;
+}
+
+struct ArpResolveContext {
+    IpAddress ipAddress;
+    int rounds;
+    arp_resolve_cb_t cb;
+    void* ctx;
+};
+
+static timeout_callback_ret arp_resolve_callback(NetworkBuffer* arpContext)
+{
+    MacAddress mac{};
+    int found = 0;
+    ArpResolveContext* ctx = (ArpResolveContext *) nbuf_data(arpContext);
+
+    if (0 == arp_get_hwaddr(ctx->ipAddress, mac)) {
+        found = 1;
+        goto exit;
+    }
+
+    ctx->rounds--;
+    if (0 >= ctx->rounds) {
+        found = 0;
+        goto exit;
+    }
+
+    // TODO: send another request here (retransmit)
+    if ((ctx->rounds % 2) == 0) {
+        arp_send_request(ctx->ipAddress);
+    }
+
+    return TIMER_KEEP_GOING;
+
+exit:
+    if (ctx->cb) {
+        ctx->cb(ctx->ctx, found);
+    }
+
+    nbuf_free(arpContext);
+    return TIMER_THATS_ENOUGH;
+}
+
+int arp_resolve(IpAddress ipAddress, arp_resolve_cb_t cb, void* ctx)
+{
+    MacAddress mac{};
+    if (0 == arp_get_hwaddr(ipAddress, mac)) {
+        cb(ctx, 1);
+        return 0;
+    }
+
+    NetworkBuffer* nbuf = nbuf_alloc(sizeof(ArpResolveContext));
+    if (!nbuf) {
+        return -1;
+    }
+
+    ArpResolveContext* arpContext = (ArpResolveContext *) nbuf_data(nbuf);
+    arpContext->rounds = 10;
+    arpContext->ctx = arpContext;
+    arpContext->cb = cb;
+    arpContext->ipAddress = ipAddress;
+
+    if (0 != arp_send_request(ipAddress)) {
+        nbuf_free(nbuf);
+        return -1;
+    }
+
+    scheduler_set_timeout(100, (timeout_callback_t)arp_resolve_callback, nbuf);
     return 0;
 }

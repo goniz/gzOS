@@ -11,10 +11,13 @@
 #include "route.h"
 #include "interface.h"
 #include "arp.h"
+#include "icmp.h"
 
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
 static bool ip_is_valid(iphdr_t* iphdr);
+static void ip_hint_arp_cache(NetworkBuffer *packet);
+
 static std::atomic<uint16_t> gId(0);
 
 static uint16_t nextId(void) {
@@ -23,7 +26,7 @@ static uint16_t nextId(void) {
 
 DECLARE_DRIVER(ip_layer, ip_layer_init, STAGE_SECOND + 1);
 
-int ip_recv(NetworkBuffer* incomingPacket)
+int ip_input(NetworkBuffer *incomingPacket)
 {
     int ret = 0;
     iphdr_t* iphdr = ip_hdr(incomingPacket);
@@ -48,10 +51,15 @@ int ip_recv(NetworkBuffer* incomingPacket)
         goto error;
     }
 
-    kprintf("ip: received an IP datagram %08x --> %08x (%d)\n", iphdr->saddr, iphdr->daddr, iphdr->proto);
+    nbuf_set_l4(incomingPacket, iphdr->data, iphdr->proto);
+    ip_hint_arp_cache(incomingPacket);
+
+//    kprintf("ip: received an IP datagram %08x --> %08x (%d)\n", iphdr->saddr, iphdr->daddr, iphdr->proto);
+//    kprintf("ip: pkt refcnt %d\n", incomingPacket->refcnt);
     switch (iphdr->proto)
     {
         case IPPROTO_ICMP:
+            icmp_input(incomingPacket);
             break;
 
         default:
@@ -68,6 +76,14 @@ exit:
     return ret;
 }
 
+static void ip_hint_arp_cache(NetworkBuffer *packet) {
+    const char* device = nbuf_device(packet);
+    ethernet_t* eth = ethernet_hdr(packet);
+    iphdr_t* ip = ip_hdr(packet);
+
+    arp_set_entry(device, eth->src, ip->saddr);
+}
+
 NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size) {
     route_t route;
     if (0 != ip_route_lookup(dst, &route)) {
@@ -80,6 +96,7 @@ NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_
     }
 
     iphdr_t* iphdr = ip_hdr(nbuf);
+    memset(iphdr, 0, sizeof(*iphdr));
     iphdr->version = 4;
     iphdr->ihl = 5;
     iphdr->id = htons(nextId());
@@ -92,20 +109,55 @@ NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_
     return nbuf;
 }
 
+struct ArpResolveContext {
+    NetworkBuffer* ipPacket;
+};
+
+static void arp_resolve_cb(NetworkBuffer* arpContext, int result)
+{
+    MacAddress mac{};
+    ArpResolveContext* ctx = (ArpResolveContext *) nbuf_data(arpContext);
+    iphdr_t* iphdr = ip_hdr(ctx->ipPacket);
+
+    if (0 == result) {
+        goto error;
+    }
+
+    if (0 != arp_get_hwaddr(ntohl(iphdr->daddr), mac)) {
+        goto error;
+    }
+
+    ethernet_send_packet(ctx->ipPacket, mac);
+    goto exit;
+
+error:
+    nbuf_free(ctx->ipPacket);
+
+exit:
+    nbuf_free(arpContext);
+}
+
 // no ip options for now..
 int ip_output(NetworkBuffer* packet)
 {
-    MacAddress mac{};
     iphdr_t* iphdr = ip_hdr(packet);
-
     iphdr->csum = 0;
     iphdr->csum = checksum(iphdr, iphdr->ihl * 4);
 
-    if (0 != arp_get_hwaddr(ntohl(iphdr->daddr), mac)) {
+    nbuf_use(packet);
+
+    NetworkBuffer* arpContextNbuf = nbuf_alloc(sizeof(ArpResolveContext));
+    if (!arpContextNbuf) {
+        nbuf_free(packet);
         return -1;
     }
 
-    if (!ethernet_send_packet(packet, mac)) {
+    ArpResolveContext* arpContext = (ArpResolveContext *) nbuf_data(arpContextNbuf);
+    arpContext->ipPacket = packet;
+
+    if (0 != arp_resolve(ntohl(iphdr->daddr), (arp_resolve_cb_t)arp_resolve_cb, arpContextNbuf)) {
+        nbuf_free(packet);
+        nbuf_free(arpContextNbuf);
         return -1;
     }
 
@@ -122,7 +174,7 @@ static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket)
 {
     (void)user_ctx;
 
-    ip_recv(incomingPacket);
+    ip_input(incomingPacket);
 }
 
 static bool ip_is_valid(iphdr_t* iphdr) {

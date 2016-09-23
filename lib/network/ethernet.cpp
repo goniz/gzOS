@@ -98,8 +98,6 @@ static int ethernet_tx_main(int argc, const char **argv) {
 #pragma clang diagnostic pop
 
 void ethernet_absorb_packet(NetworkBuffer *nbuf, const char *phyName) {
-    nbuf_use(nbuf); // increase the ref count for this function
-
     nbuf_set_device(nbuf, phyName);
     nbuf_set_l2(nbuf, nbuf_data(nbuf));
 
@@ -108,8 +106,6 @@ void ethernet_absorb_packet(NetworkBuffer *nbuf, const char *phyName) {
         // reverse the queue's ref count
         nbuf_free(nbuf);
     }
-
-    nbuf_free(nbuf);
 }
 
 int ethernet_register_handler(uint16_t ether_type, ethernet_handler_t handler, void *user_ctx) {

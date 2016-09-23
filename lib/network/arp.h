@@ -31,6 +31,9 @@ typedef enum {
     ARP_OP_RESPONSE = 2
 } arp_op_t;
 
+typedef void (*arp_resolve_cb_t)(void* ctx, int result);
+
+int arp_resolve(IpAddress ipAddress, arp_resolve_cb_t cb, void* ctx);
 int arp_set_entry(const char *devName, MacAddress macAddress, IpAddress ipAddress);
 int arp_set_static(IpAddress ipAddress);
 int arp_delete_entry(IpAddress ipAddress);

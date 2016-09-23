@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <lib/network/arp.h>
 #include <lib/network/interface.h>
+#include <lib/network/nbuf.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -67,6 +68,15 @@ int main(int argc, const char** argv)
 
     interface_add("eth0", 0x01010101, 0xffffff00);
     return 0;
+
+    while (1) {
+        scheduler_sleep(1000);
+
+        NetworkBuffer* nbuf = ip_alloc_nbuf(0x01010102, 64, IPPROTO_ICMP, 100);
+        memset(nbuf->l4_offset, 0xAA, nbuf_size_from(nbuf, nbuf->l4_offset));
+        ip_output(nbuf);
+        nbuf_free(nbuf);
+    }
 
     while (1) {
         scheduler_sleep(2000);
