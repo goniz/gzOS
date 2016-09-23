@@ -22,7 +22,10 @@ int icmp_input(NetworkBuffer* packet)
     {
         case ICMP_V4_ECHO:
             icmpv4_reply(packet);
+            break;
+
         default:
+            nbuf_free(packet);
             break;
     }
 
@@ -30,9 +33,9 @@ int icmp_input(NetworkBuffer* packet)
 
 error:
     ret = -1;
+    nbuf_free(packet);
 
 exit:
-    nbuf_free(packet);
     return ret;
 }
 

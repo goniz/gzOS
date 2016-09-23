@@ -16,7 +16,7 @@
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
 static bool ip_is_valid(iphdr_t* iphdr);
-static void ip_hint_arp_cache(NetworkBuffer *packet);
+static void ip_hint_arp_cache(const NetworkBuffer *packet);
 
 static std::atomic<uint16_t> gId(0);
 
@@ -63,6 +63,7 @@ int ip_input(NetworkBuffer *incomingPacket)
             break;
 
         default:
+            nbuf_free(incomingPacket);
             break;
     }
 
@@ -70,13 +71,13 @@ int ip_input(NetworkBuffer *incomingPacket)
 
 error:
     ret = -1;
+    nbuf_free(incomingPacket);
 
 exit:
-    nbuf_free(incomingPacket);
     return ret;
 }
 
-static void ip_hint_arp_cache(NetworkBuffer *packet) {
+static void ip_hint_arp_cache(const NetworkBuffer *packet) {
     const char* device = nbuf_device(packet);
     ethernet_t* eth = ethernet_hdr(packet);
     iphdr_t* ip = ip_hdr(packet);
@@ -143,8 +144,6 @@ int ip_output(NetworkBuffer* packet)
     iphdr_t* iphdr = ip_hdr(packet);
     iphdr->csum = 0;
     iphdr->csum = checksum(iphdr, iphdr->ihl * 4);
-
-    nbuf_use(packet);
 
     NetworkBuffer* arpContextNbuf = nbuf_alloc(sizeof(ArpResolveContext));
     if (!arpContextNbuf) {

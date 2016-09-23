@@ -46,7 +46,7 @@ int ethernet_device_hwaddr(const char *devName, MacAddress outMac);
 
 NetworkBuffer* ethernet_alloc_nbuf(const char* device, uint16_t proto, size_t size);
 
-static inline ethernet_t* ethernet_hdr(NetworkBuffer* nbuf) {
+static inline ethernet_t* ethernet_hdr(const NetworkBuffer* nbuf) {
     assert(NULL != nbuf->l2_offset);
     return (ethernet_t*)(nbuf->l2_offset);
 }

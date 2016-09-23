@@ -45,7 +45,7 @@ int ip_input(NetworkBuffer *incomingPacket);
 int ip_output(NetworkBuffer* packet);
 NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size);
 
-static inline iphdr_t* ip_hdr(NetworkBuffer* nbuf) {
+static inline iphdr_t* ip_hdr(const NetworkBuffer* nbuf) {
     assert(nbuf->l3_proto == ETH_P_IPv4);
     assert(NULL != nbuf->l3_offset);
     return (iphdr_t*)(nbuf->l3_offset);

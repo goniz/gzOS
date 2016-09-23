@@ -101,7 +101,6 @@ void ethernet_absorb_packet(NetworkBuffer *nbuf, const char *phyName) {
     nbuf_set_device(nbuf, phyName);
     nbuf_set_l2(nbuf, nbuf_data(nbuf));
 
-    nbuf_use(nbuf); // increase the ref count so it wont be freed while waiting on the queue..
     if (!gRxQueue.push(nbuf, false)) {
         // reverse the queue's ref count
         nbuf_free(nbuf);
@@ -139,9 +138,7 @@ int ethernet_send_packet(NetworkBuffer *nbuf, MacAddress dst) {
     ethernet_t *header = ethernet_hdr(nbuf);
     memcpy(header->dst, dst, 6);
 
-    nbuf_use(nbuf); // increase the ref count so it wont be freed while waiting on the queue..
     if (!gTxQueue.push(nbuf, false)) {
-        // reverse the queue's ref count
         nbuf_free(nbuf);
         return 0;
     }

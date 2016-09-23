@@ -499,7 +499,6 @@ void pcnet_drv::drainRxRing(void)
 
                 // pass it up and free the nbuf
                 ethernet_absorb_packet(packetBuffer, _name);
-                nbuf_free(packetBuffer);
             }
         }
 

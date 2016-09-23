@@ -54,7 +54,6 @@ NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
 
     interrupts_enable(isrMask);
 
-    nbuf->refcnt = 1;
     nbuf->buffer.buffer_capacity = (nbuf->buffer.buffer == NULL ? 0 : size);
     nbuf->buffer.buffer_size = 0;
     return nbuf;
@@ -65,36 +64,17 @@ NetworkBuffer* nbuf_alloc(size_t size) {
 }
 
 void nbuf_free(NetworkBuffer* nbuf) {
-//    kprintf("refcnt %d\n", nbuf->refcnt);
-    if (0 >= nbuf->refcnt) {
-        return;
-    }
-
+//    kprintf("nbuf: free(%p) from %p\n", nbuf, __builtin_return_address(0));
     unsigned int isrMask = interrupts_disable();
-    PacketBuffer* buf = &nbuf->buffer;
 
-    nbuf->refcnt--;
-    if (0 < nbuf->refcnt) {
-        interrupts_enable(isrMask);
-        return;
-    }
-
-    if (buf->buffer) {
-        kfree(mp_data, buf->buffer);
-        buf->buffer = NULL;
+    if (nbuf->buffer.buffer) {
+        kfree(mp_data, nbuf->buffer.buffer);
+        nbuf->buffer.buffer = NULL;
     }
 
     kfree(mp_nbuf, nbuf);
 
     interrupts_enable(isrMask);
-}
-
-NetworkBuffer *nbuf_use(NetworkBuffer *nbuf) {
-    unsigned int isrMask = interrupts_disable();
-    nbuf->refcnt++;
-    interrupts_enable(isrMask);
-
-    return nbuf;
 }
 
 DECLARE_DRIVER(nbuf_pool, nbuf_pool_init, STAGE_FIRST);

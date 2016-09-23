@@ -29,36 +29,33 @@ typedef struct {
     void* l3_offset;
     uint16_t l4_proto;
     void* l4_offset;
-
-    int refcnt;
 } NetworkBuffer;
 
 NetworkBuffer* nbuf_alloc(size_t size);
 NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment);
-NetworkBuffer* nbuf_use(NetworkBuffer* nbuf);
 void nbuf_free(NetworkBuffer* nbuf);
 
 static inline int nbuf_is_valid(const NetworkBuffer* nbuf) {
     return (NULL != nbuf) && (NULL != nbuf->buffer.buffer);
 }
 
-static inline void* nbuf_data(NetworkBuffer* nbuf) {
+static inline void* nbuf_data(const NetworkBuffer* nbuf) {
     return nbuf->buffer.buffer;
 }
 
-static inline size_t nbuf_size(NetworkBuffer* nbuf) {
+static inline size_t nbuf_size(const NetworkBuffer* nbuf) {
     return nbuf->buffer.buffer_size;
 }
 
-static inline size_t nbuf_capacity(NetworkBuffer* nbuf) {
+static inline size_t nbuf_capacity(const NetworkBuffer* nbuf) {
     return nbuf->buffer.buffer_capacity;
 }
 
-static inline const char* nbuf_device(NetworkBuffer* nbuf) {
+static inline const char* nbuf_device(const NetworkBuffer* nbuf) {
     return nbuf->device;
 }
 
-static inline size_t nbuf_size_from(NetworkBuffer* nbuf, void* pos) {
+static inline size_t nbuf_size_from(const NetworkBuffer* nbuf, void* pos) {
     assert(pointer_is_in_range(pos, nbuf->buffer.buffer, nbuf->buffer.buffer_capacity));
     uintptr_t start = (uintptr_t) pos;
     uintptr_t end = (uintptr_t) nbuf->buffer.buffer + nbuf->buffer.buffer_size;

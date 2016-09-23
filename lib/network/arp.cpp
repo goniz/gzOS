@@ -13,8 +13,8 @@ static int arp_layer_init(void);
 static timeout_callback_ret arp_timeout_callback(void* arg);
 static void arp_handler(void* user_ctx, NetworkBuffer* nbuf);
 static bool arp_is_valid(arp_t *arp);
-static void arp_handle_request(arp_t *arp, const char *inputDevice);
-static void arp_handle_response(arp_t *arp, const char *string);
+static int arp_handle_request(arp_t *arp, const char *inputDevice);
+static int arp_handle_response(arp_t *arp, const char *string);
 
 DECLARE_DRIVER(arp_layer, arp_layer_init, STAGE_SECOND + 1);
 
@@ -56,36 +56,42 @@ static void arp_handler(void* user_ctx, NetworkBuffer* nbuf)
     arp->target_ip = ntohl(arp->target_ip);
 
     if (!arp_is_valid(arp)) {
+        kprintf("arp: invalid packet structure, dropping.\n");
+        nbuf_free(nbuf);
         return;
     }
 
+    int should_free = 0;
     if (ARP_OP_REQUEST == arp->operation) {
-        arp_handle_request(arp, inputDevice);
+        should_free = arp_handle_request(arp, inputDevice);
     } else {
-        arp_handle_response(arp, inputDevice);
+        should_free = arp_handle_response(arp, inputDevice);
     }
 
-    nbuf_free(nbuf);
+    if (should_free) {
+        nbuf_free(nbuf);
+    }
 }
 
-static void arp_handle_response(arp_t *arp, const char* inputDevice)
+static int arp_handle_response(arp_t *arp, const char* inputDevice)
 {
     arp_set_entry(inputDevice, arp->sender_mac, ntohl(arp->sender_ip));
+    return 1;
 }
 
-static void arp_handle_request(arp_t* arp, const char* inputDevice)
+static int arp_handle_request(arp_t* arp, const char* inputDevice)
 {
     IpAddress ip = arp->target_ip;
 
     ArpCacheEntry* arpCacheEntry = _arp_cache.get(ip);
     if (nullptr == arpCacheEntry) {
         kprintf("arp: target ip (%08x) not found.\n", ip);
-        return;
+        return 1;
     }
 
     NetworkBuffer* replyPacket = ethernet_alloc_nbuf(inputDevice, ETH_P_ARP, sizeof(arp_t));
     if (!replyPacket) {
-        return;
+        return 1;
     }
 
     arp_t* replyArp = arp_hdr(replyPacket);
@@ -101,7 +107,7 @@ static void arp_handle_request(arp_t* arp, const char* inputDevice)
     replyArp->target_ip = arp->sender_ip;
 
     ethernet_send_packet(replyPacket, arp->sender_mac);
-    nbuf_free(replyPacket);
+    return 0;
 }
 
 static MacAddress broadcastMac{0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
@@ -136,7 +142,6 @@ static int arp_send_request(IpAddress ipAddress)
     request->target_ip = htonl(ipAddress);
 
     ethernet_send_packet(nbuf, broadcastMac);
-    nbuf_free(nbuf);
     return 0;
 }
 
@@ -276,7 +281,6 @@ static timeout_callback_ret arp_resolve_callback(NetworkBuffer* arpContext)
         goto exit;
     }
 
-    // TODO: send another request here (retransmit)
     if ((ctx->rounds % 2) == 0) {
         arp_send_request(ctx->ipAddress);
     }
