@@ -36,7 +36,7 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
     : _currentProc(nullptr),
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
-      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, DefaultPreemptiveQuantum),
+      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, DefaultResponsiveQuantum),
       _processList(),
       _mutex()
 {
@@ -227,6 +227,10 @@ struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
 {
     if (!_currentProc) {
         panic("wtf.. yielding with no current proc...");
+    }
+
+    if (_responsiveQueue.empty() && _preemptiveQueue.empty()) {
+        return regs;
     }
 
     _currentProc->_state = Process::State::YIELDING;

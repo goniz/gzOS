@@ -11,6 +11,7 @@ extern "C" {
 
 typedef uint32_t IpAddress;
 
+// no ip options for now..
 typedef struct {
 #if BYTE_ORDER == BIG_ENDIAN
     uint8_t version : 4;
@@ -41,6 +42,8 @@ typedef struct {
 #define IPPROTO_TCP                 (6)
 
 int ip_recv(NetworkBuffer* incomingPacket);
+int ip_output(NetworkBuffer* packet);
+NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size);
 
 static inline iphdr_t* ip_hdr(NetworkBuffer* nbuf) {
     assert(nbuf->l3_proto == ETH_P_IPv4);

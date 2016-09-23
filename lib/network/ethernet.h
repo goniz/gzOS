@@ -4,6 +4,7 @@
 #include "nbuf.h"
 
 #define RX_QUEUE_SIZE       (32)
+#define TX_QUEUE_SIZE       (32)
 
 #ifdef __cplusplus
 extern "C" {
@@ -41,7 +42,7 @@ int ethernet_send_packet(NetworkBuffer* packet, MacAddress dst);
 
 int ethernet_register_handler(uint16_t ether_type, ethernet_handler_t handler, void* user_ctx);
 int ethernet_register_device(const char* phyName, uint8_t* mac, void* user_ctx, ethernet_xmit_t xmit);
-int ethernet_device_hwaddr(const char* devName, void* buf, size_t* size);
+int ethernet_device_hwaddr(const char *devName, MacAddress outMac);
 
 NetworkBuffer* ethernet_alloc_nbuf(const char* device, uint16_t proto, size_t size);
 

@@ -5,6 +5,7 @@
 #include <lib/kernel/VirtualFileSystem.h>
 #include <fcntl.h>
 #include <lib/network/arp.h>
+#include <lib/network/interface.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -64,13 +65,7 @@ int main(int argc, const char** argv)
     printf("new fd is %d\n", fd = vfs_open("/dev/null", O_RDONLY));
     vfs_close(fd);
 
-    MacAddress mac;
-    size_t size = sizeof(mac);
-    ethernet_device_hwaddr("eth0", mac, &size);
-    IpAddress ip{0x01010101};
-    arp_set_entry("eth0", mac, ip);
-    arp_set_static(ip);
-
+    interface_add("eth0", 0x01010101, 0xffffff00);
     return 0;
 
     while (1) {

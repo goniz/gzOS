@@ -14,6 +14,7 @@ int ip_route_lookup(IpAddress destinationAddr, route_t* outputRoute)
 {
     for (const Route& route : _rtable)
     {
+        assert(NULL != route.iface);
         if (on_same_network(route.dest_addr, destinationAddr, route.netmask)) {
             memcpy(outputRoute, &route, sizeof(*outputRoute));
             return 0;
@@ -22,6 +23,12 @@ int ip_route_lookup(IpAddress destinationAddr, route_t* outputRoute)
 
     memset(outputRoute, 0, sizeof(*outputRoute));
     return -1;
+}
+
+int ip_route_add(IpAddress destinationAddr, IpAddress netmask, IpAddress gateway, interface_t* iface)
+{
+    _rtable.push_back({destinationAddr, gateway, netmask, iface});
+    return 0;
 }
 
 static bool on_same_network(IpAddress ip1, IpAddress ip2, uint32_t mask) {

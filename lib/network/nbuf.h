@@ -80,6 +80,12 @@ static inline void nbuf_set_l3(NetworkBuffer* nbuf, void* buffer, uint16_t proto
     nbuf->l3_proto = proto;
 }
 
+static inline void nbuf_set_l4(NetworkBuffer* nbuf, void* buffer, uint16_t proto) {
+    assert(pointer_is_in_range(buffer, nbuf->buffer.buffer, nbuf->buffer.buffer_capacity));
+    nbuf->l4_offset = buffer;
+    nbuf->l4_proto = proto;
+}
+
 static inline void nbuf_set_size(NetworkBuffer* nbuf, size_t size) {
     assert(size <= nbuf->buffer.buffer_capacity);
     nbuf->buffer.buffer_size = size;

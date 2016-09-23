@@ -86,6 +86,7 @@ void Process::processMainLoop(void* argument)
 {
     Process* self = (Process*)argument;
 
+    self->_exitCode = 0;
     self->_exitCode = self->_entryPoint((int) self->_arguments.size(), self->_arguments.data());
     self->_state = State::TERMINATED;
     kprintf("%s: terminated with exit code %d\n", self->_name, self->_exitCode);

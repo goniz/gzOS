@@ -2,14 +2,24 @@
 #include <cstdlib>
 #include <platform/kprintf.h>
 #include <platform/cpu.h>
+#include <atomic>
+#include <vector>
 #include "ethernet.h"
 #include "ip.h"
 #include "nbuf.h"
 #include "checksum.h"
+#include "route.h"
+#include "interface.h"
+#include "arp.h"
 
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
 static bool ip_is_valid(iphdr_t* iphdr);
+static std::atomic<uint16_t> gId(0);
+
+static uint16_t nextId(void) {
+    return gId.fetch_add(1, std::memory_order::memory_order_relaxed);
+}
 
 DECLARE_DRIVER(ip_layer, ip_layer_init, STAGE_SECOND + 1);
 
@@ -58,9 +68,48 @@ exit:
     return ret;
 }
 
-int ip_output()
+NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size) {
+    route_t route;
+    if (0 != ip_route_lookup(dst, &route)) {
+        return NULL;
+    }
+
+    NetworkBuffer *nbuf = ethernet_alloc_nbuf(route.iface->device, ETH_P_IPv4, sizeof(iphdr_t) + size);
+    if (!nbuf) {
+        return nbuf;
+    }
+
+    iphdr_t* iphdr = ip_hdr(nbuf);
+    iphdr->version = 4;
+    iphdr->ihl = 5;
+    iphdr->id = htons(nextId());
+    iphdr->ttl = ttl;
+    iphdr->len = htons(sizeof(iphdr_t) + size);
+    iphdr->saddr = htonl(route.iface->ipv4.address);
+    iphdr->daddr = htonl(dst);
+    nbuf_set_l4(nbuf, iphdr->data, proto);
+
+    return nbuf;
+}
+
+// no ip options for now..
+int ip_output(NetworkBuffer* packet)
 {
-    return -1;
+    MacAddress mac{};
+    iphdr_t* iphdr = ip_hdr(packet);
+
+    iphdr->csum = 0;
+    iphdr->csum = checksum(iphdr, iphdr->ihl * 4);
+
+    if (0 != arp_get_hwaddr(ntohl(iphdr->daddr), mac)) {
+        return -1;
+    }
+
+    if (!ethernet_send_packet(packet, mac)) {
+        return -1;
+    }
+
+    return 0;
 }
 
 static int ip_layer_init(void)
