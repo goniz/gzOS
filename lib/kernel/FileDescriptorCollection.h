@@ -14,6 +14,7 @@ public:
     int push_filedescriptor(std::unique_ptr<FileDescriptor> fd);
     FileDescriptor* get_filedescriptor(int fdnum);
     int remove_filedescriptor(int fdnum, bool close = true);
+    void close_all(void);
 
 private:
     int allocate_fd(void);

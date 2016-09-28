@@ -55,3 +55,16 @@ int FileDescriptorCollection::remove_filedescriptor(int fdnum, bool close) {
 
     return 0;
 }
+
+void FileDescriptorCollection::close_all(void) {
+    lock_guard<InterruptsMutex> guard(_mutex);
+
+    for (const auto& iter : _fds) {
+        const auto& fd = iter.second;
+        if (nullptr != fd) {
+            fd->close();
+        }
+    }
+
+    _fds.clear();
+}

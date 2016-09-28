@@ -9,6 +9,8 @@
 #include <platform/panic.h>
 #include <platform/kprintf.h>
 #include <lib/kernel/signals.h>
+#include <platform/cpu.h>
+#include <lib/syscall/syscall.h>
 
 static std::atomic<pid_t> g_next_pid(1);
 static pid_t generate_pid(void)
@@ -48,6 +50,12 @@ Process::Process(const char *name,
 
 Process::~Process(void)
 {
+    try {
+        this->_fileDescriptors.close_all();
+    } catch (std::exception& ex) {
+
+    }
+
     platform_free_process_ctx(_pctx);
 }
 
@@ -91,7 +99,10 @@ void Process::processMainLoop(void* argument)
     self->_state = State::TERMINATED;
     kprintf("%s: terminated with exit code %d\n", self->_name, self->_exitCode);
 
-    while (true);
+    while (true) {
+        platform_cpu_wait();
+        syscall(SYS_NR_YIELD);
+    }
 }
 
 
