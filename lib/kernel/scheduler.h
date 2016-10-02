@@ -14,6 +14,7 @@
 #define DefaultResponsiveQuantum    2500
 #define SCHED_INITIAL_PROC_SIZE     10
 #define SCHED_INITIAL_QUEUE_SIZE    10
+#define PID_CURRENT                 (-512)
 
 #ifdef __cplusplus
 
@@ -51,13 +52,13 @@ public:
     void setDebugMode(void);
 
     struct user_regs* yield(struct user_regs* regs);
+    struct user_regs* schedule(struct user_regs* regs);
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
     void suspend(pid_t pid);
     void resume(pid_t pid);
 
 private:
-    struct user_regs* schedule(struct user_regs* regs);
     Process* andTheWinnerIs(void);
     void handleSignal(Process *proc);
     Process* handleResponsiveProc(void);

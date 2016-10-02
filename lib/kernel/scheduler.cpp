@@ -27,8 +27,9 @@ static int idleProcMain(int argc, const char** argv)
 {
     kputs("Idle thread is running!\n");
     while (true) {
-		platform_cpu_wait();
+//        platform_cpu_wait();
         syscall(SYS_NR_YIELD);
+//        platform_cpu_wait();
     }
 }
 
@@ -36,7 +37,7 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
     : _currentProc(nullptr),
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
-      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, DefaultResponsiveQuantum),
+      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, 1),
       _processList(),
       _mutex()
 {
@@ -126,48 +127,43 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
     lock_guard<spinlock_mutex> guard(_mutex);
     // a normal schedule starts here..
     // we've got an existing proc and a potential new one
-    if (NULL != _currentProc)
-    {
-        // save current context
-        _currentProc->_context = regs;
-        // play the quantum card
-        _currentProc->_quantum--;
-        _currentProc->_cpuTime++;
-
-        this->handleSignal(_currentProc);
-
-        if (_currentProc->_state == Process::State::TERMINATED) {
-            _currentProc = this->andTheWinnerIs();
-            goto switch_to_proc;
-        }
-
-        if (_currentProc->_state == Process::State::SUSPENDED) {
-            _currentProc = this->andTheWinnerIs();
-            goto switch_to_proc;
-        }
-
-        // handle the actual switching logic
-        switch (_currentProc->_type)
-        {
-            case Process::Responsive:
-                _currentProc = this->handleResponsiveProc();
-                break;
-
-            case Process::Preemptive:
-                _currentProc = this->handlePreemptiveProc();
-                break;
-
-            default:
-                panic("%s: Unknown proc type %d", _currentProc->_name, _currentProc->_type);
-        }
-
-        goto switch_to_proc;
-    }
-    else
-    {
+    if (NULL == _currentProc) {
         // first run, _currentProc is NULL and will be chosen for the first time! YAY!
         _currentProc = this->andTheWinnerIs();
         goto switch_to_proc;
+    }
+
+    // save current context
+    _currentProc->_context = regs;
+    // play the quantum card
+    _currentProc->_quantum--;
+    _currentProc->_cpuTime++;
+
+    this->handleSignal(_currentProc);
+
+    if (_currentProc->_state == Process::State::TERMINATED) {
+        _currentProc = this->andTheWinnerIs();
+        goto switch_to_proc;
+    }
+
+    if (_currentProc->_state == Process::State::SUSPENDED) {
+        _currentProc = this->andTheWinnerIs();
+        goto switch_to_proc;
+    }
+
+    // handle the actual switching logic
+    switch (_currentProc->_type)
+    {
+        case Process::Responsive:
+            _currentProc = this->handleResponsiveProc();
+            break;
+
+        case Process::Preemptive:
+            _currentProc = this->handlePreemptiveProc();
+            break;
+
+        default:
+            panic("%s: Unknown proc type %d", _currentProc->_name, _currentProc->_type);
     }
 
 switch_to_proc:
@@ -241,6 +237,7 @@ struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
 
 bool ProcessScheduler::signalProc(pid_t pid, int signal)
 {
+    bool ret;
     Process* proc = this->getProcessByPid(pid);
     if (!proc) {
         return false;
@@ -274,16 +271,24 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
                     break;
             }
 
-            return true;
+            ret = true;
+            break;
         }
 
         default:
-            return proc->signal(signal);
+            ret = proc->signal(signal);
     }
+
+
+    return ret;
 }
 
 Process* ProcessScheduler::getProcessByPid(pid_t pid) const
 {
+    if (PID_CURRENT == pid) {
+        return this->getCurrentProcess();
+    }
+
     for (const auto& proc : _processList)
     {
         if (proc->pid() != pid) {
@@ -357,7 +362,9 @@ void ProcessScheduler::sleep(pid_t pid, int ms) {
     InterruptsMutex mutex;
     mutex.lock();
 
-    this->signalProc(pid, SIG_STOP);
+    if (PID_CURRENT == pid) {
+        pid = this->getCurrentPid();
+    }
 
     this->setTimeout(ms, [](ProcessScheduler* self, void* arg) {
         self->signalProc((pid_t) arg, SIG_CONT);
@@ -366,7 +373,7 @@ void ProcessScheduler::sleep(pid_t pid, int ms) {
 
     mutex.unlock();
 
-    syscall(SYS_NR_YIELD);
+    syscall(SYS_NR_SIGNAL, pid, SIG_STOP);
 }
 
 void ProcessScheduler::suspend(pid_t pid) {

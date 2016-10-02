@@ -26,6 +26,7 @@ VirtualFileSystem* vfs(void);
 extern "C" {
 #endif // cplusplus
 
+FileDescriptor* vfs_num_to_fd(int fdnum);
 int vfs_open(const char *path, int flags);
 int vfs_close(int fd);
 int vfs_read(int fd, void* buf, size_t size);

@@ -2,6 +2,10 @@
 #include "FileDescriptorCollection.h"
 
 int FileDescriptorCollection::push_filedescriptor(std::unique_ptr<FileDescriptor> fd) {
+    if (nullptr == fd) {
+        return INVALID_FD;
+    }
+
     int fdnum = this->allocate_fd();
     if (INVALID_FD == fdnum) {
         return INVALID_FD;

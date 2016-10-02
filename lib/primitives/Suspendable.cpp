@@ -40,7 +40,7 @@ void Suspendable::wait(void)
         }
     }
 
-    scheduler_suspend();
+    kill(PID_CURRENT, SIG_STOP);
 }
 
 void Suspendable::notifyOne(void)
@@ -53,7 +53,6 @@ void Suspendable::notifyOne(void)
 
     pid_t pid = m_waitingPids.back();
     m_waitingPids.pop_back();
-
 
     scheduler_resume(pid);
 }

@@ -23,13 +23,11 @@ int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg
 }
 
 void scheduler_sleep(int timeout_ms) {
-    const auto pid = scheduler()->getCurrentPid();
-    scheduler()->sleep(pid, timeout_ms);
+    scheduler()->sleep(PID_CURRENT, timeout_ms);
 }
 
 void scheduler_suspend(void) {
-    const auto pid = scheduler()->getCurrentPid();
-    scheduler()->suspend(pid);
+    scheduler()->suspend(PID_CURRENT);
 }
 
 void scheduler_resume(pid_t pid) {
@@ -39,6 +37,17 @@ void scheduler_resume(pid_t pid) {
 pid_t scheduler_current_pid(void)
 {
     return scheduler()->getCurrentPid();
+}
+
+FileDescriptor* vfs_num_to_fd(int fdnum)
+{
+    const auto proc = scheduler()->getCurrentProcess();
+    if (nullptr == proc) {
+        return nullptr;
+    }
+
+    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
+    return fdc.get_filedescriptor(fdnum);
 }
 
 int vfs_open(const char* path, int flags) {
@@ -70,13 +79,7 @@ int vfs_close(int fd)
 
 int vfs_read(int fd, void* buf, size_t size)
 {
-    const auto proc = scheduler()->getCurrentProcess();
-    if (nullptr == proc) {
-        return -1;
-    }
-
-    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
-    auto fileDes = fdc.get_filedescriptor(fd);
+    auto fileDes = vfs_num_to_fd(fd);
     if (nullptr == fileDes) {
         return -1;
     }
@@ -86,13 +89,7 @@ int vfs_read(int fd, void* buf, size_t size)
 
 int vfs_write(int fd, const void* buf, size_t size)
 {
-    const auto proc = scheduler()->getCurrentProcess();
-    if (nullptr == proc) {
-        return -1;
-    }
-
-    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
-    auto fileDes = fdc.get_filedescriptor(fd);
+    auto fileDes = vfs_num_to_fd(fd);
     if (nullptr == fileDes) {
         return -1;
     }
@@ -102,13 +99,7 @@ int vfs_write(int fd, const void* buf, size_t size)
 
 int vfs_seek(int fd, off_t offset, int whence)
 {
-    const auto proc = scheduler()->getCurrentProcess();
-    if (nullptr == proc) {
-        return -1;
-    }
-
-    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
-    auto fileDes = fdc.get_filedescriptor(fd);
+    auto fileDes = vfs_num_to_fd(fd);
     if (nullptr == fileDes) {
         return -1;
     }
