@@ -32,7 +32,8 @@ typedef struct {
 } NetworkBuffer;
 
 NetworkBuffer* nbuf_alloc(size_t size);
-NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment);
+NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment);\
+NetworkBuffer* nbuf_clone(const NetworkBuffer *nbuf);
 void nbuf_free(NetworkBuffer* nbuf);
 
 static inline int nbuf_is_valid(const NetworkBuffer* nbuf) {
@@ -86,6 +87,11 @@ static inline void nbuf_set_l4(NetworkBuffer* nbuf, void* buffer, uint16_t proto
 static inline void nbuf_set_size(NetworkBuffer* nbuf, size_t size) {
     assert(size <= nbuf->buffer.buffer_capacity);
     nbuf->buffer.buffer_size = size;
+}
+
+static inline ptrdiff_t nbuf_offset(const NetworkBuffer* nbuf, void* buffer) {
+    assert(pointer_is_in_range(buffer, nbuf->buffer.buffer, nbuf->buffer.buffer_capacity));
+    return (uintptr_t)buffer - (uintptr_t)(nbuf->buffer.buffer);
 }
 
 #ifdef __cplusplus

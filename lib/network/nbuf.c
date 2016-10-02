@@ -54,8 +54,7 @@ NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
 
     interrupts_enable(isrMask);
 
-    nbuf->buffer.buffer_capacity = (nbuf->buffer.buffer == NULL ? 0 : size);
-    nbuf->buffer.buffer_size = 0;
+    nbuf->buffer.buffer_size = nbuf->buffer.buffer_capacity = (nbuf->buffer.buffer == NULL ? 0 : size);
     return nbuf;
 }
 
@@ -75,6 +74,30 @@ void nbuf_free(NetworkBuffer* nbuf) {
     kfree(mp_nbuf, nbuf);
 
     interrupts_enable(isrMask);
+}
+
+NetworkBuffer* nbuf_clone(const NetworkBuffer *nbuf)
+{
+    NetworkBuffer* newNbuf = nbuf_alloc(nbuf_size(nbuf));
+    uint8_t* newDataPtr = nbuf_data(newNbuf);
+    memcpy(nbuf_data(newNbuf), nbuf_data(nbuf), nbuf_size(nbuf));
+
+    nbuf_set_device(newNbuf, nbuf_device(nbuf));
+    nbuf_set_size(newNbuf, nbuf_size(nbuf));
+
+    if (nbuf->l2_offset) {
+        nbuf_set_l2(newNbuf, newDataPtr + nbuf_offset(nbuf, nbuf->l2_offset));
+    }
+
+    if (nbuf->l3_offset) {
+        nbuf_set_l3(newNbuf, newDataPtr + nbuf_offset(nbuf, nbuf->l3_offset), nbuf->l3_proto);
+    }
+
+    if (nbuf->l4_offset) {
+        nbuf_set_l4(newNbuf, newDataPtr + nbuf_offset(nbuf, nbuf->l4_offset), nbuf->l4_proto);
+    }
+
+    return newNbuf;
 }
 
 DECLARE_DRIVER(nbuf_pool, nbuf_pool_init, STAGE_FIRST);

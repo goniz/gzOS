@@ -4,25 +4,28 @@
 #include <platform/cpu.h>
 #include <atomic>
 #include <vector>
+#include <lib/primitives/basic_queue.h>
+#include <algorithm>
 #include "ethernet.h"
 #include "ip.h"
-#include "nbuf.h"
 #include "checksum.h"
 #include "route.h"
-#include "interface.h"
 #include "arp.h"
 #include "icmp.h"
+#include "udp.h"
+#include "socket.h"
+#include "ip_raw.h"
 
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
 static bool ip_is_valid(iphdr_t* iphdr);
 static void ip_hint_arp_cache(const NetworkBuffer *packet);
+static uint16_t nextId(void);
+
+class RawIpFileDescriptor;
 
 static std::atomic<uint16_t> gId(0);
-
-static uint16_t nextId(void) {
-    return gId.fetch_add(1, std::memory_order::memory_order_relaxed);
-}
+std::vector<RawIpFileDescriptor*> gRawSockets;
 
 DECLARE_DRIVER(ip_layer, ip_layer_init, STAGE_SECOND + 1);
 
@@ -56,15 +59,34 @@ int ip_input(NetworkBuffer *incomingPacket)
 
 //    kprintf("ip: received an IP datagram %08x --> %08x (%d)\n", iphdr->saddr, iphdr->daddr, iphdr->proto);
 //    kprintf("ip: pkt refcnt %d\n", incomingPacket->refcnt);
+
+    // duplicate the packet and push it to each waiting raw ip socket
+    {
+        InterruptsMutex mutex;
+        mutex.lock();
+        if (!gRawSockets.empty()) {
+            for (auto& sock : gRawSockets) {
+                auto* clone = nbuf_clone(incomingPacket);
+                if (clone) {
+                    sock->rxQueue.push(clone);
+                }
+            }
+        }
+        mutex.unlock();
+    }
+
     switch (iphdr->proto)
     {
         case IPPROTO_ICMP:
             icmp_input(incomingPacket);
             break;
 
-        default:
-            nbuf_free(incomingPacket);
+        case IPPROTO_UDP:
+            udp_input(incomingPacket);
             break;
+
+        default:
+            goto error;
     }
 
     goto exit;
@@ -85,7 +107,7 @@ static void ip_hint_arp_cache(const NetworkBuffer *packet) {
     arp_set_entry(device, eth->src, ip->saddr);
 }
 
-NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_t size) {
+NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint8_t proto, uint16_t size) {
     route_t route;
     if (0 != ip_route_lookup(dst, &route)) {
         return NULL;
@@ -105,6 +127,7 @@ NetworkBuffer* ip_alloc_nbuf(IpAddress dst, uint8_t ttl, uint16_t proto, uint16_
     iphdr->len = htons(sizeof(iphdr_t) + size);
     iphdr->saddr = htonl(route.iface->ipv4.address);
     iphdr->daddr = htonl(dst);
+    iphdr->proto = proto;
     nbuf_set_l4(nbuf, iphdr->data, proto);
 
     return nbuf;
@@ -163,9 +186,16 @@ int ip_output(NetworkBuffer* packet)
     return 0;
 }
 
+static uint16_t nextId(void) {
+    return gId.fetch_add(1, std::memory_order::memory_order_relaxed);
+}
+
 static int ip_layer_init(void)
 {
     ethernet_register_handler(ETH_P_IPv4, ip_handler, NULL);
+    socket_register_triple({AF_INET, SOCK_RAW, IPPROTO_RAW}, []() {
+        return std::unique_ptr<SocketFileDescriptor>(new RawIpFileDescriptor());
+    });
     return 0;
 }
 

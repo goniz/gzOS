@@ -7,6 +7,8 @@
 #include <lib/network/arp.h>
 #include <lib/network/interface.h>
 #include <lib/network/nbuf.h>
+#include <lib/network/socket.h>
+#include <platform/clock.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -50,23 +52,50 @@ void printArpCache(void)
     mutex.unlock();
 }
 
+int ps_main(int argc, const char** argv)
+{
+    while (1) {
+        printProcessList();
+        scheduler_sleep(5000);
+    }
+}
+
 int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
 
-    int fd = -1;
-
-    printf("new fd is %d\n", fd = vfs_open("/dev/null", O_RDONLY));
-    vfs_close(fd);
-
-    printf("new fd is %d\n", fd = vfs_open("/dev/null", O_RDONLY));
-    vfs_close(fd);
-
-    printf("new fd is %d\n", fd = vfs_open("/dev/null", O_RDONLY));
-    vfs_close(fd);
-
     interface_add("eth0", 0x01010101, 0xffffff00);
+
+//    std::vector<const char *> args{};
+//    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "top", ps_main, args.size(), args.data(), 8096);
+
+    int sock = syscall(SYS_NR_SOCKET, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    printf("sock: %d\n", sock);
+    if (-1 == sock) {
+        return 0;
+    }
+
+    SocketAddress addr{IPADDR_ANY, 1234};
+    syscall(SYS_NR_BIND, sock, &addr);
+
+    time_t t;
+    while (1) {
+        uint8_t buf[512];
+        memset(buf, 0, sizeof(buf));
+        int ret = vfs_read(sock, buf, sizeof(buf));
+        time(&t);
+        kprintf("%lu: read: %d\n", t, ret);
+        if (-1 == ret) {
+            break;
+        }
+
+        for (int i = 0; i < ret; i++) {
+            kprintf("%02x", buf[i]);
+        }
+        kputs("\n");
+    }
+
     return 0;
 
     while (1) {

@@ -1,10 +1,10 @@
 #include <platform/kprintf.h>
 #include <algorithm>
+#include <platform/cpu.h>
 #include "icmp.h"
-#include "nbuf.h"
-#include "ethernet.h"
-#include "ip.h"
 #include "checksum.h"
+#include "ip.h"
+#include "nbuf.h"
 
 static void icmpv4_reply(NetworkBuffer *packet);
 
@@ -37,6 +37,29 @@ error:
 
 exit:
     return ret;
+}
+
+int icmp_reject(uint8_t icmp_type, uint8_t icmp_code, const NetworkBuffer *echoPacket)
+{
+    iphdr_t* echoIpHeader = ip_hdr(echoPacket);
+    size_t echoPacketSize = nbuf_size_from(echoPacket, echoIpHeader);
+    IpAddress dstIp = ntohl(echoIpHeader->saddr);
+    uint16_t packetSize = sizeof(icmp_v4_t) + 4 + echoPacketSize;
+    NetworkBuffer* outputNbuf = ip_alloc_nbuf(dstIp, 64, IPPROTO_ICMP, packetSize);
+
+    if (!outputNbuf) {
+        return -1;
+    }
+
+    icmp_v4_t* icmp = icmp_v4_hdr(outputNbuf);
+    icmp->type = icmp_type;
+    icmp->code = icmp_code;
+    icmp->csum = 0;
+    memset(icmp->data, 0, 4);
+    memcpy(icmp->data + 4, echoIpHeader, echoPacketSize);
+    icmp->csum = checksum(icmp, packetSize);
+
+    return ip_output(outputNbuf);
 }
 
 static void icmpv4_reply(NetworkBuffer* packet)

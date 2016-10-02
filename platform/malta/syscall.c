@@ -8,18 +8,18 @@
 int syscall(int number, ...)
 {
     va_list arg;
-    va_start(arg, number);
-//    register uint32_t a0 asm("a0") = (uint32_t)number;
-//    register uint32_t a1 asm("a1") = (uint32_t)arg;
 
     if (platform_is_irq_context()) {
         panic("System calls cannot be used in IRQ context.");
     }
 
+    va_start(arg, number);
 	asm volatile(
         "\tmove $a0, %0\n"
         "\tmove $a1, %1\n"
+        "\tnop\n"
         "\tsyscall\n"
+        "\tnop\n"
         : : "r"(number), "r"(arg)
     );
     va_end(arg);

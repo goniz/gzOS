@@ -1,8 +1,10 @@
 
 #include <lib/syscall/syscall.h>
 #include <cstring>
+#include <lib/network/socket.h>
 #include "process.h"
 #include "scheduler.h"
+#include "VirtualFileSystem.h"
 
 DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
 {
@@ -48,6 +50,7 @@ DEFINE_SYSCALL(SYS_NR_SIGNAL, signal)
         return -1;
     }
 
+    *regs = scheduler()->schedule(*regs);
     return 0;
 }
 
@@ -110,4 +113,26 @@ DEFINE_SYSCALL(SYS_NR_PS, ps)
     }
 
     return entries;
+}
+
+DEFINE_SYSCALL(SYS_NR_SOCKET, socket)
+{
+    SYSCALL_ARG(int, domain);
+    SYSCALL_ARG(int, type);
+    SYSCALL_ARG(int, proto);
+
+    return socket(domain, type, proto);
+}
+
+DEFINE_SYSCALL(SYS_NR_BIND, bind)
+{
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(const SocketAddress*, address);
+
+    SocketFileDescriptor* sockFd = socket_num_to_fd(fd);
+    if (nullptr == sockFd) {
+        return -1;
+    }
+
+    return sockFd->bind(*address);
 }
