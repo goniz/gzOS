@@ -90,6 +90,8 @@ extern int hashmap_length(map_t in);
 #include <cstring>
 #include <cstdint>
 #include <cstdio>
+#include <new>
+#include <utility>
 
 template<typename T>
 struct StringKeyConverter;
@@ -176,6 +178,13 @@ struct StringKeyConverter<const char*> {
 template<>
 struct StringKeyConverter<uint32_t> {
     static void generate_key(const uint32_t& key, char* output_key, size_t size) {
+        sprintf(output_key, "%08x", (unsigned int) key);
+    }
+};
+
+template<>
+struct StringKeyConverter<int> {
+    static void generate_key(const int& key, char* output_key, size_t size) {
         sprintf(output_key, "%08x", (unsigned int) key);
     }
 };
