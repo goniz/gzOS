@@ -5,6 +5,8 @@
 #include <lib/mm/physmem.h>
 #include <lib/mm/pmap.h>
 #include <string.h>
+#include <platform/kprintf.h>
+#include <platform/panic.h>
 
 #define VIRT_STACK_BASE 0x5000
 
@@ -65,7 +67,7 @@ void platform_free_process_ctx(struct platform_process_ctx* pctx)
 __attribute__((noreturn))
 static void hang(void)
 {
-    while (1);
+	panic("Returned from main somehow.. hanging...\n");
 }
 
 extern uint32_t _gp;

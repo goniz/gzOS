@@ -6,7 +6,7 @@
 #include "scheduler.h"
 #include "VirtualFileSystem.h"
 
-DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
+DEFINE_SYSCALL(CREATE_PREEMPTIVE_PROC, create_preemptive_process)
 {
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Process::EntryPointFunction, main);
@@ -18,7 +18,7 @@ DEFINE_SYSCALL(SYS_NR_CREATE_PREEMPTIVE_PROC, create_preemptive_process)
     return scheduler()->createPreemptiveProcess(name, main, std::move(arguments), stackSize);
 }
 
-DEFINE_SYSCALL(SYS_NR_CREATE_RESPONSIVE_PROC, create_responsive_process)
+DEFINE_SYSCALL(CREATE_RESPONSIVE_PROC, create_responsive_process)
 {
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Process::EntryPointFunction, main);
@@ -30,18 +30,24 @@ DEFINE_SYSCALL(SYS_NR_CREATE_RESPONSIVE_PROC, create_responsive_process)
     return scheduler()->createResponsiveProcess(name, main, std::move(arguments), stackSize);
 }
 
-DEFINE_SYSCALL(SYS_NR_GET_PID, get_pid)
+DEFINE_SYSCALL(GET_PID, get_pid)
 {
     return scheduler()->getCurrentPid();
 }
 
-DEFINE_SYSCALL(SYS_NR_YIELD, yield)
+DEFINE_SYSCALL(YIELD, yield)
 {
     *regs = scheduler()->yield(*regs);
     return 0;
 }
 
-DEFINE_SYSCALL(SYS_NR_SIGNAL, signal)
+DEFINE_SYSCALL(SCHEDULE, schedule)
+{
+    *regs = scheduler()->schedule(*regs);
+    return 0;
+}
+
+DEFINE_SYSCALL(SIGNAL, signal)
 {
     SYSCALL_ARG(pid_t, pid);
     SYSCALL_ARG(int, signal_nr);
@@ -83,7 +89,7 @@ static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_lef
     return true;
 }
 
-DEFINE_SYSCALL(SYS_NR_PS, ps)
+DEFINE_SYSCALL(PS, ps)
 {
     SYSCALL_ARG(uint8_t*, buffer);
     SYSCALL_ARG(size_t, size);
@@ -115,16 +121,33 @@ DEFINE_SYSCALL(SYS_NR_PS, ps)
     return entries;
 }
 
-DEFINE_SYSCALL(SYS_NR_SOCKET, socket)
+DEFINE_SYSCALL(OPEN, open)
+{
+    SYSCALL_ARG(const char*, path);
+    SYSCALL_ARG(int, flags);
+
+    return vfs_open(path, flags);
+}
+
+DEFINE_SYSCALL(READ, read)
+{
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(void*, buf);
+    SYSCALL_ARG(size_t, size);
+
+    return vfs_read(fd, buf, size);
+}
+
+DEFINE_SYSCALL(SOCKET, socket)
 {
     SYSCALL_ARG(int, domain);
     SYSCALL_ARG(int, type);
     SYSCALL_ARG(int, proto);
 
-    return socket(domain, type, proto);
+    return socket_create(domain, type, proto);
 }
 
-DEFINE_SYSCALL(SYS_NR_BIND, bind)
+DEFINE_SYSCALL(BIND, bind)
 {
     SYSCALL_ARG(int, fd);
     SYSCALL_ARG(const SocketAddress*, address);

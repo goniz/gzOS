@@ -25,7 +25,7 @@ typedef struct {
 
 #define IPADDR_ANY (0)
 
-int socket(int domain, int type, int protocol);
+int socket_create(int domain, int type, int protocol);
 
 #ifdef __cplusplus
 } //extern "C"

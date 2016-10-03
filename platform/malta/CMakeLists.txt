@@ -27,4 +27,5 @@ add_library(malta STATIC
         pci_registers.h
         script.ld
         tlb_ops.S
+        cpu.S
 )

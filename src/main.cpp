@@ -83,6 +83,7 @@ int main(int argc, const char** argv)
     while (1) {
         uint8_t buf[512];
         memset(buf, 0, sizeof(buf));
+//        int ret = syscall(SYS_NR_READ, sock, buf, sizeof(buf));
         int ret = vfs_read(sock, buf, sizeof(buf));
         time(&t);
         kprintf("%lu: read: %d\n", t, ret);
@@ -96,6 +97,7 @@ int main(int argc, const char** argv)
         kputs("\n");
     }
 
+//    vfs_close(sock);
     return 0;
 
     while (1) {

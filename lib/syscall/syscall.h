@@ -39,7 +39,7 @@ struct kernel_syscall {
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args); \
             __attribute__((section(".syscalls"),used)) \
-            static const struct kernel_syscall __sys_ ##name## _ks = { (number), (sys_handler_t) sys_ ##name }; \
+            static const struct kernel_syscall __sys_ ##name## _ks = { ( SYS_NR_ ##number ), (sys_handler_t) sys_ ##name }; \
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args)
 
@@ -56,9 +56,12 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(CREATE_PREEMPTIVE_PROC),
     DECLARE_SYSCALL_NR(CREATE_RESPONSIVE_PROC),
     DECLARE_SYSCALL_NR(GET_PID),
+    DECLARE_SYSCALL_NR(SCHEDULE),
     DECLARE_SYSCALL_NR(YIELD),
     DECLARE_SYSCALL_NR(SIGNAL),
     DECLARE_SYSCALL_NR(PS),
+    DECLARE_SYSCALL_NR(OPEN),
+    DECLARE_SYSCALL_NR(READ),
     DECLARE_SYSCALL_NR(SOCKET),
     DECLARE_SYSCALL_NR(BIND),
 };

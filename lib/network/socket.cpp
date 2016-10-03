@@ -17,7 +17,7 @@ void socket_register_triple(socket_triple_t triple, SocketFileDescriptorCreator 
     _sockFamilies.put(triple, std::move(descriptorCreator));
 }
 
-int socket(int domain, int type, int protocol)
+int socket_create(int domain, int type, int protocol)
 {
     const socket_triple_t triple{(socket_family_t) domain, (socket_type_t) type, protocol};
     SocketFileDescriptorCreator* socketFileDescriptorCreator = _sockFamilies.get(triple);

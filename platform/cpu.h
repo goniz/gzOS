@@ -27,6 +27,11 @@ uintptr_t platform_ioport_to_phy(uintptr_t ioport);
 uintptr_t platform_ioport_to_virt(uintptr_t ioport);
 uintptr_t platform_buffered_virt_to_unbuffered_virt(uintptr_t virt);
 
+// returns the saved context on first call, returns NULL when "returning" from restoring
+struct user_regs* platform_save_context(void);
+void platform_restore_context(struct user_regs* ctx);
+void platform_context_switch(struct user_regs* newContext, struct user_regs** oldContext);
+
 void platform_cpu_wait(void);
 
 #if BYTE_ORDER == BIG_ENDIAN

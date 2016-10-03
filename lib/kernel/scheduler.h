@@ -10,6 +10,10 @@
 #include <platform/interrupts.h>
 #endif
 
+#include <lib/syscall/syscall.h>
+#include <stdarg.h>
+#include <sys/types.h>
+
 #define DefaultPreemptiveQuantum    100
 #define DefaultResponsiveQuantum    2500
 #define SCHED_INITIAL_PROC_SIZE     10
@@ -20,6 +24,9 @@
 
 extern "C"
 int sys_ps(struct user_regs **regs, va_list args);
+
+extern "C"
+int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
 
 class ProcessScheduler
 {
@@ -64,6 +71,8 @@ private:
     Process* handleResponsiveProc(void);
     Process* handlePreemptiveProc(void);
     void doTimers(void);
+    int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
+    friend int ::scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
     friend int ::sys_ps(struct user_regs **regs, va_list args);
 
     struct TimerControlBlock {
@@ -80,6 +89,7 @@ private:
     std::vector<std::unique_ptr<Process>>   _processList;
     std::vector<struct TimerControlBlock>   _timers;
     spinlock_mutex                          _mutex;
+    bool                                    _syscall_in_progress;
     bool                                    _debugMode;
 };
 
@@ -102,6 +112,7 @@ extern "C" {
 
 typedef int (*init_main_t)(int argc, const char** argv);
 void scheduler_run_main(init_main_t init_main, int argc, const char** argv);
+int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
 
 typedef enum {
     TIMER_THATS_ENOUGH = 0,

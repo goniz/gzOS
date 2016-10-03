@@ -3,15 +3,18 @@
 #include <stdint.h>
 #include <lib/syscall/syscall.h>
 #include <platform/panic.h>
+#include <lib/kernel/scheduler.h>
+#include <platform/kprintf.h>
 #include "interrupts.h"
 
 int syscall(int number, ...)
 {
     va_list arg;
 
-    if (platform_is_irq_context()) {
-        panic("System calls cannot be used in IRQ context.");
-    }
+//    if (platform_is_irq_context()) {
+//        panic("System calls cannot be used in IRQ context.");
+//        kputs("warning: System calls cannot be used in IRQ context.\n");
+//    }
 
     va_start(arg, number);
 	asm volatile(
@@ -38,9 +41,9 @@ struct user_regs *syscall_exception_handler(struct user_regs *current_regs) {
     struct user_regs *ctx_switch_in_regs = current_regs;
 
     for (size_t i = 0; i < n_syscalls; i++) {
-        struct kernel_syscall *currrent = &syscall_table[i];
-        if (current_regs->a0 == currrent->number) {
-            ret = currrent->handler(&ctx_switch_in_regs, (va_list) current_regs->a1);
+        struct kernel_syscall* current = &syscall_table[i];
+        if (current_regs->a0 == current->number) {
+            ret = scheduler_syscall_handler(&ctx_switch_in_regs, current, (va_list) current_regs->a1);
             break;
         }
     }

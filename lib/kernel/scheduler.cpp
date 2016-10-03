@@ -3,11 +3,10 @@
 #include <cstdio>
 #include <platform/clock.h>
 #include <platform/process.h>
-#include <platform/cpu.h>
-#include <lib/syscall/syscall.h>
 #include <lib/kernel/signals.h>
 #include <cstring>
 #include <platform/drivers.h>
+#include <platform/cpu.h>
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
@@ -39,7 +38,8 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
       _preemptiveQueue(initialQueueSize),
       _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, 1),
       _processList(),
-      _mutex()
+      _mutex(),
+      _syscall_in_progress(false)
 {
     _processList.reserve(initialProcSize);
     _timers.reserve(200);
@@ -69,12 +69,13 @@ Process* ProcessScheduler::andTheWinnerIs(void)
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handleResponsiveProc(void)
 {
+    // if the process is a responsive one, keep it running until he yield()s
+
     if (_currentProc->_state == Process::State::YIELDING) {
         // choose a new proc before pushing current proc to responsive queue
         Process* newProc = this->andTheWinnerIs();
 
         // reset current proc and push to queue
-        _currentProc->_quantum = _currentProc->_resetQuantum;
         _currentProc->_state = Process::State::READY;
 
         // if we picked the idle proc, it means we've got no one else to run but us.
@@ -89,22 +90,15 @@ Process* ProcessScheduler::handleResponsiveProc(void)
         return newProc;
     }
 
-    // if the process is a responsive one, keep it running until he yield()s
-    // but if he passes the intentionally-very-long-quantum value, kill it.
-    if (0 >= _currentProc->_quantum) {
-//        _currentProc->_exitCode = -127;
-//        _currentProc->_state = Process::State::TERMINATED;
-//        return this->andTheWinnerIs();
-        _currentProc->_quantum = _currentProc->_resetQuantum;
-        kprintf("%s: I'm a cpu hogging bitch.\n", _currentProc->_name);
-    }
-
     return _currentProc;
 }
 
 // assumes _currentProc is non-null
 Process* ProcessScheduler::handlePreemptiveProc(void)
 {
+    // play the quantum card
+    _currentProc->_quantum--;
+
     auto currentQuantum = _currentProc->_quantum;
 
 //    debug_log("Current quantum: %d", currentQuantum);
@@ -135,8 +129,7 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
 
     // save current context
     _currentProc->_context = regs;
-    // play the quantum card
-    _currentProc->_quantum--;
+    // advance cpu time counter
     _currentProc->_cpuTime++;
 
     this->handleSignal(_currentProc);
@@ -247,9 +240,20 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
         return false;
     }
 
-    // handle signals that need to be taken care of before then get to the running process..
+    // handle signals that need to be taken care of before they get to the running process..
     switch (signal)
     {
+        case SIG_STOP:
+            proc->_quantum = proc->_resetQuantum;
+            proc->_state = Process::State::SUSPENDED;
+
+            if (proc == _currentProc && !_syscall_in_progress && !platform_is_irq_context()) {
+                syscall(SYS_NR_SCHEDULE);
+            }
+
+            ret = true;
+            break;
+
         case Signal::SIG_CONT:
         {
             proc->_quantum = proc->_resetQuantum;
@@ -265,6 +269,10 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
                         _currentProc->_quantum = 1;
                     }
 
+                    if (!_syscall_in_progress && !platform_is_irq_context()) {
+                        syscall(SYS_NR_YIELD);
+                    }
+
                     break;
                 case Process::Preemptive:
                     _preemptiveQueue.push(proc);
@@ -277,8 +285,8 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
 
         default:
             ret = proc->signal(signal);
+            break;
     }
-
 
     return ret;
 }
@@ -311,10 +319,6 @@ void ProcessScheduler::handleSignal(Process *proc)
         case SIG_KILL:
             proc->_exitCode = -127;
             proc->_state = Process::State::TERMINATED;
-            break;
-
-        case SIG_STOP:
-            proc->_state = Process::State::SUSPENDED;
             break;
 
         case SIG_NONE:
@@ -371,9 +375,8 @@ void ProcessScheduler::sleep(pid_t pid, int ms) {
         return false;
     }, (void *) pid);
 
+    this->signalProc(pid, SIG_STOP);
     mutex.unlock();
-
-    syscall(SYS_NR_SIGNAL, pid, SIG_STOP);
 }
 
 void ProcessScheduler::suspend(pid_t pid) {
@@ -382,8 +385,6 @@ void ProcessScheduler::suspend(pid_t pid) {
     mutex.lock();
     this->signalProc(pid, SIG_STOP);
     mutex.unlock();
-
-    syscall(SYS_NR_YIELD);
 }
 
 void ProcessScheduler::resume(pid_t pid) {
@@ -396,6 +397,18 @@ void ProcessScheduler::resume(pid_t pid) {
 
 Process *ProcessScheduler::getCurrentProcess(void) const {
     return _currentProc;
+}
+
+int ProcessScheduler::syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args) {
+    this->_syscall_in_progress = true;
+    int ret = syscall->handler(regs, args);
+    this->_syscall_in_progress = false;
+
+    if (_currentProc && (_currentProc->_state != Process::State::READY || _currentProc->_state != Process::State::RUNNING)) {
+        *regs = this->schedule(*regs);
+    }
+
+    return ret;
 }
 
 ProcessScheduler *scheduler(void) {

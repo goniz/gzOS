@@ -1,5 +1,6 @@
 
 #include <platform/clock.h>
+#include <lib/syscall/syscall.h>
 #include "scheduler.h"
 #include "VirtualFileSystem.h"
 
@@ -107,4 +108,10 @@ int vfs_seek(int fd, off_t offset, int whence)
     return fileDes->seek(offset, whence);
 }
 
-} // extern "C"
+}
+
+int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args) {
+    return scheduler()->syscall_entry_point(regs, syscall, args);
+}
+
+// extern "C"
