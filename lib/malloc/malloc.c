@@ -267,7 +267,7 @@ void* kmemalign(malloc_pool_t *mp, size_t size, int alignment, uint16_t flags)
 
 void kmalloc_dump(malloc_pool_t *mp) {
     mem_arena_t *arena = NULL;
-    kprintf("[kmalloc] malloc_pool at %p:\n", mp);
+    kprintf("[kmalloc] malloc_pool '%s' at %p:\n", mp->mp_desc, mp);
     TAILQ_FOREACH(arena, &mp->mp_arena, ma_list) {
         mem_block_t *block = (void *) arena->ma_data;
         mem_block_t *end = (void *) arena->ma_data + arena->ma_size;
