@@ -121,7 +121,6 @@ public:
             return false;
         }
 
-
         StringKeyConverter<TKey>::generate_key(key, stringKey, MAX_KEY_SIZE);
         hashmap_put(_map, stringKey, data);
         return true;
@@ -140,15 +139,14 @@ public:
     }
 
     bool remove(const TKey& key) noexcept {
-        TValue** valuePtr = nullptr;
+        TValue* value = nullptr;
         char stringKey[MAX_KEY_SIZE];
 
         StringKeyConverter<TKey>::generate_key(key, stringKey, sizeof(stringKey));
-        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &valuePtr)) {
+        if (MAP_OK != hashmap_get(_map, stringKey, (any_t *) &value)) {
             return false;
         }
 
-        TValue* value = *valuePtr;
         char* oldKey = stringKey;
 
         if (MAP_OK != hashmap_remove(_map, &oldKey)) {
