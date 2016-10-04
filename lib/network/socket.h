@@ -45,6 +45,18 @@ public:
     virtual int bind(const SocketAddress& addr) {
         return -1;
     }
+
+    virtual int connect(const SocketAddress& addr) {
+        return -1;
+    }
+
+    virtual int recvfrom(void* buffer, size_t size, SocketAddress* address) {
+        return -1;
+    }
+
+    virtual int sendto(const void* buffer, size_t size, const SocketAddress& address) {
+        return -1;
+    }
 };
 
 typedef std::unique_ptr<SocketFileDescriptor> (*SocketFileDescriptorCreator)(void);

@@ -1,14 +1,9 @@
 #include <stdio.h>
 #include <lib/kernel/scheduler.h>
-#include <lib/syscall/syscall.h>
 #include <ctime>
-#include <lib/kernel/VirtualFileSystem.h>
-#include <fcntl.h>
 #include <lib/network/arp.h>
 #include <lib/network/interface.h>
-#include <lib/network/nbuf.h>
 #include <lib/network/socket.h>
-#include <platform/clock.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -79,24 +74,28 @@ int main(int argc, const char** argv)
     SocketAddress addr{IPADDR_ANY, 1234};
     syscall(SYS_NR_BIND, sock, &addr);
 
-    time_t t;
     while (1) {
+        SocketAddress clientaddr{};
         uint8_t buf[512];
         memset(buf, 0, sizeof(buf));
-        int ret = syscall(SYS_NR_READ, sock, buf, sizeof(buf));
-        time(&t);
-        kprintf("%lu: read: %d\n", t, ret);
+        int ret = syscall(SYS_NR_RECVFROM, sock, buf, sizeof(buf), &clientaddr);
+        kprintf("read: %d from %08x:%d\n", ret, clientaddr.address, clientaddr.port);
         if (-1 == ret) {
             break;
         }
 
-        for (int i = 0; i < ret; i++) {
-            kprintf("%02x", buf[i]);
+        if (0 == strncmp((const char *) buf, "bye\n", sizeof(buf))) {
+            syscall(SYS_NR_CLOSE, sock);
+            break;
         }
-        kputs("\n");
+
+        syscall(SYS_NR_SENDTO, sock, buf, ret, &clientaddr);
+//        for (int i = 0; i < ret; i++) {
+//            kprintf("%02x", buf[i]);
+//        }
+//        kputs("\n");
     }
 
-//    vfs_close(sock);
     return 0;
 
     while (1) {

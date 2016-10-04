@@ -9,14 +9,12 @@ class NullFileDescriptor;
 
 class FileDescriptor {
 public:
-    virtual ~FileDescriptor() {
-        this->close();
-    }
+    virtual ~FileDescriptor(void) = default;
 
     virtual int read(void* buffer, size_t size) = 0;
     virtual int write(const void* buffer, size_t size) = 0;
     virtual int seek(int where, int whence) = 0;
-    virtual void close(void) { }
+    virtual void close(void) = 0;
 
     int get_offset(void) const;
     bool is_valid(void) const;

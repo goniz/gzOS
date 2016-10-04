@@ -56,7 +56,7 @@ static inline const char* nbuf_device(const NetworkBuffer* nbuf) {
     return nbuf->device;
 }
 
-static inline size_t nbuf_size_from(const NetworkBuffer* nbuf, void* pos) {
+static inline size_t nbuf_size_from(const NetworkBuffer* nbuf, const void* pos) {
     assert(pointer_is_in_range(pos, nbuf->buffer.buffer, nbuf->buffer.buffer_capacity));
     uintptr_t start = (uintptr_t) pos;
     uintptr_t end = (uintptr_t) nbuf->buffer.buffer + nbuf->buffer.buffer_size;

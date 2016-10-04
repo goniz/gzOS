@@ -7,110 +7,31 @@
 #include "udp.h"
 #include "icmp.h"
 #include "socket.h"
+#include "checksum.h"
+#include "udp_socket.h"
 
-static int udp_proto_init(void);
-DECLARE_DRIVER(udp_proto, udp_proto_init, STAGE_SECOND + 1);
-
-class UdpFileDescriptor;
-static HashMap<int, UdpFileDescriptor*> _portSessionsMap;
-
-class UdpFileDescriptor : public SocketFileDescriptor
-{
-public:
-    UdpFileDescriptor() : rxQueue(RX_QUEUE_SIZE), port(-1) { }
-
-    virtual ~UdpFileDescriptor(void) = default;
-
-    virtual int read(void *buffer, size_t size) override {
-        NetworkBuffer* nbuf = NULL;
-        if ((nullptr == buffer) || (!this->rxQueue.pop(nbuf, true))) {
-            return -1;
-        }
-
-        udp_t* udp = udp_hdr(nbuf);
-        size = MIN(udp_data_length(udp), size);
-        memcpy(buffer, udp->data, size);
-        nbuf_free(nbuf);
-        return (int) size;
-    }
-
-    virtual int write(const void *buffer, size_t size) override {
-        return -1;
-    }
-
-    virtual int seek(int where, int whence) override {
-        return -1;
-    }
-
-    virtual void close(void) override {
-        InterruptsMutex mutex;
-        NetworkBuffer* nbuf = NULL;
-
-        mutex.lock();
-
-        while (this->rxQueue.pop(nbuf, false)) {
-            nbuf_free(nbuf);
-        }
-
-        _portSessionsMap.remove(this->port);
-        mutex.unlock();
-    }
-
-    virtual int bind(const SocketAddress &addr) override {
-        if (IPADDR_ANY != addr.address) {
-            return -1;
-        }
-
-        uint16_t port = addr.port;
-        if (0 == port) {
-            port = (uint16_t) (rand() % UINT16_MAX);
-        }
-
-        InterruptsMutex mutex;
-        mutex.lock();
-        if (_portSessionsMap.get(port)) {
-            return -1;
-        }
-
-        _portSessionsMap.put(port, std::move(this));
-        this->port = port;
-        return 0;
-    }
-
-private:
-    friend int udp_input(NetworkBuffer *packet);
-
-    basic_queue<NetworkBuffer*> rxQueue;
-    int port;
-};
+static uint16_t udp_checksum(const NetworkBuffer* nbuf);
+static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp);
 
 int udp_input(NetworkBuffer *packet)
 {
     int ret = 0;
     uint16_t dport = 0;
-    UdpFileDescriptor** session = nullptr;
+    UdpFileDescriptor* session = nullptr;
     udp_t* udp = udp_hdr(packet);
 
-    if (nbuf_size_from(packet, udp) < sizeof(udp_t)) {
-        kprintf("udp: packet is too small, dropping. (buf %d udp %d)\n", nbuf_size_from(packet, udp), sizeof(udp_t));
-        goto error;
-    }
-
-    if (nbuf_size_from(packet, udp->data) < udp_data_length(udp)) {
-        kprintf("udp: packet buffer is too small, header length corrupted? (buf %d udp_data_length(udp) %d)\n",
-                nbuf_size_from(packet, udp->data),
-                udp_data_length(udp));
+    if (!udp_validate_packet(packet, udp)) {
         goto error;
     }
 
     dport = ntohs(udp->dport);
-    session = _portSessionsMap.get(dport);
+    session = getUdpDescriptorByPort(dport);
     if (nullptr == session) {
         icmp_reject(ICMP_V4_DST_UNREACHABLE, ICMP_V4_PORT_UNREACHABLE, packet);
         goto error;
     }
 
-    (*session)->rxQueue.push(packet);
+    session->rxQueue.push(packet);
     goto exit;
 
 error:
@@ -123,7 +44,8 @@ exit:
 
 NetworkBuffer *udp_alloc_nbuf(IpAddress destinationIp, uint16_t destinationPort, uint16_t size)
 {
-    NetworkBuffer* nbuf = ip_alloc_nbuf(destinationIp, 64, IPPROTO_UDP, sizeof(udp_t) + size);
+    const uint16_t udpSize = sizeof(udp_t) + size;
+    NetworkBuffer* nbuf = ip_alloc_nbuf(destinationIp, 64, IPPROTO_UDP, udpSize);
     if (!nbuf) {
         return nullptr;
     }
@@ -131,10 +53,19 @@ NetworkBuffer *udp_alloc_nbuf(IpAddress destinationIp, uint16_t destinationPort,
     udp_t* udp = udp_hdr(nbuf);
     udp->dport = htons(destinationPort);
     udp->sport = 0;
-    udp->length = htons((uint16_t) nbuf_size(nbuf));
+    udp->length = htons(udpSize);
     udp->csum = 0;
 
     return nbuf;
+}
+
+int udp_output(NetworkBuffer* packet)
+{
+    udp_t* udp = udp_hdr(packet);
+    udp->csum = 0;
+    udp->csum = udp_checksum(packet);
+
+    return ip_output(packet);
 }
 
 static int udp_proto_init(void)
@@ -145,3 +76,58 @@ static int udp_proto_init(void)
 
     return 0;
 }
+
+static uint16_t udp_checksum(const NetworkBuffer* nbuf)
+{
+    struct {
+        uint32_t source;
+        uint32_t destination;
+        uint8_t zero;
+        uint8_t protocol;
+        uint16_t length;
+    } pseudoHeader;
+
+    iphdr_t* iphdr = ip_hdr(nbuf);
+    udp_t* udp = udp_hdr(nbuf);
+
+    pseudoHeader.source = iphdr->saddr;
+    pseudoHeader.destination = iphdr->daddr;
+    pseudoHeader.zero = 0;
+    pseudoHeader.protocol = iphdr->proto;
+    pseudoHeader.length = udp->length;
+
+    uint16_t oldcsum = udp->csum;
+    udp->csum = 0;
+
+    const uint32_t pseudo_csum = csum_partial(&pseudoHeader, sizeof(pseudoHeader), 0);
+    const uint32_t csum = csum_partial(udp, ntohs(udp->length), pseudo_csum);
+
+    udp->csum = oldcsum;
+
+    return csum_partial_done(csum);
+}
+
+static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp)
+{
+    if (nbuf_size_from(nbuf, udp) < sizeof(udp_t)) {
+        kprintf("udp: packet is too small, dropping. (buf %d udp %d)\n", nbuf_size_from(nbuf, udp), sizeof(udp_t));
+        return false;
+    }
+
+    if (nbuf_size_from(nbuf, udp->data) < udp_data_length(udp)) {
+        kprintf("udp: packet buffer is too small, header length corrupted? (buf %d udp_data_length(udp) %d)\n",
+                nbuf_size_from(nbuf, udp->data),
+                udp_data_length(udp));
+        return false;
+    }
+
+    const auto csum = udp_checksum(nbuf);
+    if (ntohs(udp->csum) != csum) {
+        kprintf("udp: invalid checksum - expected %04x found %04x\n", csum, ntohs(udp->csum));
+        return false;
+    }
+
+    return true;
+}
+
+DECLARE_DRIVER(udp_proto, udp_proto_init, STAGE_SECOND + 1);

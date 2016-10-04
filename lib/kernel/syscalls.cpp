@@ -146,24 +146,18 @@ DEFINE_SYSCALL(READ, read, SYS_IRQ_ENABLED)
     return vfs_read(fd, buf, size);
 }
 
-DEFINE_SYSCALL(SOCKET, socket, SYS_IRQ_DISABLED)
-{
-    SYSCALL_ARG(int, domain);
-    SYSCALL_ARG(int, type);
-    SYSCALL_ARG(int, proto);
-
-    return socket_create(domain, type, proto);
-}
-
-DEFINE_SYSCALL(BIND, bind, SYS_IRQ_DISABLED)
+DEFINE_SYSCALL(WRITE, write, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(int, fd);
-    SYSCALL_ARG(const SocketAddress*, address);
+    SYSCALL_ARG(const void*, buf);
+    SYSCALL_ARG(size_t, size);
 
-    SocketFileDescriptor* sockFd = socket_num_to_fd(fd);
-    if (nullptr == sockFd) {
-        return -1;
-    }
+    return vfs_write(fd, buf, size);
+}
 
-    return sockFd->bind(*address);
+DEFINE_SYSCALL(CLOSE, close, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, fd);
+
+    return vfs_close(fd);
 }

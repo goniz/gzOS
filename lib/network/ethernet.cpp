@@ -61,6 +61,15 @@ static int ethernet_rx_main(int argc, const char **argv) {
         const EthernetDevice *ethernetDevice = find_device_by_phy(nbuf_device(nbuf));
         assert(ethernetDevice != nullptr);
 
+        // check if this frame is a unicast
+        if (0 == (header->dst[0] & 1)) {
+            // if it is: make sure that it fits the receiving phy device mac address.
+            if (0 != memcmp(header->dst, ethernetDevice->mac, ETH_ALEN)) {
+                nbuf_free(nbuf);
+                continue;
+            }
+        }
+
         // the handler wants to know the eth%d device name, not the underlying phy device..
         // as he cant do anything with it..
         nbuf_set_device(nbuf, ethernetDevice->name);

@@ -15,6 +15,7 @@
 #include "udp.h"
 #include "socket.h"
 #include "ip_raw.h"
+#include "interface.h"
 
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
@@ -32,6 +33,7 @@ DECLARE_DRIVER(ip_layer, ip_layer_init, STAGE_SECOND + 1);
 int ip_input(NetworkBuffer *incomingPacket)
 {
     int ret = 0;
+    const interface_t* interface = nullptr;
     iphdr_t* iphdr = ip_hdr(incomingPacket);
 
     if (nbuf_size_from(incomingPacket, iphdr) < sizeof(iphdr_t)) {
@@ -73,6 +75,13 @@ int ip_input(NetworkBuffer *incomingPacket)
             }
         }
         mutex.unlock();
+    }
+
+    // now, let this packet flow only if its for us...
+    // drop it otherwise as we do not support acting as a router just yet..
+    interface = interface_get(nbuf_device(incomingPacket));
+    if (!interface || !is_ip_on_same_network(iphdr->saddr, interface->ipv4.address, interface->ipv4.netmask)) {
+        goto error;
     }
 
     switch (iphdr->proto)
@@ -166,7 +175,7 @@ int ip_output(NetworkBuffer* packet)
 {
     iphdr_t* iphdr = ip_hdr(packet);
     iphdr->csum = 0;
-    iphdr->csum = checksum(iphdr, iphdr->ihl * 4);
+    iphdr->csum = ip_fast_csum(iphdr, iphdr->ihl);
 
     NetworkBuffer* arpContextNbuf = nbuf_alloc(sizeof(ArpResolveContext));
     if (!arpContextNbuf) {
@@ -220,7 +229,7 @@ static bool ip_is_valid(iphdr_t* iphdr) {
     uint16_t orig_csum = iphdr->csum;
     iphdr->csum = 0;
 
-    uint16_t new_csum = checksum(iphdr, iphdr->ihl * 4);
+    uint16_t new_csum = ip_fast_csum(iphdr, iphdr->ihl);
     iphdr->csum = orig_csum;
 
     if (orig_csum != new_csum) {

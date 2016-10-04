@@ -57,7 +57,7 @@ int icmp_reject(uint8_t icmp_type, uint8_t icmp_code, const NetworkBuffer *echoP
     icmp->csum = 0;
     memset(icmp->data, 0, 4);
     memcpy(icmp->data + 4, echoIpHeader, echoPacketSize);
-    icmp->csum = checksum(icmp, packetSize);
+    icmp->csum = ip_compute_csum(icmp, packetSize);
 
     return ip_output(outputNbuf);
 }
@@ -76,7 +76,7 @@ static void icmpv4_reply(NetworkBuffer* packet)
 
     icmp->header.csum = 0;
     icmp->header.type = ICMP_V4_REPLY;
-    icmp->header.csum = checksum(icmp, (int) nbuf_size_from(packet, icmp));
+    icmp->header.csum = ip_compute_csum(icmp, (int) nbuf_size_from(packet, icmp));
 
     ip_output(packet);
 }

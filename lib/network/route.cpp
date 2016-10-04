@@ -5,7 +5,6 @@
 #include "route.h"
 
 static int ip_route_init(void);
-static bool on_same_network(IpAddress ip1, IpAddress ip2, uint32_t mask);
 DECLARE_DRIVER(ip_route, ip_route_init, STAGE_FIRST);
 
 static std::vector<Route> _rtable;
@@ -15,7 +14,7 @@ int ip_route_lookup(IpAddress destinationAddr, route_t* outputRoute)
     for (const Route& route : _rtable)
     {
         assert(NULL != route.iface);
-        if (on_same_network(route.dest_addr, destinationAddr, route.netmask)) {
+        if (is_ip_on_same_network(route.dest_addr, destinationAddr, route.netmask)) {
             memcpy(outputRoute, &route, sizeof(*outputRoute));
             return 0;
         }
@@ -31,7 +30,7 @@ int ip_route_add(IpAddress destinationAddr, IpAddress netmask, IpAddress gateway
     return 0;
 }
 
-static bool on_same_network(IpAddress ip1, IpAddress ip2, uint32_t mask) {
+int is_ip_on_same_network(IpAddress ip1, IpAddress ip2, uint32_t mask) {
     return (ip1 & mask) == (ip2 & mask);
 }
 

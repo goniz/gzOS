@@ -17,6 +17,7 @@ typedef struct Route {
 
 int ip_route_lookup(IpAddress destinationAddr, route_t* outputRoute);
 int ip_route_add(IpAddress destinationAddr, IpAddress netmask, IpAddress gateway, interface_t* iface);
+int is_ip_on_same_network(IpAddress ip1, IpAddress ip2, uint32_t mask);
 
 #ifdef __cplusplus
 }
