@@ -25,14 +25,7 @@ Suspendable::~Suspendable(void)
 
 void Suspendable::wait(void)
 {
-    // NOTE: this is shit.. not having a clear userspace vs kernelspace is a bitch
-    pid_t currentPid;
-    if (platform_is_irq_context()) {
-        currentPid = scheduler_current_pid();
-    }
-    else {
-        currentPid = getpid();
-    }
+    pid_t currentPid = getpid();
 
     {
         lock_guard<InterruptsMutex> guard(m_mutex);
@@ -42,11 +35,7 @@ void Suspendable::wait(void)
         }
     }
 
-    if (platform_is_irq_context()) {
-        scheduler_signal_process(PID_CURRENT, SIG_STOP);
-    } else {
-        kill(PID_CURRENT, SIG_STOP);
-    }
+    kill(currentPid, SIG_STOP);
 }
 
 void Suspendable::notifyOne(void)

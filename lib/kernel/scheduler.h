@@ -72,6 +72,8 @@ private:
     Process* handlePreemptiveProc(void);
     void doTimers(void);
     int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
+    int handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
+    int handleIRQEnabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
     friend int ::scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
     friend int ::sys_ps(struct user_regs **regs, va_list args);
 
@@ -89,7 +91,6 @@ private:
     std::vector<std::unique_ptr<Process>>   _processList;
     std::vector<struct TimerControlBlock>   _timers;
     spinlock_mutex                          _mutex;
-    bool                                    _syscall_in_progress;
     bool                                    _debugMode;
 };
 

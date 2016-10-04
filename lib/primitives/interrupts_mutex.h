@@ -12,6 +12,12 @@ class InterruptsMutex
 {
 public:
     InterruptsMutex(void) : _isLocked(false), _isrMask(0) {}
+    InterruptsMutex(bool lockNow) : InterruptsMutex() {
+        if (lockNow) {
+            this->lock();
+        }
+    }
+
     ~InterruptsMutex(void) {
         if (_isLocked) {
             this->unlock();
@@ -27,8 +33,8 @@ public:
 
     void unlock(void) {
         if (_isLocked) {
-            _isLocked = false;
             interrupts_enable(_isrMask);
+            _isLocked = false;
         }
     }
 

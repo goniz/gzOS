@@ -26,9 +26,8 @@ static int idleProcMain(int argc, const char** argv)
 {
     kputs("Idle thread is running!\n");
     while (true) {
-//        platform_cpu_wait();
+        platform_cpu_wait();
         syscall(SYS_NR_YIELD);
-//        platform_cpu_wait();
     }
 }
 
@@ -36,10 +35,9 @@ ProcessScheduler::ProcessScheduler(size_t initialProcSize, size_t initialQueueSi
     : _currentProc(nullptr),
       _responsiveQueue(initialQueueSize),
       _preemptiveQueue(initialQueueSize),
-      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::Type::Preemptive, 1),
+      _idleProc("IdleProc", idleProcMain, {}, 8096, Process::PreemptionType::Preemptive, 1),
       _processList(),
-      _mutex(),
-      _syscall_in_progress(false)
+      _mutex()
 {
     _processList.reserve(initialProcSize);
     _timers.reserve(200);
@@ -97,13 +95,7 @@ Process* ProcessScheduler::handleResponsiveProc(void)
 Process* ProcessScheduler::handlePreemptiveProc(void)
 {
     // play the quantum card
-    _currentProc->_quantum--;
-
-    auto currentQuantum = _currentProc->_quantum;
-
-//    debug_log("Current quantum: %d", currentQuantum);
-
-    if (currentQuantum > 0) {
+    if (--_currentProc->_quantum > 0) {
         return _currentProc;
     } else {
         // check if we're out of quantum
@@ -134,18 +126,14 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
 
     this->handleSignal(_currentProc);
 
-    if (_currentProc->_state == Process::State::TERMINATED) {
-        _currentProc = this->andTheWinnerIs();
-        goto switch_to_proc;
-    }
-
-    if (_currentProc->_state == Process::State::SUSPENDED) {
+    if ((_currentProc->_state == Process::State::TERMINATED) ||
+        (_currentProc->_state == Process::State::SUSPENDED)) {
         _currentProc = this->andTheWinnerIs();
         goto switch_to_proc;
     }
 
     // handle the actual switching logic
-    switch (_currentProc->_type)
+    switch (_currentProc->_preemptionType)
     {
         case Process::Responsive:
             _currentProc = this->handleResponsiveProc();
@@ -156,7 +144,7 @@ struct user_regs* ProcessScheduler::schedule(struct user_regs* regs)
             break;
 
         default:
-            panic("%s: Unknown proc type %d", _currentProc->_name, _currentProc->_type);
+            panic("%s: Unknown proc type %d", _currentProc->_name, _currentProc->_preemptionType);
     }
 
 switch_to_proc:
@@ -183,7 +171,7 @@ pid_t ProcessScheduler::createPreemptiveProcess(const char *name, Process::Entry
     mutex.lock();
 
     std::unique_ptr<Process> newProc = std::make_unique<Process>(name, main, std::move(arguments),
-                                                                 stackSize, Process::Type::Preemptive,
+                                                                 stackSize, Process::PreemptionType::Preemptive,
                                                                  initialQuantum);
 
     pid_t newPid = newProc->pid();
@@ -199,7 +187,7 @@ pid_t ProcessScheduler::createResponsiveProcess(const char *name, Process::Entry
     mutex.lock();
 
     std::unique_ptr<Process> newProc = std::make_unique<Process>(name, main, std::move(arguments),
-                                                                 stackSize, Process::Type::Responsive,
+                                                                 stackSize, Process::PreemptionType::Responsive,
                                                                  initialQuantum);
 
     pid_t newPid = newProc->pid();
@@ -230,7 +218,9 @@ struct user_regs *ProcessScheduler::yield(struct user_regs *regs)
 
 bool ProcessScheduler::signalProc(pid_t pid, int signal)
 {
-    bool ret;
+    bool ret = false;
+    InterruptsMutex mutex;
+
     Process* proc = this->getProcessByPid(pid);
     if (!proc) {
         return false;
@@ -244,10 +234,12 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
     switch (signal)
     {
         case SIG_STOP:
+            mutex.lock();
             proc->_quantum = proc->_resetQuantum;
             proc->_state = Process::State::SUSPENDED;
 
-            if (proc == _currentProc && !_syscall_in_progress && !platform_is_irq_context()) {
+            if (proc == _currentProc && !proc->_preemtionContext.preemptionDisallowed && !platform_is_irq_context()) {
+                mutex.unlock();
                 syscall(SYS_NR_SCHEDULE);
             }
 
@@ -256,10 +248,11 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
 
         case Signal::SIG_CONT:
         {
+            mutex.lock();
             proc->_quantum = proc->_resetQuantum;
             proc->_state = Process::State::READY;
 
-            switch (proc->_type) {
+            switch (proc->_preemptionType) {
                 case Process::Responsive:
                     _responsiveQueue.push_head(proc);
                     // this is a fast path for waking up a responsive process
@@ -269,7 +262,8 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
                         _currentProc->_quantum = 1;
                     }
 
-                    if (!_syscall_in_progress && !platform_is_irq_context()) {
+                    if (!proc->_preemtionContext.preemptionDisallowed && !platform_is_irq_context()) {
+                        mutex.unlock();
                         syscall(SYS_NR_YIELD);
                     }
 
@@ -293,6 +287,9 @@ bool ProcessScheduler::signalProc(pid_t pid, int signal)
 
 Process* ProcessScheduler::getProcessByPid(pid_t pid) const
 {
+    InterruptsMutex mutex;
+    lock_guard<InterruptsMutex> guard(mutex);
+
     if (PID_CURRENT == pid) {
         return this->getCurrentProcess();
     }
@@ -400,13 +397,53 @@ Process *ProcessScheduler::getCurrentProcess(void) const {
 }
 
 int ProcessScheduler::syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args) {
-    this->_syscall_in_progress = true;
-    int ret = syscall->handler(regs, args);
-    this->_syscall_in_progress = false;
+    switch (syscall->irq) {
+        case SYS_IRQ_ENABLED:
+            return this->handleIRQEnabledSyscall(regs, syscall, args);
 
-    if (_currentProc && (_currentProc->_state != Process::State::READY || _currentProc->_state != Process::State::RUNNING)) {
-        *regs = this->schedule(*regs);
+        case SYS_IRQ_DISABLED:
+            return this->handleIRQDisabledSyscall(regs, syscall, args);
     }
+
+    panic("Unknown syscall irq type: %d", syscall->irq);
+}
+
+int ProcessScheduler::handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args) {
+    Process::PreemptionContext ctx{Process::ContextType::KernelSpace, true};
+    int ret;
+
+    if (_currentProc) {
+        std::swap(ctx, _currentProc->_preemtionContext);
+    }
+
+    ret = syscall->handler(regs, args);
+
+    if (_currentProc) {
+        std::swap(ctx, _currentProc->_preemtionContext);
+
+        const auto state = _currentProc->_state;
+        if ((state != Process::State::READY && state != Process::State::RUNNING)) {
+            *regs = this->schedule(*regs);
+        }
+    }
+
+    return ret;
+}
+
+int ProcessScheduler::handleIRQEnabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args) {
+    int ret = 0;
+    Process::PreemptionContext ctx{Process::ContextType::KernelSpace, false};
+
+    if (!_currentProc) {
+        panic("IRQ enabled syscalls cannot be called without a running process. (%d)", syscall->number);
+    }
+
+    std::swap(ctx, _currentProc->_preemtionContext);
+    auto isrMask = interrupts_enable_save();
+    ret = syscall->handler(regs, args);
+    interrupts_enable(isrMask);
+
+    std::swap(ctx, _currentProc->_preemtionContext);
 
     return ret;
 }

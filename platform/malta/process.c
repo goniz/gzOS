@@ -71,6 +71,17 @@ static void hang(void)
 }
 
 extern uint32_t _gp;
+struct user_regs* platform_initialize_stack(void* stack, size_t stack_size, void* entryPoint, void* argument, void* return_address)
+{
+    struct user_regs* context = (struct user_regs*)(stack + stack_size - sizeof(struct user_regs) - sizeof(int));
+    context->epc = (uint32_t)entryPoint;
+    context->a0 = (uint32_t)argument;
+    context->gp = (uint32_t) &_gp;
+    context->ra = (uint32_t) return_address;
+
+    return context;
+}
+
 struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
                                                     struct process_entry_info* info)
 {
@@ -86,13 +97,13 @@ struct user_regs* platform_initialize_process_stack(struct platform_process_ctx*
     // then initialize it with the virt stack base
 //    pmap_t* old_pmap = get_active_pmap();
 //    set_active_pmap(&pctx->pmap);
-//    struct user_regs* context = (struct user_regs*)(VIRT_STACK_BASE + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
-    struct user_regs* context = (struct user_regs*)(pctx->stack_base->vaddr + pctx->stack_size - sizeof(struct user_regs) - sizeof(int));
-    context->epc = (uint32_t)info->entryPoint;
-    context->a0 = (uint32_t)info->argument;
-    context->gp = (uint32_t) &_gp;
 
-    context->ra = (uint32_t) hang;
+    struct user_regs* context = platform_initialize_stack((void *) pctx->stack_base->vaddr,
+                                                          pctx->stack_size,
+                                                          info->entryPoint,
+                                                          info->argument,
+                                                          hang);
+
 //    set_active_pmap(old_pmap);
 
     return context;

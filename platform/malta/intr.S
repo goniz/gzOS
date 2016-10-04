@@ -143,7 +143,7 @@ irq_handler:
          */
         movn    $sp, $v0, $v0
 
-        RESTORE_CTX
+        RESTORE_CTX SAVE_CTX_PC_VIA_EPC
 
         /* Re-enable interrupts. */
         ei

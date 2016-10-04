@@ -6,7 +6,7 @@
 #include "scheduler.h"
 #include "VirtualFileSystem.h"
 
-DEFINE_SYSCALL(CREATE_PREEMPTIVE_PROC, create_preemptive_process)
+DEFINE_SYSCALL(CREATE_PREEMPTIVE_PROC, create_preemptive_process, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Process::EntryPointFunction, main);
@@ -18,7 +18,7 @@ DEFINE_SYSCALL(CREATE_PREEMPTIVE_PROC, create_preemptive_process)
     return scheduler()->createPreemptiveProcess(name, main, std::move(arguments), stackSize);
 }
 
-DEFINE_SYSCALL(CREATE_RESPONSIVE_PROC, create_responsive_process)
+DEFINE_SYSCALL(CREATE_RESPONSIVE_PROC, create_responsive_process, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Process::EntryPointFunction, main);
@@ -30,24 +30,32 @@ DEFINE_SYSCALL(CREATE_RESPONSIVE_PROC, create_responsive_process)
     return scheduler()->createResponsiveProcess(name, main, std::move(arguments), stackSize);
 }
 
-DEFINE_SYSCALL(GET_PID, get_pid)
+DEFINE_SYSCALL(GET_PID, get_pid, SYS_IRQ_DISABLED)
 {
     return scheduler()->getCurrentPid();
 }
 
-DEFINE_SYSCALL(YIELD, yield)
+DEFINE_SYSCALL(YIELD, yield, SYS_IRQ_DISABLED)
 {
     *regs = scheduler()->yield(*regs);
     return 0;
 }
 
-DEFINE_SYSCALL(SCHEDULE, schedule)
+DEFINE_SYSCALL(SCHEDULE, schedule, SYS_IRQ_DISABLED)
 {
     *regs = scheduler()->schedule(*regs);
     return 0;
 }
 
-DEFINE_SYSCALL(SIGNAL, signal)
+DEFINE_SYSCALL(SLEEP, sleep, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, ms);
+
+    scheduler()->sleep(PID_CURRENT, ms);
+    return 0;
+}
+
+DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(pid_t, pid);
     SYSCALL_ARG(int, signal_nr);
@@ -89,7 +97,7 @@ static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_lef
     return true;
 }
 
-DEFINE_SYSCALL(PS, ps)
+DEFINE_SYSCALL(PS, ps, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(uint8_t*, buffer);
     SYSCALL_ARG(size_t, size);
@@ -121,7 +129,7 @@ DEFINE_SYSCALL(PS, ps)
     return entries;
 }
 
-DEFINE_SYSCALL(OPEN, open)
+DEFINE_SYSCALL(OPEN, open, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const char*, path);
     SYSCALL_ARG(int, flags);
@@ -129,7 +137,7 @@ DEFINE_SYSCALL(OPEN, open)
     return vfs_open(path, flags);
 }
 
-DEFINE_SYSCALL(READ, read)
+DEFINE_SYSCALL(READ, read, SYS_IRQ_ENABLED)
 {
     SYSCALL_ARG(int, fd);
     SYSCALL_ARG(void*, buf);
@@ -138,7 +146,7 @@ DEFINE_SYSCALL(READ, read)
     return vfs_read(fd, buf, size);
 }
 
-DEFINE_SYSCALL(SOCKET, socket)
+DEFINE_SYSCALL(SOCKET, socket, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(int, domain);
     SYSCALL_ARG(int, type);
@@ -147,7 +155,7 @@ DEFINE_SYSCALL(SOCKET, socket)
     return socket_create(domain, type, proto);
 }
 
-DEFINE_SYSCALL(BIND, bind)
+DEFINE_SYSCALL(BIND, bind, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(int, fd);
     SYSCALL_ARG(const SocketAddress*, address);

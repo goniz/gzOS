@@ -11,7 +11,7 @@
 
 /*
  * typical system call definition looks like this:
- * DEFINE_SYSCALL(SYSCALL_NR_WRITE, write)
+ * DEFINE_SYSCALL(WRITE, write, SYS_IRQ_ENABLED/SYS_IRQ_DISABLED)
  * {
  *      SYSCALL_ARG(int, fd);
  *      SYSCALL_ARG(const char*, buffer);
@@ -29,17 +29,26 @@ extern "C" {
 #endif
 
 typedef int (*sys_handler_t)(struct user_regs** regs, va_list args);
+typedef enum {
+    SYS_IRQ_ENABLED,
+    SYS_IRQ_DISABLED
+} syscall_irq_t;
 
 struct kernel_syscall {
     uint32_t number;
     sys_handler_t handler;
+    syscall_irq_t irq;
 };
 
-#define DEFINE_SYSCALL(number, name) \
+#define DEFINE_SYSCALL(number, name, irq) \
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args); \
             __attribute__((section(".syscalls"),used)) \
-            static const struct kernel_syscall __sys_ ##name## _ks = { ( SYS_NR_ ##number ), (sys_handler_t) sys_ ##name }; \
+            static const struct kernel_syscall __sys_ ##name## _ks = { \
+                ( SYS_NR_ ##number ), \
+                (sys_handler_t) sys_ ##name , \
+                (syscall_irq_t) (irq) \
+            }; \
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args)
 
@@ -59,6 +68,7 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(SCHEDULE),
     DECLARE_SYSCALL_NR(YIELD),
     DECLARE_SYSCALL_NR(SIGNAL),
+    DECLARE_SYSCALL_NR(SLEEP),
     DECLARE_SYSCALL_NR(PS),
     DECLARE_SYSCALL_NR(OPEN),
     DECLARE_SYSCALL_NR(READ),

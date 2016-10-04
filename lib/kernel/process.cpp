@@ -21,14 +21,15 @@ static pid_t generate_pid(void)
 Process::Process(const char *name,
                  EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
                  size_t stackSize,
-                 enum Type procType, int initialQuantum)
+                 enum PreemptionType procType, int initialQuantum)
 
     : _context(nullptr),
+      _preemtionContext(Process::ContextType::UserSpace, false),
       _quantum(initialQuantum),
       _resetQuantum(initialQuantum),
       _state(State::READY),
       _pid(generate_pid()),
-      _type(procType),
+      _preemptionType(procType),
       _exitCode(0),
       _cpuTime(0),
       _entryPoint(entryPoint),
@@ -82,7 +83,7 @@ int Process::state(void) const
 
 int Process::type(void) const
 {
-    return (int)_type;
+    return (int)_preemptionType;
 }
 
 uint64_t Process::cpu_time(void) const {

@@ -14,6 +14,7 @@ typedef void (*irq_handler_t)(struct user_regs* regs, void* data);
 
 void interrupts_init(void);
 void interrupts_enable_all(void);
+unsigned int interrupts_enable_save(void);
 unsigned int interrupts_disable(void);
 void interrupts_enable(unsigned int mask);
 

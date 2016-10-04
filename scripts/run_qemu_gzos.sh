@@ -4,7 +4,8 @@ make malta compile
 if ! sudo brctl show | grep -q br0; then
 	sudo brctl addbr br0
 fi
-qemu-system-mips 	-machine malta \
+
+taskset 0x00000001 qemu-system-mips 	-machine malta \
 					-cpu 4KEc \
 					-m 128 \
 					-kernel build/gzOS.elf \

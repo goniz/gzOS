@@ -16,6 +16,12 @@ void interrupts_enable_all(void) {
     asm volatile("ei");
 }
 
+unsigned int interrupts_enable_save(void) {
+    unsigned int status = mips32_get_c0(C0_STATUS);
+    interrupts_enable_all();
+    return status;
+}
+
 unsigned int interrupts_disable(void) {
     register unsigned int isrMask = 0;
     asm volatile("di %0" : "=r"(isrMask));
@@ -23,7 +29,7 @@ unsigned int interrupts_disable(void) {
 }
 
 void interrupts_enable(unsigned int mask) {
-    asm volatile("mtc0 %0, $12" : : "r"(mask));
+    mips32_set_c0(C0_STATUS, mask);
 }
 
 void platform_enable_hw_irq(int irq) {

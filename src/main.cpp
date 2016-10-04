@@ -56,7 +56,7 @@ int ps_main(int argc, const char** argv)
 {
     while (1) {
         printProcessList();
-        scheduler_sleep(5000);
+        syscall(SYS_NR_SLEEP, 5000);
     }
 }
 
@@ -67,8 +67,8 @@ int main(int argc, const char** argv)
 
     interface_add("eth0", 0x01010101, 0xffffff00);
 
-//    std::vector<const char *> args{};
-//    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "top", ps_main, args.size(), args.data(), 8096);
+    std::vector<const char *> args{};
+    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "top", ps_main, args.size(), args.data(), 8096);
 
     int sock = syscall(SYS_NR_SOCKET, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     printf("sock: %d\n", sock);
@@ -83,8 +83,7 @@ int main(int argc, const char** argv)
     while (1) {
         uint8_t buf[512];
         memset(buf, 0, sizeof(buf));
-//        int ret = syscall(SYS_NR_READ, sock, buf, sizeof(buf));
-        int ret = vfs_read(sock, buf, sizeof(buf));
+        int ret = syscall(SYS_NR_READ, sock, buf, sizeof(buf));
         time(&t);
         kprintf("%lu: read: %d\n", t, ret);
         if (-1 == ret) {
@@ -101,7 +100,7 @@ int main(int argc, const char** argv)
     return 0;
 
     while (1) {
-        scheduler_sleep(1000);
+        syscall(SYS_NR_SLEEP, 1000);
 
         NetworkBuffer* nbuf = ip_alloc_nbuf(0x01010102, 64, IPPROTO_ICMP, 100);
         memset(nbuf->l4_offset, 0xAA, nbuf_size_from(nbuf, nbuf->l4_offset));
@@ -110,7 +109,7 @@ int main(int argc, const char** argv)
     }
 
     while (1) {
-        scheduler_sleep(2000);
+        syscall(SYS_NR_SLEEP, 2000);
 
         printProcessList();
         printArpCache();

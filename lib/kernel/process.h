@@ -14,7 +14,8 @@ class Process
 {
     friend class ProcessScheduler;
     enum State { READY, RUNNING, SUSPENDED, YIELDING, TERMINATED };
-    enum Type { Responsive, Preemptive };
+    enum PreemptionType { Responsive, Preemptive };
+    enum ContextType { UserSpace, KernelSpace };
 
 public:
     using EntryPointFunction = int (*)(int, const char**);
@@ -22,7 +23,7 @@ public:
     Process(const char* name,
             EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
             size_t stackSize,
-            enum Type procType, int initialQuantum);
+            enum PreemptionType procType, int initialQuantum);
 
     ~Process(void);
 
@@ -46,13 +47,25 @@ private:
     __attribute__((noreturn))
     static void processMainLoop(void* argument);
 
+    struct PreemptionContext {
+        PreemptionContext(enum ContextType type, bool preemption_disallowed)
+                : contextType(type), preemptionDisallowed(preemption_disallowed)
+        {
+
+        }
+
+        enum ContextType contextType;
+        bool preemptionDisallowed;
+    };
+
     struct user_regs* _context;
+    PreemptionContext _preemtionContext;
     int _quantum;
-    int _resetQuantum;
+    const int _resetQuantum;
     enum State _state;
     char _name[64];
-    pid_t _pid;
-    enum Type _type;
+    const pid_t _pid;
+    const enum PreemptionType _preemptionType;
     int _exitCode;
     uint64_t _cpuTime;
     EntryPointFunction _entryPoint;

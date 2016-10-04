@@ -21,6 +21,12 @@ struct process_entry_info {
 
 struct platform_process_ctx;
 
+struct user_regs* platform_initialize_stack(void* stack,
+                                            size_t stack_size,
+                                            void* entryPoint,
+                                            void* argument,
+                                            void* return_address);
+
 struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
                                                     struct process_entry_info* info);
 
