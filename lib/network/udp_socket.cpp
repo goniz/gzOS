@@ -72,7 +72,10 @@ int UdpFileDescriptor::sendto(const void *buffer, size_t size, const SocketAddre
     udp->sport = htons(this->sourcePort);
     memcpy(udp->data, buffer, size);
 
-    udp_output(nbuf);
+    if (0 != udp_output(nbuf)) {
+        return -1;
+    }
+
     return (int) size;
 }
 
@@ -88,18 +91,13 @@ void UdpFileDescriptor::close(void) {
     InterruptsMutex mutex(true);
     NetworkBuffer* nbuf = NULL;
 
-    kprintf("removing port %d from map\n", this->sourcePort);
     _portSessionsMap.remove(this->sourcePort);
     this->sourcePort = 0;
     this->dstAddress = {0, 0};
 
-    kputs("removing elements from queue\n");
     while (this->rxQueue.pop(nbuf, false)) {
-        kprintf("nbuf_free(%p)\n", nbuf);
         nbuf_free(nbuf);
     }
-
-    kputs("done\n");
 }
 
 int UdpFileDescriptor::bind(const SocketAddress& addr) {

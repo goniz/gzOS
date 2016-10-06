@@ -1,24 +1,26 @@
+#include <assert.h>
+#include <machine/endian.h>
 #include "checksum.h"
 
-static inline unsigned short from32to16(unsigned long x)
+static inline uint16_t from32to16(uint32_t x)
 {
     /* add up 16-bit and 16-bit for 16+c bit */
     x = (x & 0xffff) + (x >> 16);
     /* add up carry.. */
     x = (x & 0xffff) + (x >> 16);
-    return x;
+    return (uint16_t) x;
 }
 
-static unsigned int do_csum(const unsigned char *buff, int len)
+static uint32_t do_csum(const uint8_t* buff, int len)
 {
     int odd, count;
-    unsigned long result = 0;
+    uint32_t result = 0;
 
     if (len <= 0)
         goto out;
-    odd = 1 & (unsigned long) buff;
+    odd = (int) (1 & (uint32_t) buff);
     if (odd) {
-#ifdef __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
         result = *buff;
 #else
         result += (*buff << 8);
@@ -28,33 +30,33 @@ static unsigned int do_csum(const unsigned char *buff, int len)
     }
     count = len >> 1;		/* nr of 16-bit words.. */
     if (count) {
-        if (2 & (unsigned long) buff) {
-            result += *(unsigned short *) buff;
+        if (2 & (uint32_t) buff) {
+            result += *(uint16_t*) buff;
             count--;
             len -= 2;
             buff += 2;
         }
         count >>= 1;		/* nr of 32-bit words.. */
         if (count) {
-            unsigned long carry = 0;
+            uint32_t carry = 0;
             do {
-                unsigned long w = *(unsigned int *) buff;
+                uint32_t w = *(uint32_t*) buff;
                 count--;
                 buff += 4;
                 result += carry;
                 result += w;
-                carry = (w > result);
+                carry = (uint32_t) (w > result);
             } while (count);
             result += carry;
             result = (result & 0xffff) + (result >> 16);
         }
         if (len & 2) {
-            result += *(unsigned short *) buff;
+            result += *(uint16_t *) buff;
             buff += 2;
         }
     }
     if (len & 1)
-#ifdef __LITTLE_ENDIAN
+#if BYTE_ORDER == LITTLE_ENDIAN
         result += *buff;
 #else
         result += (*buff << 8);
@@ -89,12 +91,12 @@ uint16_t ip_fast_csum(const void *iph, unsigned int ihl)
  */
 uint32_t csum_partial(const void *buff, int len, uint32_t wsum)
 {
-    unsigned int sum = (unsigned int)wsum;
-    unsigned int result = do_csum(buff, len);
+    assert(len % 2 == 0);
+    uint32_t result = do_csum(buff, len);
 
     /* add in old sum, and carry.. */
-    result += sum;
-    if (sum > result)
+    result += wsum;
+    if (wsum > result)
         result += 1;
     return (uint32_t)result;
 }
