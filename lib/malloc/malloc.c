@@ -189,6 +189,7 @@ void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
         return NULL;
     }
 
+	kmalloc_dump(mp);
     panic("memory exhausted in '%s'", mp->mp_desc);;
 }
 
