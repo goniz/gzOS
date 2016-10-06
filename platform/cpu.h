@@ -6,6 +6,7 @@
 #define GZOS_CPU_H
 
 #include <stdint.h>
+#include <machine/endian.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,7 +46,6 @@ void platform_cpu_wait(void);
     #define le16_to_cpu(x)  (__builtin_bswap16(x))
 
 #elif BYTE_ORDER == LITTLE_ENDIAN
-
     #define cpu_to_be32(x)  (__builtin_bswap32(x))
     #define cpu_to_be16(x)  (__builtin_bswap16(x))
     #define cpu_to_le32(x)  (x)
