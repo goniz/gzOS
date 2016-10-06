@@ -161,3 +161,14 @@ DEFINE_SYSCALL(CLOSE, close, SYS_IRQ_DISABLED)
 
     return vfs_close(fd);
 }
+
+DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const void*, elfBuffer);
+    SYSCALL_ARG(size_t, elfSize);
+
+    (void)elfBuffer;
+    (void)elfSize;
+
+    return -1;
+}
