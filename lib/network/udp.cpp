@@ -9,6 +9,7 @@
 #include "socket.h"
 #include "checksum.h"
 #include "udp_socket.h"
+#include "ip.h"
 
 static uint16_t udp_checksum(const NetworkBuffer* nbuf);
 static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp);
@@ -62,9 +63,7 @@ NetworkBuffer *udp_alloc_nbuf(IpAddress destinationIp, uint16_t destinationPort,
 int udp_output(NetworkBuffer* packet)
 {
     udp_t* udp = udp_hdr(packet);
-    udp->csum = 0;
     udp->csum = udp_checksum(packet);
-
     return ip_output(packet);
 }
 
@@ -77,37 +76,66 @@ static int udp_proto_init(void)
     return 0;
 }
 
-// TODO: fix the off by one bug we have here somewhere..
+//! \brief
+//!     Calculate the UDP checksum (calculated with the whole
+//!     packet).
+//! \param buff The UDP packet.
+//! \param len The UDP packet length.
+//! \param src_addr The IP source address (in network format).
+//! \param dest_addr The IP destination address (in network format).
+//! \return The result of the checksum.
+static uint16_t udp_checksum(const void *buff, size_t len, uint32_t src_addr, uint32_t dest_addr)
+{
+        const uint16_t *buf = (const uint16_t *) buff;
+        uint16_t *ip_src = (uint16_t *)&src_addr;
+        uint16_t *ip_dst = (uint16_t *)&dest_addr;
+        uint32_t sum = 0;
+        size_t length = len;
+
+        // Calculate the sum                                            //
+        while (len > 1)
+        {
+                sum += *buf++;
+                if (sum & 0x80000000)
+                        sum = (sum & 0xFFFF) + (sum >> 16);
+                len -= 2;
+        }
+
+        if ( len & 1 )
+                // Add the padding if the packet length is odd          //
+                sum += *((uint8_t *)buf);
+
+        // Add the pseudo-header                                        //
+        sum += *(ip_src++);
+        sum += *ip_src;
+
+        sum += *(ip_dst++);
+        sum += *ip_dst;
+
+        sum += htons(IPPROTO_UDP);
+        sum += htons(length);
+
+        // Add the carries                                              //
+        while (sum >> 16)
+                sum = (sum & 0xFFFF) + (sum >> 16);
+
+        // Return the one's complement of sum                           //
+        return ( (uint16_t)(~sum)  );
+}
+
 static uint16_t udp_checksum(const NetworkBuffer* nbuf)
 {
-    struct {
-        uint32_t source;
-        uint32_t destination;
-        uint8_t zero;
-        uint8_t protocol;
-        uint16_t length;
-    } __attribute__((packed)) pseudoHeader;
-
     iphdr_t* iphdr = ip_hdr(nbuf);
     udp_t* udp = udp_hdr(nbuf);
-
-    memset(&pseudoHeader, 0, sizeof(pseudoHeader));
-    pseudoHeader.source = ntohl(iphdr->saddr);
-    pseudoHeader.destination = ntohl(iphdr->daddr);
-    pseudoHeader.protocol = iphdr->proto;
-    pseudoHeader.length = ntohs(udp->length);
-
-    uint32_t pseudo_csum = ntohl(iphdr->saddr) + ntohl(iphdr->daddr) + iphdr->proto + ntohs(udp->length);
 
     uint16_t oldcsum = udp->csum;
     udp->csum = 0;
 
-    const uint32_t pseudo_csum = csum_partial(&pseudoHeader, sizeof(pseudoHeader), 0);
-    const uint32_t csum = csum_partial(udp, ntohs(udp->length), pseudo_csum);
+    const auto csum = udp_checksum(udp, ntohs(udp->length), iphdr->saddr, iphdr->daddr);
 
     udp->csum = oldcsum;
 
-    return csum_partial_done(csum);
+    return csum;
 }
 
 static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp)
@@ -124,10 +152,9 @@ static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp)
         return false;
     }
 
-    // TODO: fix the off by one bug, and remove this relaxed check
     const auto expected = udp_checksum(nbuf);
     const auto found = ntohs(udp->csum);
-    if (found != expected && (found != (expected - 1))) {
+    if (found != expected) {
         kprintf("udp: invalid checksum - expected %04x found %04x\n", expected, found);
         return false;
     }

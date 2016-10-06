@@ -4,6 +4,8 @@
 #include <lib/network/arp.h>
 #include <lib/network/interface.h>
 #include <lib/network/socket.h>
+#include <platform/cpu.h>
+#include <lib/network/checksum.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -55,6 +57,81 @@ int ps_main(int argc, const char** argv)
     }
 }
 
+static uint32_t read_size(int sock) {
+    uint32_t size = 0;
+    SocketAddress clientaddr{};
+    if (sizeof(size) != syscall(SYS_NR_RECVFROM, sock, &size, sizeof(size), &clientaddr)) {
+        size = 0;
+        goto exit;
+    }
+
+    size = ntohl(size);
+
+    kprintf("incoming buffer size: %d\n", size);
+    if (1 * 1024 * 1024 < size) {
+        kprintf("buffer size too big..\n");
+        size = 0;
+    }
+
+exit:
+    if (clientaddr.address != 0) {
+        uint32_t networkSize = htonl(size);
+        syscall(SYS_NR_SENDTO, sock, &networkSize, sizeof(networkSize), &clientaddr);
+    }
+    return size;
+}
+
+uint8_t* recv_file_over_udp(size_t* size) {
+    if (size) *size = 0;
+
+    int sock = syscall(SYS_NR_SOCKET, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    printf("sock: %d\n", sock);
+    if (-1 == sock) {
+        return nullptr;
+    }
+
+    SocketAddress addr{IPADDR_ANY, 1234};
+    if (-1 == syscall(SYS_NR_BIND, sock, &addr)) {
+        syscall(SYS_NR_CLOSE, sock);
+        return nullptr;
+    }
+
+    uint32_t bufferSize = read_size(sock);
+    if (0 == bufferSize) {
+        syscall(SYS_NR_CLOSE, sock);
+        return nullptr;
+    }
+
+    uint8_t* buffer = (uint8_t *) malloc(bufferSize);
+    if (!buffer) {
+        syscall(SYS_NR_CLOSE, sock);
+        return nullptr;
+    }
+
+    uint32_t pos = 0;
+    while (pos < bufferSize) {
+        SocketAddress clientaddr{};
+        int ret = syscall(SYS_NR_RECVFROM, sock, buffer + pos, bufferSize - pos, &clientaddr);
+        kprintf("read: %d from %08x:%d\n", ret, clientaddr.address, clientaddr.port);
+        if (-1 == ret) {
+            syscall(SYS_NR_CLOSE, sock);
+            free(buffer);
+            return nullptr;
+        }
+
+        kprintf("acking for %d\n", pos);
+        uint32_t networkPos = htonl(pos);
+        syscall(SYS_NR_SENDTO, sock, &networkPos, sizeof(networkPos), &clientaddr);
+
+        pos += ret;
+    }
+
+    syscall(SYS_NR_CLOSE, sock);
+
+    if (size) *size = bufferSize;
+    return buffer;
+}
+
 int main(int argc, const char** argv)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
@@ -65,54 +142,21 @@ int main(int argc, const char** argv)
     std::vector<const char *> args{};
     syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "top", ps_main, args.size(), args.data(), 8096);
 
-    int sock = syscall(SYS_NR_SOCKET, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    printf("sock: %d\n", sock);
-    if (-1 == sock) {
-        return 0;
-    }
-
-    SocketAddress addr{IPADDR_ANY, 1234};
-    syscall(SYS_NR_BIND, sock, &addr);
-
     while (1) {
-        SocketAddress clientaddr{};
-        uint8_t buf[512];
-        memset(buf, 0, sizeof(buf));
-        int ret = syscall(SYS_NR_RECVFROM, sock, buf, sizeof(buf), &clientaddr);
-        kprintf("read: %d from %08x:%d\n", ret, clientaddr.address, clientaddr.port);
-        if (-1 == ret) {
-            break;
-        }
+        uint32_t size = 0;
+        uint8_t *buffer = recv_file_over_udp(&size);
 
-        if (0 == strncmp((const char *) buf, "bye\n", sizeof(buf))) {
-            syscall(SYS_NR_CLOSE, sock);
-            break;
-        }
+        kprintf("got buffer %p of %d size!\n", buffer, size);
+        kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));
 
-        syscall(SYS_NR_SENDTO, sock, buf, ret, &clientaddr);
-//        for (int i = 0; i < ret; i++) {
-//            kprintf("%02x", buf[i]);
-//        }
-//        kputs("\n");
+        syscall(SYS_NR_EXEC, buffer, size);
+
+        free(buffer);
+        buffer = NULL;
+        size = 0;
     }
 
     return 0;
-
-    while (1) {
-        syscall(SYS_NR_SLEEP, 1000);
-
-        NetworkBuffer* nbuf = ip_alloc_nbuf(0x01010102, 64, IPPROTO_ICMP, 100);
-        memset(nbuf->l4_offset, 0xAA, nbuf_size_from(nbuf, nbuf->l4_offset));
-        ip_output(nbuf);
-        nbuf_free(nbuf);
-    }
-
-    while (1) {
-        syscall(SYS_NR_SLEEP, 2000);
-
-        printProcessList();
-        printArpCache();
-    }
 }
 
 #pragma clang diagnostic pop
