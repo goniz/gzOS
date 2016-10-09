@@ -35,7 +35,7 @@
 #include <platform/panic.h>
 #include "physmem.h"
 
-static vm_map_t *active_vm_map[2];
+static vm_map_t *active_vm_map[PMAP_LAST];
 
 void set_active_vm_map(vm_map_t *map) {
     pmap_type_t type = map->pmap.type;
@@ -44,7 +44,16 @@ void set_active_vm_map(vm_map_t *map) {
 }
 
 vm_map_t *get_active_vm_map(pmap_type_t type) {
-    return active_vm_map[type];
+  return active_vm_map[type];
+}
+
+vm_map_t *get_active_vm_map_by_addr(vm_addr_t addr) {
+  for (pmap_type_t type = 0; type < PMAP_LAST; type++)
+    if (active_vm_map[type]->pmap.start <= addr &&
+        addr < active_vm_map[type]->pmap.end)
+      return active_vm_map[type];
+
+  return NULL;
 }
 
 static inline int vm_map_entry_cmp(vm_map_entry_t *a, vm_map_entry_t *b) {
@@ -128,8 +137,6 @@ vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
     entry->end = end;
     entry->prot = prot;
 
-    pmap_map(&map->pmap, start, 0, (end - start) / PAGESIZE, VM_PROT_NONE);
-
     vm_map_insert_entry(map, entry);
     return entry;
 }
@@ -178,11 +185,11 @@ void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
 
     vm_addr_t fault_page = fault_addr & -PAGESIZE;
     vm_addr_t offset = fault_page - entry->start;
-    vm_page_t *accessed_page = vm_object_find_page(entry->object, offset);
+    vm_page_t *frame = vm_object_find_page(entry->object, offset);
 
-    if (accessed_page == NULL) {
-        accessed_page = obj->pgr->pgr_fault(obj, fault_page, offset, fault_type);
+    if (frame == NULL) {
+        frame = obj->pgr->pgr_fault(obj, fault_page, offset, fault_type);
     }
 
-    pmap_map(&map->pmap, fault_addr, accessed_page->paddr, 1, (vm_prot_t) entry->prot);
+    pmap_map(&map->pmap, fault_addr, fault_addr + PAGESIZE, frame->paddr, entry->prot);
 }

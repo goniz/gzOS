@@ -53,6 +53,9 @@ typedef struct {
 void pmap_setup(pmap_t *pmap, pmap_type_t type, asid_t asid);
 void pmap_reset(pmap_t *);
 
+int pmap_is_mapped(pmap_t *pmap, vm_addr_t vaddr);
+int pmap_is_range_mapped(pmap_t *pmap, vm_addr_t start, vm_addr_t end);
+
 void pmap_map(pmap_t *pmap, vm_addr_t start, vm_addr_t end, pm_addr_t paddr,
               vm_prot_t prot);
 void pmap_protect(pmap_t *pmap, vm_addr_t start, vm_addr_t end,
@@ -60,10 +63,12 @@ void pmap_protect(pmap_t *pmap, vm_addr_t start, vm_addr_t end,
 void pmap_unmap(pmap_t *pmap, vm_addr_t start, vm_addr_t end);
 int pmap_probe(pmap_t *pmap, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
 
+pmap_t *pmap_switch(pmap_t *pmap);
+
 void set_active_pmap(pmap_t *pmap);
 pmap_t *get_active_pmap(pmap_type_t type);
 
-__attribute__((interrupt)) void tlb_exception_handler();
+void tlb_exception_handler();
 
 #ifdef __cplusplus
 }

@@ -33,10 +33,8 @@ extern "C" {
 #endif
 
 typedef vm_object_t *pgr_alloc_t();
-
 typedef vm_page_t *pgr_fault_t(vm_object_t *, vm_addr_t fault_addr,
                                vm_addr_t offset, vm_prot_t prot);
-
 typedef void pgr_free_t(vm_object_t *);
 
 typedef struct pager {
