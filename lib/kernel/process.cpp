@@ -1,53 +1,43 @@
-//
-// Created by gz on 6/12/16.
-//
-
-
 #include <lib/kernel/process.h>
 #include <cstring>
 #include <platform/process.h>
 #include <platform/panic.h>
 #include <platform/kprintf.h>
 #include <lib/kernel/signals.h>
-#include <platform/cpu.h>
-#include <lib/syscall/syscall.h>
+#include <cassert>
+#include "scheduler.h"
 
-static std::atomic<pid_t> g_next_pid(1);
-static pid_t generate_pid(void)
-{
-    return g_next_pid.fetch_add(1, std::memory_order::memory_order_relaxed);
+static std::atomic<pid_t> gNextPid(PID_PROCESS_START);
+static pid_t generatePid(void) {
+    return gNextPid.fetch_add(1, std::memory_order::memory_order_relaxed);
 }
 
-Process::Process(const char *name,
-                 EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
-                 size_t stackSize,
-                 enum PreemptionType procType, int initialQuantum)
+Process::Process(const char* name,
+                 const void *buffer, size_t size,
+                 std::vector<const char*>&& arguments)
+        : Process(name, std::move(arguments))
+{
+    // TODO: load elf?? :)
+}
 
-    : _context(nullptr),
-      _preemtionContext(Process::ContextType::UserSpace, false),
-      _quantum(initialQuantum),
-      _resetQuantum(initialQuantum),
-      _state(State::READY),
-      _pid(generate_pid()),
-      _preemptionType(procType),
+Process::Process(const char *name, std::vector<const char*>&& arguments)
+:      _pid(generatePid()),
+      _state(Process::State::READY),
       _exitCode(0),
-      _cpuTime(0),
-      _entryPoint(entryPoint),
+      _entryPoint(nullptr),
       _arguments(std::move(arguments)),
+      _pctx(nullptr),
       _pending_signal_nr((int)SIG_NONE)
 {
     strncpy(_name, name, sizeof(_name));
 
-    struct process_entry_info info{Process::processMainLoop, this};
-    _pctx = platform_initialize_process_ctx(_pid, stackSize);
+    _pctx = platform_initialize_process_ctx(_pid);
     if (!_pctx) {
         panic("Failed to initialize process ctx");
     }
 
-    _context = platform_initialize_process_stack(_pctx, &info);
     kprintf("spawn new proc with pid %d named %s\n", _pid, _name);
 }
-
 
 Process::~Process(void)
 {
@@ -81,31 +71,25 @@ int Process::state(void) const
     return (int)_state;
 }
 
-int Process::type(void) const
-{
-    return (int)_preemptionType;
-}
-
-uint64_t Process::cpu_time(void) const {
-    return _cpuTime;
-}
-
-__attribute__((noreturn))
-void Process::processMainLoop(void* argument)
+int Process::processMainLoop(void* argument)
 {
     Process* self = (Process*)argument;
+
+    assert(nullptr != self->_entryPoint);
 
     self->_exitCode = 0;
     self->_exitCode = self->_entryPoint((int) self->_arguments.size(), self->_arguments.data());
     self->_state = State::TERMINATED;
-    kprintf("%s: terminated with exit code %d\n", self->_name, self->_exitCode);
 
-    while (true) {
-        platform_cpu_wait();
-        syscall(SYS_NR_YIELD);
-    }
+    kprintf("proc %d (%s): terminated with exit code %d\n", self->_pid, self->_name, self->_exitCode);
+
+    return self->_exitCode;
 }
 
+uint64_t  Process::cpu_time() const {
+    // TODO: implement
+    return 0;
+}
 
 
 

@@ -6,52 +6,94 @@
 #include "scheduler.h"
 #include "VirtualFileSystem.h"
 
-DEFINE_SYSCALL(CREATE_PREEMPTIVE_PROC, create_preemptive_process, SYS_IRQ_DISABLED)
+DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
 {
+    SYSCALL_ARG(const void*, elfBuffer);
+    SYSCALL_ARG(size_t, elfSize);
     SYSCALL_ARG(const char*, name);
-    SYSCALL_ARG(Process::EntryPointFunction, main);
     SYSCALL_ARG(int, argc);
     SYSCALL_ARG(const char**, argv);
-    SYSCALL_ARG(size_t, stackSize);
+
+    if (!elfBuffer || !elfSize || !name || !argv) {
+        return -1;
+    }
 
     std::vector<const char*> arguments(argv, argv + argc);
-    return scheduler()->createPreemptiveProcess(name, main, std::move(arguments), stackSize);
+    Process* newProc = Scheduler::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 8192);
+    if (NULL == newProc) {
+        return -1;
+    }
+
+    return newProc->pid();
 }
 
-DEFINE_SYSCALL(CREATE_RESPONSIVE_PROC, create_responsive_process, SYS_IRQ_DISABLED)
+
+DEFINE_SYSCALL(CREATE_THREAD, create_thread, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const char*, name);
-    SYSCALL_ARG(Process::EntryPointFunction, main);
-    SYSCALL_ARG(int, argc);
-    SYSCALL_ARG(const char**, argv);
+    SYSCALL_ARG(Thread::EntryPointFunction, entryPoint);
+    SYSCALL_ARG(void*, argument);
     SYSCALL_ARG(size_t, stackSize);
 
-    std::vector<const char*> arguments(argv, argv + argc);
-    return scheduler()->createResponsiveProcess(name, main, std::move(arguments), stackSize);
+    Process* currentProc = Scheduler::instance().CurrentProcess();
+    if (NULL == currentProc) {
+        return -1;
+    }
+
+    Thread* newThread = Scheduler::instance().createThread(*currentProc, name, entryPoint, argument, stackSize);
+    if (NULL == newThread) {
+        return -1;
+    }
+
+    return newThread->tid();
 }
 
 DEFINE_SYSCALL(GET_PID, get_pid, SYS_IRQ_DISABLED)
 {
-    return scheduler()->getCurrentPid();
+    return Scheduler::instance().getCurrentPid();
+}
+
+DEFINE_SYSCALL(GET_TID, get_tid, SYS_IRQ_DISABLED)
+{
+    return Scheduler::instance().getCurrentTid();
+}
+
+DEFINE_SYSCALL(IS_THREAD_RESPONSIVE, is_thread_responsive, SYS_IRQ_DISABLED)
+{
+    auto thread = Scheduler::instance().CurrentThread();
+    assert(thread);
+
+    return thread->isResponsive();
+}
+
+DEFINE_SYSCALL(SET_THREAD_RESPONSIVE, set_thread_responsive, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, isResponsive);
+
+    auto thread = Scheduler::instance().CurrentThread();
+    assert(thread);
+
+    thread->setResponsive((bool)isResponsive);
+    return 0;
 }
 
 DEFINE_SYSCALL(YIELD, yield, SYS_IRQ_DISABLED)
 {
-    *regs = scheduler()->yield(*regs);
+    *regs = Scheduler::instance().yield(*regs);
     return 0;
 }
 
 DEFINE_SYSCALL(SCHEDULE, schedule, SYS_IRQ_DISABLED)
 {
-    *regs = scheduler()->schedule(*regs);
+    *regs = Scheduler::instance().schedule(*regs);
     return 0;
 }
 
-DEFINE_SYSCALL(SLEEP, sleep, SYS_IRQ_DISABLED)
+DEFINE_SYSCALL(SLEEP, sleep, SYS_IRQ_ENABLED)
 {
     SYSCALL_ARG(int, ms);
 
-    scheduler()->sleep(PID_CURRENT, ms);
+    Scheduler::instance().sleep(PID_CURRENT, ms);
     return 0;
 }
 
@@ -60,11 +102,11 @@ DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
     SYSCALL_ARG(pid_t, pid);
     SYSCALL_ARG(int, signal_nr);
 
-    if (!scheduler()->signalProc(pid, signal_nr)) {
+    if (!Scheduler::instance().signalPid(pid, signal_nr)) {
         return -1;
     }
 
-    *regs = scheduler()->schedule(*regs);
+    *regs = Scheduler::instance().schedule(*regs);
     return 0;
 }
 
@@ -72,13 +114,7 @@ static const char* g_states[] = {
         "Ready",
         "Running",
         "Suspended",
-        "Yielding",
         "Terminated"
-};
-
-static const char* g_types[] = {
-        "Responsive",
-        "Preemptive"
 };
 
 static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_left)
@@ -91,9 +127,7 @@ static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_lef
     ent->exit_code = proc->exit_code();
     ent->cpu_time = (uint32_t) proc->cpu_time();
     ent->state = g_states[proc->state()];
-    ent->type = g_types[proc->type()];
     strncpy(ent->name, proc->name(), sizeof(ent->name));
-
     return true;
 }
 
@@ -107,12 +141,8 @@ DEFINE_SYSCALL(PS, ps, SYS_IRQ_DISABLED)
     }
 
     size_t buf_pos = sizeof(struct ps_ent);
-    int entries = 1;
-    if (!fill_ps_ent(&scheduler()->_idleProc, (struct ps_ent *)buffer, size)) {
-        return 0;
-    }
-
-    const auto& procList = scheduler()->processList();
+    int entries = 0;
+    const auto& procList = Scheduler::instance().processList();
     auto list_pos = procList.cbegin();
     while ((buf_pos < size) && (list_pos != procList.cend())) {
         const auto proc = list_pos->get();
@@ -160,15 +190,4 @@ DEFINE_SYSCALL(CLOSE, close, SYS_IRQ_DISABLED)
     SYSCALL_ARG(int, fd);
 
     return vfs_close(fd);
-}
-
-DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
-{
-    SYSCALL_ARG(const void*, elfBuffer);
-    SYSCALL_ARG(size_t, elfSize);
-
-    (void)elfBuffer;
-    (void)elfSize;
-
-    return -1;
 }

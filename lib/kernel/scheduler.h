@@ -13,44 +13,56 @@
 #include <lib/syscall/syscall.h>
 #include <stdarg.h>
 #include <sys/types.h>
+#include "thread.h"
 
-#define DefaultPreemptiveQuantum    100
-#define DefaultResponsiveQuantum    2500
-#define SCHED_INITIAL_PROC_SIZE     10
-#define SCHED_INITIAL_QUEUE_SIZE    10
+#define DefaultQuantum              (100)
+#define SCHED_INITIAL_PROC_SIZE     (20)
+#define SCHED_INITIAL_QUEUE_SIZE    (10)
+#define SCHED_INITIAL_TIMERS_SIZE   (200)
 #define PID_CURRENT                 (-512)
+#define PID_PROCESS_START           (1)
+#define PID_PROCESS_END             (999)
+#define PID_THREAD_START            (1000)
+#define PID_THREAD_END              (1999)
 
 #ifdef __cplusplus
 
-extern "C"
+extern "C" {
 int sys_ps(struct user_regs **regs, va_list args);
+int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
+}
 
-extern "C"
-int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
-
-class ProcessScheduler
+class Scheduler
 {
 public:
-    using TimeoutCallbackFunc = bool (*)(ProcessScheduler* self, void* arg);
+    using TimeoutCallbackFunc = bool (*)(Scheduler* self, void* arg);
 
-    ProcessScheduler(size_t initialProcSize, size_t initialQueueSize);
+    Scheduler(void);
 
-    pid_t createPreemptiveProcess(const char* name,
-                                  Process::EntryPointFunction main, std::vector<const char*>&& arguments,
-                                  size_t stackSize, int initialQuantum = DefaultPreemptiveQuantum);
-    pid_t createResponsiveProcess(const char* name,
-                                  Process::EntryPointFunction main, std::vector<const char*>&& arguments,
-                                  size_t stackSize, int initialQuantum = DefaultResponsiveQuantum);
+    Process* createProcess(const char* name,
+                        const void* buffer, size_t size,
+                        std::vector<const char*>&& arguments,
+                        size_t stackSize);
 
-    bool signalProc(pid_t pid, int signal);
-    Process *getCurrentProcess(void) const;
+    Thread* createThread(Process& process,
+                       const char* name,
+                       Thread::EntryPointFunction entryPoint, void* argument,
+                       size_t stackSize);
+
+    Thread* createKernelThread(const char* name,
+                               Thread::EntryPointFunction entryPoint, void* argument,
+                               size_t stackSize);
+
+    Process *CurrentProcess(void) const;
     Process* getProcessByPid(pid_t pid) const;
+    Thread* CurrentThread(void) const;
+    Thread* getThreadByTid(pid_t tid) const;
+    pid_t getCurrentPid(void) const;
+    pid_t getCurrentTid(void) const;
+
+    bool signalPid(pid_t pid, int signal);
     bool setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
     void sleep(pid_t pid, int ms);
-
-    pid_t getCurrentPid(void) const {
-        return (_currentProc ? _currentProc->_pid : -1);
-    }
 
     const std::vector<std::unique_ptr<Process>>& processList(void) const {
         return _processList;
@@ -65,11 +77,21 @@ public:
     void suspend(pid_t pid);
     void resume(pid_t pid);
 
+    static Scheduler& instance(void);
+    static bool isProcessPid(pid_t pid) {
+        return (pid >= PID_PROCESS_START && pid <= PID_PROCESS_END);
+    }
+
+    static bool isThreadPid(pid_t pid) {
+        return (pid >= PID_THREAD_START && pid <= PID_THREAD_END);
+    }
+
 private:
-    Process* andTheWinnerIs(void);
-    void handleSignal(Process *proc);
-    Process* handleResponsiveProc(void);
-    Process* handlePreemptiveProc(void);
+    Thread* andTheWinnerIs(void);
+    bool signalThreadPid(pid_t pid, int signal);
+    bool signalThread(Thread* thread, int signal);
+    bool signalProcessPid(pid_t pid, int signal);
+    void handleSignal(Thread* thread);
     void doTimers(void);
     int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
     int handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
@@ -84,14 +106,14 @@ private:
         void* arg;
     };
 
-    Process*                                _currentProc;
-    basic_queue<Process*>                   _responsiveQueue;
-    basic_queue<Process*>                   _preemptiveQueue;
-    Process                                 _idleProc;
+    Thread*                                 _currentThread;
+    basic_queue<Thread*>                    _readyQueue;
+    Process*                                _kernelProc;
+    Thread*                                 _idleThread;
     std::vector<std::unique_ptr<Process>>   _processList;
     std::vector<struct TimerControlBlock>   _timers;
     spinlock_mutex                          _mutex;
-    bool                                    _debugMode;
+    std::atomic_bool                        _debugMode;
 };
 
 struct ps_ent {
@@ -99,11 +121,8 @@ struct ps_ent {
     int exit_code;
     uint32_t cpu_time;
     const char* state;
-    const char* type;
     char name[64];
 };
-
-ProcessScheduler* scheduler(void);
 
 #endif
 
@@ -111,8 +130,8 @@ ProcessScheduler* scheduler(void);
 extern "C" {
 #endif
 
-typedef int (*init_main_t)(int argc, const char** argv);
-void scheduler_run_main(init_main_t init_main, int argc, const char** argv);
+typedef int (*init_main_t)(void* argument);
+void scheduler_run_main(init_main_t init_main, void* argument);
 int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
 
 typedef enum {
@@ -129,6 +148,8 @@ void scheduler_resume(pid_t pid);
 
 pid_t scheduler_current_pid(void);
 int scheduler_signal_process(pid_t pid, int signal);
+
+pid_t gettid(void);
 
 #ifdef __cplusplus
 };

@@ -9,6 +9,7 @@ taskset 0x00000001 qemu-system-mips 	-machine malta \
 					-cpu 4KEc \
 					-m 128 \
 					-kernel build/gzOS.elf \
+					-display none \
 					-serial null \
 					-serial null \
 					-serial stdio \

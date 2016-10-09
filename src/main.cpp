@@ -31,12 +31,15 @@ void printProcessList(void)
 
     InterruptsMutex mutex;
     mutex.lock();
-    kprintf("%-7s %-20s %-10s %-10s %-10s %s\n",
-            "PID", "Name", "Type", "State", "CPU Time", "ExitCode");
+    kprintf("%-7s %-20s %-10s %-10s %s\n",
+            "PID", "Name", "State", "CPU Time", "ExitCode");
     for (const auto& proc : proclist)
     {
-        kprintf("%-7d %-20s %-10s %-10s %-10lu %d\n",
-                proc.pid, proc.name, proc.type, proc.state, proc.cpu_time, proc.exit_code);
+        kprintf("pid: %d\n", proc.pid);
+        kprintf("name: %p\n", proc.name);
+        kprintf("state: %p\n", proc.state);
+        kprintf("%-7d %-20s %-10s %-10lu %d\n",
+                proc.pid, proc.name, proc.state, proc.cpu_time, proc.exit_code);
     }
     mutex.unlock();
 }
@@ -49,7 +52,7 @@ void printArpCache(void)
     mutex.unlock();
 }
 
-int ps_main(int argc, const char** argv)
+int ps_main(void* argument)
 {
     while (1) {
         printProcessList();
@@ -132,15 +135,15 @@ uint8_t* recv_file_over_udp(size_t* size) {
     return buffer;
 }
 
-int main(int argc, const char** argv)
+extern "C"
+int kernel_main(void *argument)
 {
     printf("Current Stack: %p\n", (void*) _get_stack_pointer());
     printf("Start of heap: %p\n", (void*) &_end);
 
     interface_add("eth0", 0x01010101, 0xffffff00);
 
-    std::vector<const char *> args{};
-    syscall(SYS_NR_CREATE_PREEMPTIVE_PROC, "top", ps_main, args.size(), args.data(), 8096);
+//    Scheduler::instance().createKernelThread("top", ps_main, nullptr, 8192);
 
     while (1) {
         uint32_t size = 0;
@@ -149,7 +152,7 @@ int main(int argc, const char** argv)
         kprintf("got buffer %p of %d size!\n", buffer, size);
         kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));
 
-        syscall(SYS_NR_EXEC, buffer, size);
+        syscall(SYS_NR_CREATE_PROCESS, buffer, size);
 
         free(buffer);
         buffer = NULL;

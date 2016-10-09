@@ -4,7 +4,8 @@
 
 #include <stdio.h>
 
-int main(int argc, const char** argv)
+extern "C"
+int kernel_main(void* argument)
 {
     printf("Hello!\n");
     return 0;

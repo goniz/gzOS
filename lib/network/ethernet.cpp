@@ -6,6 +6,7 @@
 #include <cstring>
 #include <atomic>
 #include <cassert>
+#include <lib/kernel/scheduler.h>
 #include "ethernet.h"
 #include "nbuf.h"
 
@@ -44,7 +45,9 @@ static int generate_dev_index(void) {
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 
 _GLIBCXX_NORETURN
-static int ethernet_rx_main(int argc, const char **argv) {
+static int ethernet_rx_main(void* argument) {
+    syscall(SYS_NR_SET_THREAD_RESPONSIVE, 1);
+
     while (1) {
         NetworkBuffer *nbuf = NULL;
         if (!gRxQueue.pop(nbuf, true)) {
@@ -81,7 +84,9 @@ static int ethernet_rx_main(int argc, const char **argv) {
 }
 
 _GLIBCXX_NORETURN
-static int ethernet_tx_main(int argc, const char **argv) {
+static int ethernet_tx_main(void* argument) {
+    syscall(SYS_NR_SET_THREAD_RESPONSIVE, 1);
+
     while (true) {
         NetworkBuffer *nbuf = NULL;
         if (!gTxQueue.pop(nbuf, true)) {
@@ -215,8 +220,7 @@ static const EthernetDevice *find_device_by_phy(const char *name) {
 }
 
 static int ethernet_layer_init(void) {
-    std::vector<const char *> args{};
-    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "EthernetRx", ethernet_rx_main, args.size(), args.data(), 8096);
-    syscall(SYS_NR_CREATE_RESPONSIVE_PROC, "EthernetTx", ethernet_tx_main, args.size(), args.data(), 8096);
+    Scheduler::instance().createKernelThread("EthernetRx", ethernet_rx_main, nullptr, 8192);
+    Scheduler::instance().createKernelThread("EthernetTx", ethernet_tx_main, nullptr, 8192);
     return 0;
 }

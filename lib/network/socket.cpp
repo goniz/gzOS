@@ -30,7 +30,7 @@ int socket_create(int domain, int type, int protocol)
         return -1;
     }
 
-    const auto proc = scheduler()->getCurrentProcess();
+    const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {
         return -1;
     }

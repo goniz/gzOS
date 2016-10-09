@@ -27,10 +27,7 @@ struct user_regs* platform_initialize_stack(void* stack,
                                             void* argument,
                                             void* return_address);
 
-struct user_regs* platform_initialize_process_stack(struct platform_process_ctx* pctx,
-                                                    struct process_entry_info* info);
-
-struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid, size_t stackSize);
+struct platform_process_ctx* platform_initialize_process_ctx(pid_t pid);
 void platform_free_process_ctx(struct platform_process_ctx* pctx);
 
 void platform_set_active_process_ctx(struct platform_process_ctx* pctx);

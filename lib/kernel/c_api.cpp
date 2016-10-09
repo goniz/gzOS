@@ -6,43 +6,42 @@
 
 extern "C" {
 
-void scheduler_run_main(init_main_t init_main, int argc, const char** argv)
+void scheduler_run_main(init_main_t init_main, void* argument)
 {
-    std::vector<const char*> arguments(argv, argv + argc);
-    scheduler()->createPreemptiveProcess("init", init_main, std::move(arguments), 8096);
-    clock_set_handler(ProcessScheduler::onTickTimer, scheduler());
+    Scheduler::instance().createKernelThread("init", init_main, argument, 8192);
+    clock_set_handler(Scheduler::onTickTimer, &Scheduler::instance());
 }
 
 int scheduler_signal_process(pid_t pid, int signal) {
     InterruptsMutex mutex;
     mutex.lock();
-    return scheduler()->signalProc(pid, signal);
+    return Scheduler::instance().signalPid(pid, signal);
 }
 
 int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {
-    return scheduler()->setTimeout(timeout_ms, (ProcessScheduler::TimeoutCallbackFunc) callback, arg);
+    return Scheduler::instance().setTimeout(timeout_ms, (Scheduler::TimeoutCallbackFunc) callback, arg);
 }
 
 void scheduler_sleep(int timeout_ms) {
-    scheduler()->sleep(PID_CURRENT, timeout_ms);
+    Scheduler::instance().sleep(PID_CURRENT, timeout_ms);
 }
 
 void scheduler_suspend(void) {
-    scheduler()->suspend(PID_CURRENT);
+    Scheduler::instance().suspend(PID_CURRENT);
 }
 
 void scheduler_resume(pid_t pid) {
-    scheduler()->resume(pid);
+    Scheduler::instance().resume(pid);
 }
 
 pid_t scheduler_current_pid(void)
 {
-    return scheduler()->getCurrentPid();
+    return Scheduler::instance().getCurrentPid();
 }
 
 FileDescriptor* vfs_num_to_fd(int fdnum)
 {
-    const auto proc = scheduler()->getCurrentProcess();
+    const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {
         return nullptr;
     }
@@ -57,7 +56,7 @@ int vfs_open(const char* path, int flags) {
         return -1;
     }
 
-    const auto proc = scheduler()->getCurrentProcess();
+    const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {
         return -1;
     }
@@ -68,7 +67,7 @@ int vfs_open(const char* path, int flags) {
 
 int vfs_close(int fd)
 {
-    const auto proc = scheduler()->getCurrentProcess();
+    const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {
         return -1;
     }
@@ -111,7 +110,7 @@ int vfs_seek(int fd, off_t offset, int whence)
 }
 
 int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args) {
-    return scheduler()->syscall_entry_point(regs, syscall, args);
+    return Scheduler::instance().syscall_entry_point(regs, syscall, args);
 }
 
 // extern "C"

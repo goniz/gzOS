@@ -11,7 +11,7 @@ static void invoke_constructors(void);
 extern int __init_array_start;
 extern int __init_array_end;
 
-extern int main(int argc, const char** argv);
+extern int kernel_main(void *argument);
 void system_init(int argc, const char **argv, const char **envp)
 {
     initialize_stdio();
@@ -19,7 +19,7 @@ void system_init(int argc, const char **argv, const char **envp)
 
     drivers_init();
     platform_pci_driver_probe();
-    scheduler_run_main(main, argc, argv);
+    scheduler_run_main(kernel_main, NULL);
     interrupts_enable_all();
 
     /* ... but if we do, safely trap here */

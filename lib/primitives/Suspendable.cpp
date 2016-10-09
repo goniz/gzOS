@@ -25,17 +25,17 @@ Suspendable::~Suspendable(void)
 
 void Suspendable::wait(void)
 {
-    pid_t currentPid = getpid();
+    pid_t currentTid = gettid();
 
     {
         lock_guard<InterruptsMutex> guard(m_mutex);
-        if (m_waitingPids.end() == std::find(m_waitingPids.begin(), m_waitingPids.end(), currentPid)) {
+        if (m_waitingPids.end() == std::find(m_waitingPids.begin(), m_waitingPids.end(), currentTid)) {
 
-            m_waitingPids.push_back(currentPid);
+            m_waitingPids.push_back(currentTid);
         }
     }
 
-    kill(currentPid, SIG_STOP);
+    kill(currentTid, SIG_STOP);
 }
 
 void Suspendable::notifyOne(void)

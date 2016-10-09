@@ -1,6 +1,8 @@
 #ifndef GZOS_PROCESS_H
 #define GZOS_PROCESS_H
 
+#ifdef __cplusplus
+
 #include <stdint.h>
 #include <memory>
 #include <functional>
@@ -9,21 +11,21 @@
 #include <atomic>
 #include "FileDescriptorCollection.h"
 
-class ProcessScheduler;
+class Scheduler;
+class Thread;
+
 class Process
 {
-    friend class ProcessScheduler;
-    enum State { READY, RUNNING, SUSPENDED, YIELDING, TERMINATED };
-    enum PreemptionType { Responsive, Preemptive };
-    enum ContextType { UserSpace, KernelSpace };
+    friend class Scheduler;
+    friend class Thread;
+    enum State { READY, RUNNING, SUSPENDED, TERMINATED };
 
 public:
     using EntryPointFunction = int (*)(int, const char**);
 
     Process(const char* name,
-            EntryPointFunction entryPoint, std::vector<const char*>&& arguments,
-            size_t stackSize,
-            enum PreemptionType procType, int initialQuantum);
+            const void *buffer, size_t size,
+            std::vector<const char*>&& arguments);
 
     ~Process(void);
 
@@ -36,43 +38,32 @@ public:
     const char* name(void) const;
     int exit_code(void) const;
     int state(void) const;
-    int type(void) const;
-    uint64_t cpu_time(void) const;
 
     FileDescriptorCollection& fileDescriptorCollection(void) {
         return _fileDescriptors;
     }
 
+    std::vector<std::unique_ptr<Thread>>& threads(void) {
+        return _threads;
+    }
+
+    uint64_t cpu_time(void) const;
+
 private:
-    __attribute__((noreturn))
-    static void processMainLoop(void* argument);
+    Process(const char* name, std::vector<const char*>&& arguments);
+    static int processMainLoop(void* argument);
 
-    struct PreemptionContext {
-        PreemptionContext(enum ContextType type, bool preemption_disallowed)
-                : contextType(type), preemptionDisallowed(preemption_disallowed)
-        {
-
-        }
-
-        enum ContextType contextType;
-        bool preemptionDisallowed;
-    };
-
-    struct user_regs* _context;
-    PreemptionContext _preemtionContext;
-    int _quantum;
-    const int _resetQuantum;
-    enum State _state;
     char _name[64];
     const pid_t _pid;
-    const enum PreemptionType _preemptionType;
+    enum State _state;
     int _exitCode;
-    uint64_t _cpuTime;
     EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
 	struct platform_process_ctx* _pctx;
     std::atomic<int> _pending_signal_nr;
     FileDescriptorCollection _fileDescriptors;
+    std::vector<std::unique_ptr<Thread>>   _threads;
 };
 
+#endif
 #endif //GZOS_PROCESS_H

@@ -7,21 +7,22 @@
 #include <platform/malta/interrupts.h>
 #include <platform/panic.h>
 
-int test_main(int argc, const char** argv)
+int test_main(void* argument)
 {
     while (1);
 }
 
-int main(int argc, const char** argv)
+extern "C"
+int kernel_main(void* argument)
 {
     printf("Hello!\n");
 
-    ProcessScheduler scheduler(10, 10);
+    Scheduler scheduler;
     scheduler.setDebugMode();
 
-    printf("pid: %d\n", scheduler.createPreemptiveProcess("Test1", test_main, {}, 1024, 10));
+    printf("thread: %p\n", scheduler.createKernelThread("Test1", test_main, nullptr, 1024));
 
-    printf("pid: %d\n", scheduler.createPreemptiveProcess("Test2", test_main, {}, 1024, 10));
+    printf("thread: %p\n", scheduler.createKernelThread("Test2", test_main, nullptr, 1024));
 
     struct user_regs regs;
     struct user_regs* new_regs = &regs;
