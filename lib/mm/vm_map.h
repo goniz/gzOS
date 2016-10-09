@@ -29,6 +29,10 @@
 #include "vm.h"
 #include "pmap.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* There has to be distinction between kernel and user vm_map,
  * That's because in current implementation page table is always located in
  * KSEG2, while user vm_map address range contains no KSEG2 */
@@ -79,4 +83,7 @@ void vm_map_dump(vm_map_t *vm_map);
 
 void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* _VM_MAP_H */

@@ -30,6 +30,10 @@
 #include <lib/primitives/sys/queue.h>
 #include "vm.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {PMAP_KERNEL, PMAP_USER, PMAP_LAST} pmap_type_t;
 
 typedef uint8_t asid_t;
@@ -61,4 +65,7 @@ pmap_t *get_active_pmap(pmap_type_t type);
 
 __attribute__((interrupt)) void tlb_exception_handler();
 
+#ifdef __cplusplus
+}
+#endif //extern "C"
 #endif /* _PMAP_H_ */

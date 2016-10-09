@@ -30,6 +30,10 @@
 #include "pmap.h"
 #include "vm.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* At the moment assume object is owned by only one vm_map */
 typedef struct vm_object {
     TAILQ_HEAD(, vm_page) list;
@@ -49,4 +53,7 @@ void vm_object_remove_page(vm_object_t *obj, vm_page_t *pg);
 vm_page_t *vm_object_find_page(vm_object_t *obj, vm_addr_t offset);
 void vm_map_object_dump(vm_object_t *obj);
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* _VM_OBJECT_H_ */

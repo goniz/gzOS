@@ -29,6 +29,10 @@
 #include "vm.h"
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* Initialize physical memory manager. */
 void pm_init();
 
@@ -57,5 +61,8 @@ vm_page_t *pm_split_alloc_page(vm_page_t *pg);
  * ebss, or any possibly unwanted places. */
 void pm_reserve(pm_addr_t start, pm_addr_t end);
 
+#ifdef __cplusplus
+}
+#endif //extern "C"
 #endif /* _PHYS_MEM_H */
 

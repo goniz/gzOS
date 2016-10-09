@@ -30,6 +30,10 @@
 #include <stdint.h>
 #include <lib/primitives/sys/tree.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define PAGESIZE 4096
 
 #define PG_SIZE(pg) ((pg)->size * PAGESIZE)
@@ -83,4 +87,7 @@ typedef struct vm_map_entry vm_map_entry_t;
 typedef struct vm_object vm_object_t;
 typedef struct pager pager_t;
 
+#ifdef __cplusplus
+}
+#endif
 #endif /* _VIRT_MEM_H_ */
