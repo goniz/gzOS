@@ -3,6 +3,7 @@
 #include "context.S"
 
         .set	noreorder       // Don't allow the assembler to reorder instructions.
+        .set    noat
 
 		.global is_in_irq
         .local tlb_refill
@@ -27,13 +28,28 @@ is_in_irq:
         .org 0x0
 
 tlb_refill:
-        mfc0 $k0, C0_CONTEXT        # Load UPT address which contains PTE
-        sra $k0,1                   # PT should be located in KSEG2
-        lw  $k1, 0($k0)
-        mtc0 $k1, C0_ENTRYLO0
-        lw  $k1, 4($k0)
-        mtc0 $k1, C0_ENTRYLO1
-        ehb                         # mtc0, Hazard on tlbwi
+        mfc0    $k0, C0_CONTEXT         # Load PT address which contains PTEs
+        mfc0    $k1, C0_BADVADDR
+        andi    $k1, 0x1000
+        bnez    $k1, 2f
+        sra     $k0, 1                  # PT is at the beginning of KSEG2
+
+        # Both cases can fail if corresponding PDE is not in TLB.
+        # We want to fail first on address that refer to the faulted page,
+        # so we can recover correct address in tlb_exception_handler.
+1:      lw      $k1, 0($k0)
+        mtc0    $k1, C0_ENTRYLO0
+        lw      $k1, 4($k0)
+        mtc0    $k1, C0_ENTRYLO1
+        ehb                             # clear hazard on tlbwr
+        tlbwr
+        eret
+
+2:      lw      $k1, 4($k0)
+        mtc0    $k1, C0_ENTRYLO1
+        lw      $k1, 0($k0)
+        mtc0    $k1, C0_ENTRYLO0
+        ehb                             # clear hazard on tlbwr
         tlbwr
         eret
 
@@ -44,27 +60,15 @@ cache_error:
 
         .org 0x180
 general_exception:
-        mfc0    $k0, C0_CAUSE
-        andi    $k0, $k0, CR_X_MASK
-        srl     $k0, $k0, CR_X_SHIFT
-        li      $k1, EXC_SYS
-        beq     $k1, $k0, 2f
-        nop
-
-        la      $k1, general_exception_table
-        sll     $k0, $k0, 2   /* Multiply exc_code by sizeof(void *) */  
-        add     $k1, $k1, $k0 /* Add exc_code */  
-        lw      $k1, 0($k1)   /* Load the address of a handler */
-        beqz    $k1, 1f       /* If NULL then call kernel_oops */
-        nop
-		b		irq_handler
-        nop
-
-1:      jal     kernel_oops
-        nop
-
-2:      la		$k1, syscall_exception_handler
-		b		irq_handler
+        mfc0    $k1, C0_CAUSE
+        andi    $k1, CR_X_MASK
+        la      $k0, general_exception_table
+        add     $k1, $k0
+        lw      $k1, 0($k1)             # Load the address of a handler
+        bnez    $k1, irq_handler        # If non-NULL then enter handler
+        mfc0    $k0, C0_STATUS          # (delay slot) load status register
+        la      $k1, kernel_oops        # If no handler then panic!
+        j       irq_handler
         nop
 
         .org 0x200
@@ -126,16 +130,27 @@ irq_handler:
         SAVE_CTX $a0 SAVE_CTX_PC_VIA_EPC
 
 		/* store non-zero value in `is_in_irq` */
-		la		$k0, is_in_irq
-		sw		$k0, 0($k0)
+		la		$t0, is_in_irq
+		sw		$t0, 0($t0)
+
+        # Drop exception level and disable interrupts.
+        mfc0    $t0, C0_STATUS
+        li      $t1, ~(SR_EXL|SR_IE)
+        and     $t0, $t1
+        mtc0    $t0, C0_STATUS
+
+        # Load kernel global pointer.
+        la      $gp, _gp
 
         /* Call the C routine. */
         jalr    $k1
         nop
 
-		/* store zero value in `is_in_irq` */
-		la		$k0, is_in_irq
-		sw		$zero, 0($k0)
+        di
+
+        /* store zero value in `is_in_irq` */
+        la    $t0, is_in_irq
+        sw    $zero, 0($t0)
 
         /*
          * Support for ctx switch.
@@ -145,7 +160,6 @@ irq_handler:
 
         RESTORE_CTX SAVE_CTX_PC_VIA_EPC
 
-        /* Re-enable interrupts. */
+        sync
         ei
-
         eret

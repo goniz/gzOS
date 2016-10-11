@@ -23,13 +23,11 @@ unsigned int interrupts_enable_save(void) {
 }
 
 unsigned int interrupts_disable(void) {
-    register unsigned int isrMask = 0;
-    asm volatile("di %0" : "=r"(isrMask));
-    return isrMask;
+    return _mips_intdisable();
 }
 
 void interrupts_enable(unsigned int mask) {
-    mips32_set_c0(C0_STATUS, mask);
+    mips32_setsr(mask);
 }
 
 void platform_enable_hw_irq(int irq) {
@@ -92,6 +90,8 @@ static const char *exceptions[32] = {
         [EXC_OVF]    = "Arithmetic Overflow exception",
         [EXC_TRAP] = "Trap exception",
         [EXC_FPE]    = "Floating point exception",
+        [EXC_TLBRI]     = "TLB read inhibit",
+        [EXC_TLBXI]	    = "TLB execute inhibit",
         [EXC_WATCH] = "Reference to watchpoint address",
         [EXC_MCHECK] = "Machine checkcore",
 };
@@ -133,10 +133,10 @@ void print_user_regs(struct user_regs *regs) {
  */
 
 void *general_exception_table[32] = {
-        [EXC_MOD]    = tlb_exception_handler,
-        [EXC_TLBL] = tlb_exception_handler,
-        [EXC_TLBS] = tlb_exception_handler,
-        [EXC_SYS] = syscall_exception_handler,
+        [EXC_MOD]   = tlb_exception_handler,
+        [EXC_TLBL]  = tlb_exception_handler,
+        [EXC_TLBS]  = tlb_exception_handler,
+        [EXC_SYS]   = syscall_exception_handler,
 };
 
 #define IRQ_STUB(num) \
@@ -147,17 +147,10 @@ void *general_exception_table[32] = {
     }
 
 IRQ_STUB(0);
-
 IRQ_STUB(1);
-
 IRQ_STUB(2);
-
 IRQ_STUB(3);
-
 IRQ_STUB(4);
-
 IRQ_STUB(5);
-
 IRQ_STUB(6);
-
 IRQ_STUB(7);
