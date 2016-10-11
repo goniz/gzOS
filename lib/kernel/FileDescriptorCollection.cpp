@@ -50,11 +50,11 @@ int FileDescriptorCollection::remove_filedescriptor(int fdnum, bool close) {
     }
 
     if (close) {
-        fd->close();
+        try { fd->close(); } catch (...) { }
     }
 
     _mutex.lock();
-    _fds.erase(fdnum);
+    try { _fds.erase(fdnum); } catch (...) { }
     _mutex.unlock();
 
     return 0;

@@ -1,16 +1,13 @@
 #include <lib/kernel/process.h>
 #include <cstring>
-#include <platform/process.h>
-#include <platform/panic.h>
 #include <platform/kprintf.h>
 #include <lib/kernel/signals.h>
 #include <cassert>
+#include <platform/panic.h>
 #include "scheduler.h"
+#include "IdAllocator.h"
 
-static std::atomic<pid_t> gNextPid(PID_PROCESS_START);
-static pid_t generatePid(void) {
-    return gNextPid.fetch_add(1, std::memory_order::memory_order_relaxed);
-}
+static IdAllocator gPidAllocator(PID_PROCESS_START, PID_PROCESS_END);
 
 Process::Process(const char* name,
                  const void *buffer, size_t size,
@@ -21,20 +18,26 @@ Process::Process(const char* name,
 }
 
 Process::Process(const char *name, std::vector<const char*>&& arguments)
-:      _pid(generatePid()),
-      _state(Process::State::READY),
-      _exitCode(0),
-      _entryPoint(nullptr),
-      _arguments(std::move(arguments)),
-      _pctx(nullptr),
-      _pending_signal_nr((int)SIG_NONE)
+        : _pid(gPidAllocator.allocate()),
+          _state(Process::State::READY),
+          _exitCode(0),
+          _entryPoint(nullptr),
+          _arguments(std::move(arguments)),
+          _pending_signal_nr((int)SIG_NONE),
+          _memoryMap((asid_t) this->pid())
 {
+    assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
 
-    _pctx = platform_initialize_process_ctx(_pid);
-    if (!_pctx) {
-        panic("Failed to initialize process ctx");
+    if (!_memoryMap.createMemoryRegion("heap",  0x60000000, 0x66400000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
+        panic("failed to create heap region for %d (%s)", _pid, _name);
     }
+
+    if (!_memoryMap.createMemoryRegion("stack", 0x70000000, 0x70a00000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
+        panic("failed to create stack region for %d (%s)", _pid, _name);
+    }
+
+    _REENT_INIT_PTR(&_reent);
 
     kprintf("spawn new proc with pid %d named %s\n", _pid, _name);
 }
@@ -47,7 +50,9 @@ Process::~Process(void)
 
     }
 
-    platform_free_process_ctx(_pctx);
+    _reclaim_reent(&_reent);
+
+    gPidAllocator.deallocate(_pid);
 }
 
 bool Process::signal(int sig_nr)
@@ -86,10 +91,18 @@ int Process::processMainLoop(void* argument)
     return self->_exitCode;
 }
 
-uint64_t  Process::cpu_time() const {
+uint64_t  Process::cpu_time() const
+{
     // TODO: implement
     return 0;
 }
+
+void Process::switchProcess(Process& newProc)
+{
+    _REENT = &newProc._reent;
+    newProc._memoryMap.activate();
+}
+
 
 
 

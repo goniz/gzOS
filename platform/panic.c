@@ -3,6 +3,8 @@
 #include <lib/kernel/scheduler.h>
 #include "interrupts.h"
 
+extern void* scheduler(void);
+
 static int is_panicing = 0;
 
 __attribute__((noreturn))
@@ -23,6 +25,11 @@ void panic(const char* fmt, ...)
     kprintf("\n");
     va_end(arg);
 
-    kprintf("[panic]: current pid %d\n", scheduler_current_pid());
+    pid_t pid = -1;
+    if (scheduler()) {
+        pid = scheduler_current_pid();
+    }
+
+    kprintf("[panic]: current pid %d\n", pid);
     while (1);
 }

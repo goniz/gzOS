@@ -22,6 +22,10 @@ Scheduler& Scheduler::instance(void) {
     return *sched;
 }
 
+extern "C" void* scheduler(void) {
+    return gInstance;
+}
+
 static int scheduler_init(void)
 {
     gInstance = new Scheduler();
@@ -54,7 +58,7 @@ Scheduler::Scheduler(void)
 
     _processList.push_back(std::unique_ptr<Process>(_kernelProc));
 
-    this->createThread(*_kernelProc, "idle", idleProcMain, nullptr, 4096);
+    this->createThread(*_kernelProc, "idle", idleProcMain, nullptr, PAGESIZE);
     // NOTE: hack ahead (because createThread already puts the thread on the ready queue.. sorry..
     _readyQueue.pop(_idleThread, false);
 }
@@ -112,9 +116,10 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs)
 
 
 switch_to_proc:
+    Process::switchProcess(_currentThread->proc());
+
     // return the context user_regs of the new/existing current proc entry
     _currentThread->_state = Thread::State::RUNNING;
-    platform_set_active_process_ctx(_currentThread->proc()._pctx);
     return _currentThread->_context;
 }
 

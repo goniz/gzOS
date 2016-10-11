@@ -4,14 +4,14 @@
 #include <cassert>
 #include <platform/panic.h>
 #include <lib/primitives/align.h>
+#include <lib/mm/vm_object.h>
+#include <lib/mm/vm_pager.h>
 #include "thread.h"
 #include "signals.h"
 #include "scheduler.h"
+#include "IdAllocator.h"
 
-static std::atomic<pid_t> gNextTid(PID_THREAD_START);
-static pid_t generateTid(void) {
-    return gNextTid.fetch_add(1, std::memory_order::memory_order_relaxed);
-}
+static IdAllocator gTidAllocator(PID_THREAD_START, PID_THREAD_END);
 
 Thread::Thread(Process& process,
                const char *name,
@@ -24,31 +24,50 @@ Thread::Thread(Process& process,
        _resetQuantum(initialQuantum),
        _state(Thread::READY),
        _responsive(false),
-       _tid(generateTid()),
+       _tid(gTidAllocator.allocate()),
        _exitCode(0),
        _cpuTime(0),
        _entryPoint(entryPoint),
        _argument(argument),
        _proc(process),
-       _pending_signal_nr(SIG_NONE)
+       _pending_signal_nr(SIG_NONE),
+       _stackHead(nullptr),
+       _stackSize(stackSize)
 {
+    assert(_tid != -1);
+
     if ((stackSize % PAGESIZE) != 0) {
-        auto suggested = align(stackSize, PAGESIZE);
+        const auto suggested = align(stackSize, PAGESIZE);
         panic("%s: thread stack size must be aligned to page size (%d): %d. try this: %d\n", name, PAGESIZE, stackSize, suggested);
     }
 
-    _stackPage = pm_alloc(stackSize / PAGESIZE);
-    assert(nullptr != _stackPage);
+    auto* stackRegion = _proc._memoryMap.get("stack");
+    assert(NULL != stackRegion);
 
-    _context = platform_initialize_stack(
-            (void *) PG_VADDR_START(_stackPage), PG_SIZE(_stackPage),
-            (void *) Thread::threadMainLoop, this,
-            nullptr
-    );
+    _stackHead = stackRegion->allocate(_stackSize);
+    assert(NULL != _stackHead);
+
+    _proc._memoryMap.runInScope([&]() {
+        _context = platform_initialize_stack(
+                _stackHead, _stackSize,
+                (void *) Thread::threadMainLoop, this,
+                nullptr
+        );
+    });
 
     strncpy(_name, name, sizeof(_name));
 
     kprintf("spawn new thread with tid %d named %s\n", _tid, _name);
+}
+
+Thread::~Thread(void) {
+    auto* stackRegion = _proc._memoryMap.get("stack");
+    assert(NULL != stackRegion);
+
+    stackRegion->free(_stackHead);
+    _stackHead = NULL;
+
+    gTidAllocator.deallocate(_tid);
 }
 
 __attribute__((noreturn))

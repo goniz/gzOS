@@ -36,6 +36,8 @@ public:
            EntryPointFunction entryPoint, void *argument,
            size_t stackSize, int initialQuantum);
 
+    ~Thread(void);
+
     bool signal(int sig_nr);
 
     inline const char*  name(void) const        { return _name; }
@@ -64,7 +66,8 @@ private:
     void* _argument;
     Process& _proc;
     std::atomic_int _pending_signal_nr;
-    vm_page_t* _stackPage;
+    void* _stackHead;
+    size_t _stackSize;
 };
 
 #endif //cplusplus

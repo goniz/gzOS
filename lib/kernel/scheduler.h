@@ -21,7 +21,7 @@
 #define SCHED_INITIAL_TIMERS_SIZE   (200)
 #define PID_CURRENT                 (-512)
 #define PID_PROCESS_START           (1)
-#define PID_PROCESS_END             (999)
+#define PID_PROCESS_END             (254)
 #define PID_THREAD_START            (1000)
 #define PID_THREAD_END              (1999)
 

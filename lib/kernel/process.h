@@ -10,6 +10,17 @@
 #include <sys/types.h>
 #include <atomic>
 #include "FileDescriptorCollection.h"
+#include "ProcessMemoryMap.h"
+#include <reent.h>
+#include <lib/mm/vm_map.h>
+#include <cassert>
+
+/*
+ * Process virtual address space:
+ *
+ *   heap   0x60000000 - 0x66400000 (100MB) User virtual memory, TLB mapped (useg)
+ *   stack  0x70000000 - 0x70a00000 (10MB)  User virtual memory, TLB mapped (useg)
+ */
 
 class Scheduler;
 class Thread;
@@ -32,6 +43,7 @@ public:
     bool signal(int sig_nr);
 
     inline pid_t pid(void) const {
+        assert(-1 != _pid);
         return _pid;
     }
 
@@ -51,7 +63,9 @@ public:
 
 private:
     Process(const char* name, std::vector<const char*>&& arguments);
+
     static int processMainLoop(void* argument);
+    static void switchProcess(Process& newProc);
 
     char _name[64];
     const pid_t _pid;
@@ -59,10 +73,11 @@ private:
     int _exitCode;
     EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
-	struct platform_process_ctx* _pctx;
     std::atomic<int> _pending_signal_nr;
+    ProcessMemoryMap _memoryMap;
     FileDescriptorCollection _fileDescriptors;
     std::vector<std::unique_ptr<Thread>>   _threads;
+    struct _reent _reent;
 };
 
 #endif
