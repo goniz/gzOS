@@ -25,10 +25,12 @@ typedef struct malloc_pool {
   struct ma_list mp_arena;              /* Queue of managed arenas. */
 } malloc_pool_t;
 
+#define MALLOC_INITIALIZER(pool, desc) { SLIST_HEAD_INITIALIZER((pool)->mp_next), MB_MAGIC, desc, TAILQ_HEAD_INITIALIZER(((pool)->mp_arena)) }
+
 /* Defines a local pool of memory for use by a subsystem. */
 #define MALLOC_DEFINE(pool, desc)               \
     malloc_pool_t pool[1] = {                   \
-        {{NULL}, MB_MAGIC, desc, {NULL, NULL}}  \
+        MALLOC_INITIALIZER(pool, desc)          \
     };
 
 #define MALLOC_DECLARE(pool) extern malloc_pool_t pool[1]
@@ -41,6 +43,8 @@ typedef struct malloc_pool {
 void kmalloc_init(malloc_pool_t *mp);
 
 void kmalloc_add_arena(malloc_pool_t *mp, void *start, size_t size);
+void kmalloc_set_description(malloc_pool_t* mp, const char* desc);
+
 void* kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) __attribute__ ((warn_unused_result));
 void* krealloc(malloc_pool_t* mp, void* ptr, size_t size, uint16_t flags) __attribute__ ((warn_unused_result));
 void* kmemalign(malloc_pool_t *mp, size_t size, int alignment, uint16_t flags) __attribute__ ((warn_unused_result));

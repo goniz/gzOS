@@ -112,15 +112,24 @@ static void add_free_memory_block(mem_arena_t *ma, mem_block_t *mb,
 }
 
 void kmalloc_init(malloc_pool_t *mp) {
+    assert(NULL != mp);
+
+    mp->mp_magic = MB_MAGIC;
+    mp->mp_next.sle_next = NULL;
     TAILQ_INIT(&mp->mp_arena);
+}
+
+void kmalloc_set_description(malloc_pool_t *mp, const char *desc) {
+    assert(NULL != mp);
+    mp->mp_desc = desc;
 }
 
 void kmalloc_add_arena(malloc_pool_t *mp, void *start, size_t arena_size) {
     if (arena_size < sizeof(mem_arena_t))
         return;
 
-    memset((void *) start, 0, sizeof(mem_arena_t));
-    mem_arena_t *ma = (void *) start;
+    memset(start, 0, sizeof(mem_arena_t));
+    mem_arena_t *ma = start;
 
     TAILQ_INSERT_HEAD(&mp->mp_arena, ma, ma_list);
     ma->ma_size = arena_size - sizeof(mem_arena_t);
@@ -283,4 +292,5 @@ void kmalloc_dump(malloc_pool_t *mp) {
         }
     }
 }
+
 
