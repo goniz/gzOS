@@ -11,6 +11,7 @@
 #include <stdbool.h>
 #include "tlb.h"
 #include "mips.h"
+#include "interrupts.h"
 
 #define PTE_MASK 0xfffff000
 #define PTE_SHIFT 12
@@ -31,13 +32,11 @@
 #define PT_ENTRIES (PD_ENTRIES * PTF_ENTRIES)
 #define PT_SIZE (PT_ENTRIES * sizeof(pte_t))
 
-static const vm_addr_t PT_HOLE_START =
-        PT_BASE + MIPS_KSEG0_START / PTF_ENTRIES;
-static const vm_addr_t PT_HOLE_END =
-        PT_BASE + MIPS_KSEG2_START / PTF_ENTRIES;
+static const vm_addr_t PT_HOLE_START    = PT_BASE + MIPS_KSEG0_START / PTF_ENTRIES;
+static const vm_addr_t PT_HOLE_END      = PT_BASE + MIPS_KSEG2_START / PTF_ENTRIES;
 
 static bool is_valid(pte_t pte) {
-    return pte & PTE_VALID;
+    return (bool) (pte & PTE_VALID);
 }
 
 static pmap_t *active_pmap[PMAP_LAST];
@@ -46,21 +45,24 @@ typedef struct {
     vm_addr_t start, end;
 } pmap_range_t;
 
-static pmap_range_t pmap_range[PMAP_LAST] = {
-        [PMAP_KERNEL] = {MIPS_KSEG2_START + PT_SIZE, 0xfffff000}, /* kseg2 & kseg3 */
-        [PMAP_USER] = {0x00000000, MIPS_KSEG0_START} /* useg */
+static pmap_range_t pmap_range[2] = {
+        [PMAP_KERNEL] = { MIPS_KSEG2_START + PT_SIZE,   0xfffff000 },       /* kseg2 & kseg3 */
+        [PMAP_USER] =   { 0x00000000,                   MIPS_KSEG0_START }  /* useg */
 };
 
 void pmap_setup(pmap_t *pmap, pmap_type_t type, asid_t asid) {
     pmap->type = type;
     pmap->pte = (pte_t *) PT_BASE;
     pmap->pde_page = pm_alloc(1);
-    pmap->pde = (pte_t *) pmap->pde_page->vaddr;
+    assert(NULL != pmap->pde_page);
+
+    pmap->pde = (pte_t *) PG_VADDR_START(pmap->pde_page);
     pmap->start = pmap_range[type].start;
     pmap->end = pmap_range[type].end;
     pmap->asid = asid;
-    kprintf("Page directory table allocated at %08lx\n", (intptr_t) pmap->pde);
     TAILQ_INIT(&pmap->pte_pages);
+
+    kprintf("Page directory table allocated at %08lx\n", (intptr_t) pmap->pde);
 
     for (int i = 0; i < PD_ENTRIES; i++)
         pmap->pde[i] = (pmap->type == PMAP_KERNEL) ? PTE_GLOBAL : 0;
@@ -108,8 +110,13 @@ static void pmap_add_pde(pmap_t *pmap, vm_addr_t vaddr) {
     assert (!is_valid(PDE_OF(pmap, vaddr)));
 
     vm_page_t *pg = pm_alloc(1);
+    assert(NULL != pg);
+
     TAILQ_INSERT_TAIL(&pmap->pte_pages, pg, pt.list);
+
+#if TLBDEBUG == 1
     kprintf("Page table fragment %08lx allocated at %08lx\n", PTF_ADDR_OF(vaddr), pg->paddr);
+#endif
 
     PDE_OF(pmap, vaddr) = PTE_PFN(pg->paddr) | PTE_VALID | PTE_DIRTY | PTE_GLOBAL;
 
@@ -123,7 +130,7 @@ void pmap_remove_pde(pmap_t *pmap, vm_addr_t vaddr);
 
 #if 0
 /* Used if CPU implements RI and XI bits in ENTRYLO. */
-static pte_t vm_prot_map[] = {
+static pte_t vm_prot_map[8] = {
   [VM_PROT_NONE] = 0,
   [VM_PROT_READ] = PTE_VALID|PTE_NO_EXEC,
   [VM_PROT_WRITE] = PTE_VALID|PTE_DIRTY|PTE_NO_READ|PTE_NO_EXEC,
@@ -134,7 +141,7 @@ static pte_t vm_prot_map[] = {
   [VM_PROT_READ|VM_PROT_WRITE|VM_PROT_EXEC] = PTE_VALID|PTE_DIRTY,
 };
 #else
-static pte_t vm_prot_map[] = {
+static pte_t vm_prot_map[8] = {
         [VM_PROT_NONE] = 0,
         [VM_PROT_READ] = PTE_VALID,
         [VM_PROT_WRITE] = PTE_VALID | PTE_DIRTY,
@@ -147,23 +154,29 @@ static pte_t vm_prot_map[] = {
 #endif
 
 /* TODO: what about caches? */
-static void pmap_set_pte(pmap_t *pmap, vm_addr_t vaddr, pm_addr_t paddr,
-                         vm_prot_t prot) {
+static void pmap_set_pte(pmap_t *pmap, vm_addr_t vaddr, pm_addr_t paddr, vm_prot_t prot)
+{
     if (!is_valid(PDE_OF(pmap, vaddr)))
         pmap_add_pde(pmap, vaddr);
 
-    PTE_OF(pmap, vaddr) = PTE_PFN(paddr) | vm_prot_map[prot] |
-                          (pmap->type == PMAP_KERNEL ? PTE_GLOBAL : 0);
-    kprintf("Add mapping for page %08lx (PTE at %08lx)\n", (vaddr & PTE_MASK), (intptr_t) &PTE_OF(pmap, vaddr));
+    PTE_OF(pmap, vaddr) = PTE_PFN(paddr) | vm_prot_map[prot] | (pmap->type == PMAP_KERNEL ? PTE_GLOBAL : 0);
+
+#if TLBDEBUG == 1
+    kprintf("Add mapping for page %08lx (PTE at %08lx) asid %d\n", (vaddr & PTE_MASK), (intptr_t) &PTE_OF(pmap, vaddr), pmap->asid);
+#endif
 
     /* invalidate corresponding entry in tlb */
-    tlb_invalidate(PTE_VPN2(vaddr) | PTE_ASID(pmap->asid));
+    tlbhi_t entryhi = PTE_VPN2(vaddr) | PTE_ASID(pmap->asid);
+    tlb_invalidate(entryhi);
 }
 
 /* TODO: what about caches? */
 static void pmap_clear_pte(pmap_t *pmap, vm_addr_t vaddr) {
     PTE_OF(pmap, vaddr) = 0;
+
+#if TLBDEBUG == 1
     kprintf("Remove mapping for page %08lx (PTE at %08lx)\n", (vaddr & PTE_MASK), (intptr_t) &PTE_OF(pmap, vaddr));
+#endif
     /* invalidate corresponding entry in tlb */
     tlb_invalidate(PTE_VPN2(vaddr) | PTE_ASID(pmap->asid));
 
@@ -197,7 +210,8 @@ int pmap_probe(pmap_t *pmap, vm_addr_t start, vm_addr_t end, vm_prot_t prot) {
     while (start < end) {
         tlbhi_t hi = PTE_VPN2(start) | PTE_ASID(pmap->asid);
         tlblo_t lo0, lo1;
-        int tlb_idx = tlb_probe(hi, &lo0, &lo1);
+        uint32_t mask;
+        int tlb_idx = tlb_probe(hi, &lo0, &lo1, &mask);
         pte_t pte = is_valid(PDE_OF(pmap, start)) ? PTE_OF(pmap, start) : 0;
 
         if (tlb_idx >= 0) {
@@ -216,8 +230,7 @@ int pmap_probe(pmap_t *pmap, vm_addr_t start, vm_addr_t end, vm_prot_t prot) {
     return 1;
 }
 
-void pmap_map(pmap_t *pmap, vm_addr_t start, vm_addr_t end, pm_addr_t paddr,
-              vm_prot_t prot) {
+void pmap_map(pmap_t *pmap, vm_addr_t start, vm_addr_t end, pm_addr_t paddr, vm_prot_t prot) {
     assert(is_aligned(start, PAGESIZE) && is_aligned(end, PAGESIZE));
     assert(start < end && start >= pmap->start && end <= pmap->end);
     assert(is_aligned(paddr, PAGESIZE));
@@ -275,13 +288,17 @@ void set_active_pmap(pmap_t *pmap) {
     mips32_set_c0(C0_ENTRYHI, pmap->asid);
 }
 
+void unset_active_pmap(pmap_type_t type) {
+    active_pmap[type] = NULL;
+}
+
 pmap_t *get_active_pmap(pmap_type_t type) {
     assert(type == PMAP_KERNEL || type == PMAP_USER);
     return active_pmap[type];
 }
 
 pmap_t *get_active_pmap_by_addr(vm_addr_t addr) {
-    for (pmap_type_t type = 0; type < PMAP_LAST; type++)
+    for (pmap_type_t type = (pmap_type_t) 0; type < PMAP_LAST; type++)
         if (pmap_range[type].start <= addr && addr < pmap_range[type].end)
             return active_pmap[type];
 
@@ -290,35 +307,43 @@ pmap_t *get_active_pmap_by_addr(vm_addr_t addr) {
 
 __attribute__((used))
 static const char *exceptions[32] = {
-        [EXC_INTR] = "Interrupt",
-        [EXC_MOD]    = "TLB modification exception",
-        [EXC_TLBL] = "TLB exception (load or instruction fetch)",
-        [EXC_TLBS] = "TLB exception (store)",
-        [EXC_ADEL] = "Address error exception (load or instruction fetch)",
-        [EXC_ADES] = "Address error exception (store)",
-        [EXC_IBE]    = "Bus error exception (instruction fetch)",
-        [EXC_DBE]    = "Bus error exception (data reference: load or store)",
-        [EXC_BP]     = "Breakpoint exception",
-        [EXC_RI]     = "Reserved instruction exception",
-        [EXC_CPU]    = "Coprocessor Unusable exception",
-        [EXC_OVF]    = "Arithmetic Overflow exception",
-        [EXC_TRAP] = "Trap exception",
-        [EXC_FPE]    = "Floating point exception",
-        [EXC_WATCH] = "Reference to watchpoint address",
-        [EXC_MCHECK] = "Machine checkcore",
+        [EXC_INTR]      = "Interrupt",
+        [EXC_MOD]       = "TLB modification exception",
+        [EXC_TLBL]      = "TLB exception (load or instruction fetch)",
+        [EXC_TLBS]      = "TLB exception (store)",
+        [EXC_ADEL]      = "Address error exception (load or instruction fetch)",
+        [EXC_ADES]      = "Address error exception (store)",
+        [EXC_IBE]       = "Bus error exception (instruction fetch)",
+        [EXC_DBE]       = "Bus error exception (data reference: load or store)",
+        [EXC_BP]        = "Breakpoint exception",
+        [EXC_RI]        = "Reserved instruction exception",
+        [EXC_CPU]       = "Coprocessor Unusable exception",
+        [EXC_OVF]       = "Arithmetic Overflow exception",
+        [EXC_TRAP]      = "Trap exception",
+        [EXC_FPE]       = "Floating point exception",
+        [EXC_TLBRI]     = "TLB read inhibit",
+        [EXC_TLBXI]	    = "TLB execute inhibit",
+        [EXC_WATCH]     = "Reference to watchpoint address",
+        [EXC_MCHECK]    = "Machine checkcore",
 };
 
-void tlb_exception_handler() {
+struct user_regs *tlb_exception_handler(struct user_regs *regs) {
     int code = (int) ((mips32_get_c0(C0_CAUSE) & CR_X_MASK) >> CR_X_SHIFT);
     vm_addr_t vaddr = mips32_get_c0(C0_BADVADDR);
 
-    kprintf("%s at %08lx, caused by reference to %08lx!\n", exceptions[code], mips32_get_c0(C0_EPC), vaddr);
-    tlb_print();
+#if TLBDEBUG == 1
+        kprintf("%s at %08lx, caused by reference to %08lx!\n", exceptions[code], regs->epc, vaddr);
+        tlb_print();
+#endif
 
     /* If the fault was in virtual pt range it means it's time to refill */
-    if (PT_BASE <= vaddr && vaddr < PT_BASE + PT_SIZE) {
+    if ((PT_BASE <= vaddr) && (vaddr < PT_BASE + PT_SIZE)) {
         uint32_t index = PTE_INDEX(vaddr - PT_BASE) & ~1;
         vm_addr_t orig_vaddr = (vaddr - PT_BASE) * PTF_ENTRIES;
+
+#if TLBDEBUG == 1
+        kprintf("tlb miss in page table: %p for page %p\n", (void*)vaddr, (void*)orig_vaddr);
+#endif
 
         assert(vaddr < PT_HOLE_START || vaddr >= PT_HOLE_END);
 
@@ -336,15 +361,18 @@ void tlb_exception_handler() {
         }
         
         if (is_valid(pmap->pde[index]) || is_valid(pmap->pde[index + 1])) {
+#if TLBDEBUG == 1
             kprintf("TLB refill for page table fragment %08lx\n", vaddr & PTE_MASK);
+#endif
             vm_addr_t ptf_start = PT_BASE + index * PAGESIZE;
 
             /* Both ENTRYLO0 and ENTRYLO1 must have G bit set for address translation
              * to skip ASID check. */
             tlb_overwrite_random(ptf_start | pmap->asid,
                                  pmap->pde[index],
-                                 pmap->pde[index + 1]);
-            return;
+                                 pmap->pde[index + 1],
+                                 0);
+            return regs;
         }
 
         /* We needed to refill TLB, but the address is not mapped yet!
@@ -358,4 +386,5 @@ void tlb_exception_handler() {
     }
 
     vm_page_fault(map, vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE);
+    return regs;
 }

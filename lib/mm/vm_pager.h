@@ -26,7 +26,7 @@
 #ifndef _PAGER_H_
 #define _PAGER_H_
 
-#include <vm.h>
+#include "vm.h"
 
 #ifdef __cplusplus
 extern "C" {

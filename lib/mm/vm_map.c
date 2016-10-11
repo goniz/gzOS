@@ -33,7 +33,9 @@
 #include <assert.h>
 #include <platform/kprintf.h>
 #include <platform/panic.h>
+#include <platform/malta/tlb.h>
 #include "physmem.h"
+#include "pmap.h"
 
 static vm_map_t *active_vm_map[PMAP_LAST];
 
@@ -41,6 +43,11 @@ void set_active_vm_map(vm_map_t *map) {
     pmap_type_t type = map->pmap.type;
     active_vm_map[type] = map;
     set_active_pmap(&map->pmap);
+}
+
+void unset_active_vm_map(pmap_type_t type) {
+    active_vm_map[type] = NULL;
+    unset_active_pmap(type);
 }
 
 vm_map_t *get_active_vm_map(pmap_type_t type) {
@@ -70,7 +77,7 @@ static MALLOC_DEFINE(mpool, "vm_map memory pool");
 void vm_map_init() {
     vm_page_t *pg = pm_alloc(2);
     kmalloc_init(mpool);
-    kmalloc_add_arena(mpool, (void *) pg->vaddr, PG_SIZE(pg));
+    kmalloc_add_arena(mpool, (void *) PG_VADDR_START(pg), PG_SIZE(pg));
     vm_map_t *map = vm_map_new((vm_map_type_t) PMAP_KERNEL, 0);
     set_active_vm_map(map);
 }
@@ -106,7 +113,7 @@ vm_map_entry_t *vm_map_find_entry(vm_map_t *vm_map, vm_addr_t vaddr) {
     return NULL;
 }
 
-static void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry) {
+void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry) {
     vm_map->nentries--;
     vm_object_free(entry->object);
     TAILQ_REMOVE(&vm_map->list, entry, map_list);
@@ -128,7 +135,7 @@ vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
 
 #if 0
     assert(vm_map_find_entry(map, start) == NULL);
-  assert(vm_map_find_entry(map, end) == NULL);
+    assert(vm_map_find_entry(map, end) == NULL);
 #endif
 
     vm_map_entry_t *entry = kmalloc(mpool, sizeof(vm_map_entry_t), M_ZERO);
@@ -162,14 +169,16 @@ void vm_map_dump(vm_map_t *map) {
 
 void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     vm_map_entry_t *entry;
-
-    kprintf("Page fault!\n");
+#if TLBDEBUG == 1
+    kprintf("vm_page_fault map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
+    vm_map_dump(map);
+#endif
 
     if (!(entry = vm_map_find_entry(map, fault_addr)))
         panic("Tried to access unmapped memory region: 0x%08lx!\n", fault_addr);
 
     if (entry->prot == VM_PROT_NONE)
-        panic("Cannot access to address: 0x%08lx\n", fault_addr);
+        panic("Cannot access address: 0x%08lx\n", fault_addr);
 
     if (!(entry->prot & VM_PROT_WRITE) && (fault_type == VM_PROT_WRITE))
         panic("Cannot write to address: 0x%08lx\n", fault_addr);
@@ -191,5 +200,12 @@ void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
         frame = obj->pgr->pgr_fault(obj, fault_page, offset, fault_type);
     }
 
-    pmap_map(&map->pmap, fault_addr, fault_addr + PAGESIZE, frame->paddr, entry->prot);
+    const vm_addr_t start = fault_page;
+    const vm_addr_t end = fault_page + PAGESIZE;
+    pmap_map(&map->pmap, start, end, frame->paddr, (vm_prot_t) entry->prot);
+
+#if TLBDEBUG == 1
+    kprintf("vm_page_fault DONE map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
+    vm_map_dump(map);
+#endif
 }

@@ -34,7 +34,7 @@
 #define PTE_ASID_MASK 0x000000ff
 
 #define PTE_VPN2(addr) ((addr) & PTE_VPN2_MASK)
-#define PTE_ASID(asid) ((asid) & PTE_VPN2_MASK)
+#define PTE_ASID(asid) ((asid) & PTE_ASID_MASK)
 
 #define PT_BASE MIPS_KSEG2_START
 
@@ -68,11 +68,11 @@ void tlb_write_random(tlbhi_t hi, tlblo_t lo0, tlblo_t lo1);
 
 /* Probes the TLB for an entry matching hi and if present rewrites that
  * entry, otherwise updates a random entry. A safe way to update the TLB. */
-void tlb_overwrite_random(tlbhi_t hi, tlblo_t lo0, tlblo_t lo1);
+void tlb_overwrite_random(tlbhi_t hi, tlblo_t lo0, tlblo_t lo1, uint32_t* pagemask);
 
 /* Probes the TLB for an entry matching hi and returns its index, or -1 if not
  * found. If found, then the EntryLo0, EntryLo1 parts of the entry are also
  * returned in *lo0, *lo1 respectively. */
-int tlb_probe(tlbhi_t hi, tlblo_t *lo0, tlblo_t *lo1);
+int tlb_probe(tlbhi_t hi, tlblo_t *lo0, tlblo_t *lo1, uint32_t* pagemask);
 
 #endif /* __MIPS_TLB_H__ */

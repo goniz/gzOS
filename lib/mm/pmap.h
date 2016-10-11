@@ -28,6 +28,7 @@
 
 #include <stdint.h>
 #include <lib/primitives/sys/queue.h>
+#include <platform/interrupts.h>
 #include "vm.h"
 
 #ifdef __cplusplus
@@ -66,9 +67,10 @@ int pmap_probe(pmap_t *pmap, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
 pmap_t *pmap_switch(pmap_t *pmap);
 
 void set_active_pmap(pmap_t *pmap);
+void unset_active_pmap(pmap_type_t type);
 pmap_t *get_active_pmap(pmap_type_t type);
 
-void tlb_exception_handler();
+struct user_regs *tlb_exception_handler(struct user_regs *regs);
 
 #ifdef __cplusplus
 }

@@ -28,6 +28,7 @@
 
 #include "vm.h"
 #include "pmap.h"
+#include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -66,6 +67,7 @@ typedef struct vm_map {
  * vm_map_entry_t* vm_map_allocate_space(vm_map_t* map, size_t length) */
 
 void set_active_vm_map(vm_map_t *map);
+void unset_active_vm_map(pmap_type_t type);
 vm_map_t *get_active_vm_map(pmap_type_t type);
 vm_map_t *get_active_vm_map_by_addr(vm_addr_t addr);
 
@@ -79,6 +81,7 @@ void vm_map_protect(vm_map_t *map, vm_addr_t start, vm_addr_t end,
                     vm_prot_t prot);
 vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
                                  vm_addr_t end, vm_prot_t prot);
+void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry);
 
 void vm_map_dump(vm_map_t *vm_map);
 

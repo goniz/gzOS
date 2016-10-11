@@ -69,7 +69,7 @@ LEAF(tlb_write_random)
 	ehb				# mtc0, hazard on tlbwr
 
 	tlbwr
-        mtc0    t0, C0_ENTRYHI          # restore ASID
+	mtc0    t0, C0_ENTRYHI          # restore ASID
 
 	.set	push
 	.set	noreorder
@@ -79,7 +79,7 @@ LEAF(tlb_write_random)
 END(tlb_write_random)
 
 #
-# void tlb_overwrite_random(tlbhi_t hi, tlblo_t lo0, tlblo_t lo1)
+# void tlb_overwrite_random(tlbhi_t hi, tlblo_t lo0, tlblo_t lo1, uint32_t pagemask)
 #
 LEAF(tlb_overwrite_random)
 	mfc0	t0, C0_ENTRYHI
@@ -142,7 +142,7 @@ LEAF(tlb_read_index)
 END(tlb_read_index)
 
 #
-# int tlb_probe(tlbhi_t hi, tlblo_t *lo0, tlblo_t *lo1)
+# int tlb_probe(tlbhi_t hi, tlblo_t *lo0, tlblo_t *lo1, uint32_t *pgMask)
 #
 LEAF(tlb_probe)
 	mfc0	t0, C0_ENTRYHI
@@ -160,13 +160,13 @@ LEAF(tlb_probe)
 
 	mfc0	v1, C0_ENTRYLO0
 	mfc0	t1, C0_ENTRYLO1
-	# mfc0	t2, C0_PAGEMASK
+	mfc0	t2, C0_PAGEMASK
 
 	mtc0	t0, C0_ENTRYHI		# restore entry hi
 
 	sw	v1, 0(a1)
 	sw	t1, 0(a2)
-	# sw	t2, 0(a3)
+	sw	t2, 0(a3)
 	.set	push
 	.set	noreorder
 	jr.hb	ra

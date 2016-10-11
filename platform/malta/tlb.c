@@ -30,7 +30,7 @@ void tlb_print() {
                         (hi & PTE_VPN2_MASK) + PAGESIZE,  PTE_PFN_OF(lo1),
                         (lo1 & PTE_DIRTY) ? 'D' : '-',
                         (lo1 & PTE_GLOBAL) ? 'G' : '-');
-            kprintf("\n");
+            kputs("\n");
         }
     }
 }

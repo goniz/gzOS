@@ -18,6 +18,8 @@ SET(CMAKE_CXX_OUTPUT_EXTENSION ".o")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
 
+add_definitions(-DTLBDEBUG=0)
+
 add_subdirectory(platform)
 add_subdirectory(stubs)
 add_subdirectory(lib)
