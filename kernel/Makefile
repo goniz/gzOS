@@ -1,4 +1,4 @@
-.PHONY: compile clean copy
+.PHONY: compile clean
 .PHONY: malta
 
 compile: build
@@ -12,8 +12,4 @@ malta: build
 
 clean:
 	rm -rf build
-
-copy:
-	cp build/gzLoader.img /run/media/gz/System/kernel.img
-	umount /run/media/gz/{System,Storage}
 
