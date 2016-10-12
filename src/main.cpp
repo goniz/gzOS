@@ -148,6 +148,10 @@ int kernel_main(void *argument)
     while (1) {
         uint32_t size = 0;
         uint8_t *buffer = recv_file_over_udp(&size);
+        if (!buffer) {
+            syscall(SYS_NR_SLEEP, 5000);
+            continue;
+        }
 
         kprintf("got buffer %p of %d size!\n", buffer, size);
         kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));

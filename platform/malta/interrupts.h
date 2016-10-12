@@ -24,7 +24,7 @@ struct user_regs {
     uint32_t status, cause, badvaddr;
     uint32_t at;
     uint32_t gp;
-} __attribute__((packed));
+};
 
 #ifdef __cplusplus
 }

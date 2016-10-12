@@ -2,13 +2,14 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <lib/syscall/syscall.h>
-#include <platform/panic.h>
 #include <lib/kernel/scheduler.h>
-#include <platform/kprintf.h>
+#include <sys/cdefs.h>
 #include "interrupts.h"
 
 int syscall(int number, ...)
 {
+    // NOTE: apparently the vaargs things needs a real stack frame to work (??)
+    __unused volatile char tmp[8] = {0};
     va_list arg;
 
 //    if (platform_is_irq_context()) {
@@ -17,7 +18,7 @@ int syscall(int number, ...)
 //    }
 
     va_start(arg, number);
-	asm volatile(
+    asm volatile(
         "\tmove $a0, %0\n"
         "\tmove $a1, %1\n"
         "\tnop\n"

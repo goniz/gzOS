@@ -445,7 +445,7 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
             thread->_quantum = thread->_resetQuantum;
             thread->_state = Thread::State::SUSPENDED;
 
-            if (thread == _currentThread && !thread->_preemptionContext.preemptionDisallowed && !platform_is_irq_context()) {
+            if (thread == _currentThread && !thread->_preemptionContext.preemptionDisallowed) {
                 mutex.unlock();
                 syscall(SYS_NR_SCHEDULE);
             }
@@ -469,7 +469,7 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
                 _readyQueue.push(thread);
             }
 
-            if (thread == _currentThread && !thread->_preemptionContext.preemptionDisallowed && !platform_is_irq_context()) {
+            if (thread == _currentThread && !thread->_preemptionContext.preemptionDisallowed) {
                 mutex.unlock();
                 syscall(SYS_NR_SCHEDULE);
             }
