@@ -2,13 +2,8 @@
 
 # Toolchain can be obtained from "https://community.imgtec.com/developers/mips/tools/codescape-mips-sdk/download-codescape-mips-sdk-essentials/"
 
-include(CMakeForceCompiler)
-
 # usage
 # cmake -DCMAKE_TOOLCHAIN_FILE=../toolchain-arm-none-eabi.cmake ../
-message("Platform selected: malta")
-message("Toolchain file selected: ${CMAKE_CURRENT_LIST_DIR}/toolchain.cmake")
-message("Linker script selected: ${CMAKE_CURRENT_LIST_DIR}/script.ld")
 
 # The Generic system _name is used for embedded targets (targets without OS) in
 # CMake
@@ -26,8 +21,8 @@ set( CROSS_COMPILE mips-mti-elf- )
 # specify the cross compiler. We force the compiler so that CMake doesn't
 # attempt to build a simple test program as this will fail without us using
 # the -nostartfiles option on the command line
-CMAKE_FORCE_C_COMPILER( ${TC_PATH}${CROSS_COMPILE}gcc GNU )
-CMAKE_FORCE_CXX_COMPILER( ${TC_PATH}${CROSS_COMPILE}g++ GNU )
+set(CMAKE_C_COMPILER ${TC_PATH}${CROSS_COMPILE}gcc)
+set(CMAKE_CXX_COMPILER ${TC_PATH}${CROSS_COMPILE}g++)
 
 # We must set the OBJCOPY setting into cache so that it's available to the
 # whole project. Otherwise, this does not get set into the CACHE and therefore
