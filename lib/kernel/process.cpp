@@ -10,11 +10,11 @@
 static IdAllocator gPidAllocator(PID_PROCESS_START, PID_PROCESS_END);
 
 Process::Process(const char* name,
-                 const void *buffer, size_t size,
+                 ElfLoader& elfLoader,
                  std::vector<const char*>&& arguments)
         : Process(name, std::move(arguments))
 {
-    // TODO: load elf?? :)
+
 }
 
 Process::Process(const char *name, std::vector<const char*>&& arguments)
@@ -38,8 +38,6 @@ Process::Process(const char *name, std::vector<const char*>&& arguments)
     }
 
     _REENT_INIT_PTR(&_reent);
-
-    kprintf("spawn new proc with pid %d named %s\n", _pid, _name);
 }
 
 Process::~Process(void)

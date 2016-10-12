@@ -56,8 +56,6 @@ Thread::Thread(Process& process,
     });
 
     strncpy(_name, name, sizeof(_name));
-
-    kprintf("spawn new thread with tid %d named %s\n", _tid, _name);
 }
 
 Thread::~Thread(void) {

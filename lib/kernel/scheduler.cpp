@@ -8,6 +8,7 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <cassert>
+#include "ElfLoader.h"
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
@@ -138,11 +139,18 @@ Process* Scheduler::createProcess(const char* name,
                                   std::vector<const char *> &&arguments,
                                   size_t stackSize)
 {
-    auto process = std::make_unique<Process>(name, buffer, size, std::move(arguments));
+    ElfLoader loader(buffer, size);
+    if (!loader.sanityCheck()) {
+        return nullptr;
+    }
+
+    auto process = std::make_unique<Process>(name, loader, std::move(arguments));
     auto mainThread = this->createThread(*process, "main", Process::processMainLoop, process.get(), stackSize);
     if (!mainThread) {
         return nullptr;
     }
+
+    kprintf("spawn new proc with pid %d named %s\n", process->pid(), process->name());
 
     InterruptsMutex mutex(true);
     auto processPtr = process.get();
@@ -157,6 +165,8 @@ Thread* Scheduler::createThread(Process& process,
 {
     auto thread = std::make_unique<Thread>(process, name, entryPoint, argument, stackSize, DefaultQuantum);
     auto threadPtr = thread.get();
+
+    kprintf("spawn new thread with tid %d named %s\n", thread->tid(), thread->name());
 
     InterruptsMutex mutex(true);
     process.threads().push_back(std::move(thread));

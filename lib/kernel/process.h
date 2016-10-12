@@ -11,6 +11,7 @@
 #include <atomic>
 #include "FileDescriptorCollection.h"
 #include "ProcessMemoryMap.h"
+#include "ElfLoader.h"
 #include <reent.h>
 #include <lib/mm/vm_map.h>
 #include <cassert>
@@ -35,7 +36,7 @@ public:
     using EntryPointFunction = int (*)(int, const char**);
 
     Process(const char* name,
-            const void *buffer, size_t size,
+            ElfLoader& elfLoader,
             std::vector<const char*>&& arguments);
 
     ~Process(void);

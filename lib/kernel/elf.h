@@ -1,11 +1,11 @@
 #ifndef _ELF_H
 #define _ELF_H
 
+#include <stdint.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include <stdint.h>
 
 typedef uint16_t Elf32_Half;
 typedef uint16_t Elf64_Half;
