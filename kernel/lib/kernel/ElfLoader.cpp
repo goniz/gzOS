@@ -49,5 +49,6 @@ bool ElfLoader::sanityCheck(void) const
         return false;
     }
 
+    kprintf("elf is valid!\n");
     return true;
 }

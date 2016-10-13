@@ -16,7 +16,7 @@ SECTIONS
   {
     /* Exception handlers. */
     _ebase = ABSOLUTE(.);
-    KEEP (*intr.S.obj(.ebase))
+    KEEP (*(.ebase))
     . = ALIGN(4096);
     /* Text and read-only data follows. */
     __text = ABSOLUTE(.);

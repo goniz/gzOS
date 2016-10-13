@@ -1,6 +1,4 @@
 #include <lib/kernel/process.h>
-#include <cstring>
-#include <platform/kprintf.h>
 #include <lib/kernel/signals.h>
 #include <cassert>
 #include <platform/panic.h>
@@ -74,21 +72,6 @@ int Process::state(void) const
     return (int)_state;
 }
 
-int Process::processMainLoop(void* argument)
-{
-    Process* self = (Process*)argument;
-
-    assert(nullptr != self->_entryPoint);
-
-    self->_exitCode = 0;
-    self->_exitCode = self->_entryPoint((int) self->_arguments.size(), self->_arguments.data());
-    self->_state = State::TERMINATED;
-
-    kprintf("proc %d (%s): terminated with exit code %d\n", self->_pid, self->_name, self->_exitCode);
-
-    return self->_exitCode;
-}
-
 uint64_t  Process::cpu_time() const
 {
     // TODO: implement
@@ -99,6 +82,10 @@ void Process::switchProcess(Process& newProc)
 {
     _REENT = &newProc._reent;
     newProc._memoryMap.activate();
+}
+
+bool Process::is_kernel_proc(void) const {
+    return 0 == strcmp("Kernel", _name);
 }
 
 

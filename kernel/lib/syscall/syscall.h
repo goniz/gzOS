@@ -1,9 +1,7 @@
-//
-// Created by gz on 6/25/16.
-//
-
 #ifndef GZOS_SYSCALL_H
 #define GZOS_SYSCALL_H
+
+#ifndef __USERSPACE
 
 #include <platform/interrupts.h>
 #include <stdarg.h>
@@ -55,10 +53,12 @@ struct kernel_syscall {
 #define SYSCALL_ARG(type, name) \
             type name = va_arg(args, type)
 
+#endif //__USERSPACE
+
 #define DECLARE_SYSCALL_NR(name) SYS_NR_ ##name
 
 /* basic syscall invocation call */
-int syscall(int number, ...);
+long int syscall(long int number, ...);
 
 enum system_call_numbers
 {
@@ -66,6 +66,7 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(CREATE_THREAD),
     DECLARE_SYSCALL_NR(GET_PID),
     DECLARE_SYSCALL_NR(GET_TID),
+    DECLARE_SYSCALL_NR(EXIT),
     DECLARE_SYSCALL_NR(IS_THREAD_RESPONSIVE),
     DECLARE_SYSCALL_NR(SET_THREAD_RESPONSIVE),
     DECLARE_SYSCALL_NR(SCHEDULE),

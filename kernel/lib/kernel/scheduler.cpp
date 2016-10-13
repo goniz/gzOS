@@ -118,7 +118,7 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs)
 
 switch_to_proc:
     Process::switchProcess(_currentThread->proc());
-
+    platform_set_active_kernel_stack(_currentThread->_context);
     // return the context user_regs of the new/existing current proc entry
     _currentThread->_state = Thread::State::RUNNING;
     return _currentThread->_context;
@@ -145,7 +145,7 @@ Process* Scheduler::createProcess(const char* name,
     }
 
     auto process = std::make_unique<Process>(name, loader, std::move(arguments));
-    auto mainThread = this->createThread(*process, "main", Process::processMainLoop, process.get(), stackSize);
+    auto mainThread = this->createThread(*process, "main", process->_entryPoint, NULL, stackSize);
     if (!mainThread) {
         return nullptr;
     }

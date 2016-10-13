@@ -5,6 +5,7 @@ project(gzOS_libmalta C CXX ASM)
 add_library(malta STATIC
         intr.S
         boot.S
+        vectors.S
         interrupts.c
         clock.c
         uart_cbus.c
@@ -27,5 +28,4 @@ add_library(malta STATIC
         pci_registers.h
         script.ld
         tlb_ops.S
-        cpu.S
 )

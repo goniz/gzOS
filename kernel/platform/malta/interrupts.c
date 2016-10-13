@@ -46,10 +46,6 @@ void platform_disable_hw_irq(int irq) {
     interrupts_enable(irqMask);
 }
 
-int platform_is_irq_context(void) {
-	return 0 != is_in_irq;
-}
-
 void interrupts_init() {
     /*
      * Enable Vectored Interrupt Mode as described in „MIPS32® 24KETM Processor

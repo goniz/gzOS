@@ -13,12 +13,16 @@ include_directories("${CMAKE_SOURCE_DIR}/include")
 add_definitions("-Werror -Wall -Wno-error=unknown-pragmas -Wno-unknown-pragmas")
 
 set(CMAKE_EXECUTABLE_SUFFIX ".elf")
-SET(CMAKE_C_OUTPUT_EXTENSION ".o")
-SET(CMAKE_CXX_OUTPUT_EXTENSION ".o")
+set(CMAKE_C_OUTPUT_EXTENSION ".o")
+set(CMAKE_CXX_OUTPUT_EXTENSION ".o")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/libs)
 
 add_definitions(-DTLBDEBUG=0)
+
+if(NOT CMAKE_PLATFORM_NAME)
+    message(FATAL_ERROR "Toolchain file not provided. quiting")
+endif()
 
 add_subdirectory(platform)
 add_subdirectory(stubs)

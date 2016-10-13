@@ -16,6 +16,7 @@ class Thread
     friend class Process;
     enum State { READY, RUNNING, SUSPENDED, TERMINATED };
     enum ContextType { UserSpace, KernelSpace };
+    static constexpr int KernelStackSize = PAGESIZE * 2;
 
     struct PreemptionContext {
         PreemptionContext(enum ContextType type, bool preemption_disallowed)
@@ -49,9 +50,7 @@ public:
     inline void         setResponsive(bool r)   { _responsive = r; }
 
 private:
-    __attribute__((noreturn))
-    static void threadMainLoop(void* argument);
-
+    vm_page_t* _kernelStackPage;
     struct user_regs* _context;
     PreemptionContext _preemptionContext;
     int _quantum;

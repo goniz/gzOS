@@ -12,6 +12,7 @@
 #include "FileDescriptorCollection.h"
 #include "ProcessMemoryMap.h"
 #include "ElfLoader.h"
+#include "thread.h"
 #include <reent.h>
 #include <lib/mm/vm_map.h>
 #include <cassert>
@@ -33,8 +34,6 @@ class Process
     enum State { READY, RUNNING, SUSPENDED, TERMINATED };
 
 public:
-    using EntryPointFunction = int (*)(int, const char**);
-
     Process(const char* name,
             ElfLoader& elfLoader,
             std::vector<const char*>&& arguments);
@@ -51,6 +50,7 @@ public:
     const char* name(void) const;
     int exit_code(void) const;
     int state(void) const;
+    bool is_kernel_proc(void) const;
 
     FileDescriptorCollection& fileDescriptorCollection(void) {
         return _fileDescriptors;
@@ -65,14 +65,13 @@ public:
 private:
     Process(const char* name, std::vector<const char*>&& arguments);
 
-    static int processMainLoop(void* argument);
     static void switchProcess(Process& newProc);
 
     char _name[64];
     const pid_t _pid;
     enum State _state;
     int _exitCode;
-    EntryPointFunction _entryPoint;
+    Thread::EntryPointFunction _entryPoint;
     std::vector<const char*> _arguments;
     std::atomic<int> _pending_signal_nr;
     ProcessMemoryMap _memoryMap;

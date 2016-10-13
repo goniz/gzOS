@@ -4,8 +4,6 @@
 #include <cassert>
 #include <platform/panic.h>
 #include <lib/primitives/align.h>
-#include <lib/mm/vm_object.h>
-#include <lib/mm/vm_pager.h>
 #include "thread.h"
 #include "signals.h"
 #include "scheduler.h"
@@ -18,7 +16,8 @@ Thread::Thread(Process& process,
                EntryPointFunction entryPoint, void *argument,
                size_t stackSize, int initialQuantum)
 
-    :  _context(nullptr),
+    :  _kernelStackPage(nullptr),
+       _context(nullptr),
        _preemptionContext(Thread::ContextType::UserSpace, false),
        _quantum(initialQuantum),
        _resetQuantum(initialQuantum),
@@ -35,6 +34,7 @@ Thread::Thread(Process& process,
        _stackSize(stackSize)
 {
     assert(_tid != -1);
+    strncpy(_name, name, sizeof(_name));
 
     if ((stackSize % PAGESIZE) != 0) {
         const auto suggested = align(stackSize, PAGESIZE);
@@ -47,15 +47,21 @@ Thread::Thread(Process& process,
     _stackHead = stackRegion->allocate(_stackSize);
     assert(NULL != _stackHead);
 
-    _proc._memoryMap.runInScope([&]() {
-        _context = platform_initialize_stack(
-                _stackHead, _stackSize,
-                (void *) Thread::threadMainLoop, this,
-                nullptr
-        );
-    });
+    _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
+    assert(nullptr != _kernelStackPage);
 
-    strncpy(_name, name, sizeof(_name));
+    if (NULL == _entryPoint) {
+        panic("Tried to create a process with NULL as entry point.. shame..");
+    }
+
+    int is_kernel_proc = _proc.is_kernel_proc() ? 1 : 0;
+    _context = platform_initialize_stack(
+            (void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
+            is_kernel_proc ? nullptr : (char*)_stackHead + _stackSize,
+            (void*) _entryPoint, _argument,
+            (void *) 0x1337,
+            is_kernel_proc
+    );
 }
 
 Thread::~Thread(void) {
@@ -65,20 +71,11 @@ Thread::~Thread(void) {
     stackRegion->free(_stackHead);
     _stackHead = NULL;
 
+    if (_kernelStackPage) {
+        pm_free(_kernelStackPage);
+    }
+
     gTidAllocator.deallocate(_tid);
-}
-
-__attribute__((noreturn))
-void Thread::threadMainLoop(void* argument)
-{
-    Thread* self = (Thread*)argument;
-
-    self->_exitCode = 0;
-    self->_exitCode = self->_entryPoint(self->_argument);
-    self->_state = State::TERMINATED;
-    kprintf("thread %d (%s): terminated with exit code %d\n", self->_tid, self->_name, self->_exitCode);
-
-    while (true);
 }
 
 bool Thread::signal(int sig_nr) {

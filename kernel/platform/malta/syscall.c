@@ -6,7 +6,7 @@
 #include <sys/cdefs.h>
 #include "interrupts.h"
 
-int syscall(int number, ...)
+long int syscall(long int number, ...)
 {
     // NOTE: apparently the vaargs things needs a real stack frame to work (??)
     __unused volatile char tmp[8] = {0};

@@ -1,124 +1,134 @@
 #include "interrupts.h"
 
-#define REG_STACK_STORE_SIZE (31 * 4)
-#define SAVE_CTX_PC_VIA_EPC  0
-#define SAVE_CTX_PC_VIA_RA   1
+#define REG_STACK_STORE_SIZE (35 * 4)
+#define NOT_SP  0
+#define YES_SP  1
 
-.set	noat            // Don't allow the assembler to use r1(at) for synthetic instr.
+.set	noreorder
+.set    noat
 
-.macro SAVE_CTX reg, pc=SAVE_CTX_PC_VIA_EPC
+.macro SAVE_CTX reg, is_sp=0
         /* Allocate space for register storage on the stack. */
-        subu    $sp, $sp, REG_STACK_STORE_SIZE
+        subu    \reg, \reg, REG_STACK_STORE_SIZE
 
         /*
          * Save registers on the stack.
          * Saving all t, a and v registers, as well as LO and HI.
          * k registers do not require saving.
          */
-        sw      $t0, REG_T0($sp)
-        sw      $t1, REG_T1($sp)
-        sw      $t2, REG_T2($sp)
-        sw      $t3, REG_T3($sp)
-        sw      $t4, REG_T4($sp)
-        sw      $t5, REG_T5($sp)
-        sw      $t6, REG_T6($sp)
-        sw      $t7, REG_T7($sp)
-        sw      $t8, REG_T8($sp)
-        sw      $t9, REG_T9($sp)
-        sw      $a0, REG_A0($sp)
-        sw      $a1, REG_A1($sp)
-        sw      $a2, REG_A2($sp)
-        sw      $a3, REG_A3($sp)
-        sw      $s0, REG_S0($sp)
-        sw      $s1, REG_S1($sp)
-        sw      $s2, REG_S2($sp)
-        sw      $s3, REG_S3($sp)
-        sw      $s4, REG_S4($sp)
-        sw      $s5, REG_S5($sp)
-        sw      $s6, REG_S6($sp)
-        sw      $s7, REG_S7($sp)
-        sw      $v0, REG_V0($sp)
-        sw      $v1, REG_V1($sp)
-        sw      $ra, REG_RA($sp)
-        sw      $at, REG_AT($sp)
-        sw      $fp, REG_FP($sp)
-        sw      $gp, REG_GP($sp)
+        sw      $t0, REG_T0(\reg)
+        sw      $t1, REG_T1(\reg)
+        sw      $t2, REG_T2(\reg)
+        sw      $t3, REG_T3(\reg)
+        sw      $t4, REG_T4(\reg)
+        sw      $t5, REG_T5(\reg)
+        sw      $t6, REG_T6(\reg)
+        sw      $t7, REG_T7(\reg)
+        sw      $t8, REG_T8(\reg)
+        sw      $t9, REG_T9(\reg)
+        sw      $a0, REG_A0(\reg)
+        sw      $a1, REG_A1(\reg)
+        sw      $a2, REG_A2(\reg)
+        sw      $a3, REG_A3(\reg)
+        sw      $s0, REG_S0(\reg)
+        sw      $s1, REG_S1(\reg)
+        sw      $s2, REG_S2(\reg)
+        sw      $s3, REG_S3(\reg)
+        sw      $s4, REG_S4(\reg)
+        sw      $s5, REG_S5(\reg)
+        sw      $s6, REG_S6(\reg)
+        sw      $s7, REG_S7(\reg)
+        sw      $v0, REG_V0(\reg)
+        sw      $v1, REG_V1(\reg)
+        sw      $ra, REG_RA(\reg)
+        sw      $at, REG_AT(\reg)
+        sw      $fp, REG_FP(\reg)
+        sw      $gp, REG_GP(\reg)
 
-		addiu	$t0, $sp, REG_STACK_STORE_SIZE
-		sw		$t0, REG_SP($sp)
+// if reg is not $sp
+.ifeq \is_sp
+        sw      $sp, REG_SP(\reg)
+.else
+        addiu	$t0, $sp, REG_STACK_STORE_SIZE
+		sw		$t0, REG_SP(\reg)
+.endif
 
         mflo    $t0
         mfhi    $t1
-        sw      $t0, REG_LO($sp)
-        sw      $t1, REG_HI($sp)
+        sw      $t0, REG_LO(\reg)
+        sw      $t1, REG_HI(\reg)
 
         mfc0    $t0, C0_EPC
         mfc0    $t1, C0_STATUS
         mfc0    $t2, C0_CAUSE
         mfc0    $t3, C0_BADVADDR
-        sw      $t0, REG_EPC($sp)
-        sw      $t1, REG_STATUS($sp)
-        sw      $t2, REG_CAUSE($sp)
-        sw      $t3, REG_BADVA($sp)
-
-        move    \reg, $sp
+        sw      $t0, REG_EPC(\reg)
+        sw      $t1, REG_STATUS(\reg)
+        sw      $t2, REG_CAUSE(\reg)
+        sw      $t3, REG_BADVA(\reg)
 .endm
 
-.macro RESTORE_CTX pc=SAVE_CTX_PC_VIA_EPC
-        # Update status register held in user context (interrupt mask).
-        lw      $t0, REG_STATUS($sp)
+// NOTE: uses $k1 in the restore process
+.macro RESTORE_CTX reg, is_sp=0
+        # Update status register held in user context:
+        #   * set right interrupt mask.
+        #   * raise exception level
+        lw      $t0, REG_STATUS(\reg)
         li      $t1, ~SR_IMASK
         and     $t0, $t1
         mfc0    $t1, C0_STATUS
         andi    $t1, SR_IMASK
         or      $t0, $t1
-        sw      $t0, REG_STATUS($sp)
+        ori     $t0, SR_EXL
+        sw      $t0, REG_STATUS(\reg)
 
         /* Restore registers. */
-        lw      $t0, REG_HI($sp)
-        lw      $t1, REG_LO($sp)
+        lw      $t0, REG_HI(\reg)
+        lw      $t1, REG_LO(\reg)
         mthi    $t0
         mtlo    $t1
 
-        lw      $gp, REG_GP($sp)
-        lw      $fp, REG_FP($sp)
-        lw      $at, REG_AT($sp)
-        lw      $ra, REG_RA($sp)
-        lw      $v1, REG_V1($sp)
-        lw      $v0, REG_V0($sp)
-        lw      $s7, REG_S7($sp)
-        lw      $s6, REG_S6($sp)
-        lw      $s5, REG_S5($sp)
-        lw      $s4, REG_S4($sp)
-        lw      $s3, REG_S3($sp)
-        lw      $s2, REG_S2($sp)
-        lw      $s1, REG_S1($sp)
-        lw      $s0, REG_S0($sp)
-        lw      $a3, REG_A3($sp)
-        lw      $a2, REG_A2($sp)
-        lw      $a1, REG_A1($sp)
-        lw      $a0, REG_A0($sp)
-        lw      $t9, REG_T9($sp)
-        lw      $t8, REG_T8($sp)
-        lw      $t7, REG_T7($sp)
-        lw      $t6, REG_T6($sp)
-        lw      $t5, REG_T5($sp)
-        lw      $t4, REG_T4($sp)
-        lw      $t3, REG_T3($sp)
-        lw      $t2, REG_T2($sp)
-        lw      $t1, REG_T1($sp)
-        lw      $t0, REG_T0($sp)
+        lw      $gp, REG_GP(\reg)
+        lw      $fp, REG_FP(\reg)
+        lw      $at, REG_AT(\reg)
+        lw      $ra, REG_RA(\reg)
+        lw      $v1, REG_V1(\reg)
+        lw      $v0, REG_V0(\reg)
+        lw      $s7, REG_S7(\reg)
+        lw      $s6, REG_S6(\reg)
+        lw      $s5, REG_S5(\reg)
+        lw      $s4, REG_S4(\reg)
+        lw      $s3, REG_S3(\reg)
+        lw      $s2, REG_S2(\reg)
+        lw      $s1, REG_S1(\reg)
+        lw      $s0, REG_S0(\reg)
+        lw      $a3, REG_A3(\reg)
+        lw      $a2, REG_A2(\reg)
+        lw      $a1, REG_A1(\reg)
+        lw      $a0, REG_A0(\reg)
+        lw      $t9, REG_T9(\reg)
+        lw      $t8, REG_T8(\reg)
+        lw      $t7, REG_T7(\reg)
+        lw      $t6, REG_T6(\reg)
+        lw      $t5, REG_T5(\reg)
+        lw      $t4, REG_T4(\reg)
+        lw      $t3, REG_T3(\reg)
+        lw      $t2, REG_T2(\reg)
+        lw      $t1, REG_T1(\reg)
+        lw      $t0, REG_T0(\reg)
 
-        lw      $k0, REG_EPC($sp)
-    .ifeq \pc
-        mtc0    $k0, C0_EPC
-    .else
-        move    $ra, $k0
-    .endif
+        lw      $k1, REG_EPC(\reg)
+        mtc0    $k1, C0_EPC
 
-        lw      $k0, REG_STATUS($sp)
-        mtc0    $k0, C0_STATUS
+        lw      $k1, REG_STATUS(\reg)
+        mtc0    $k1, C0_STATUS
 
+// if reg is not $sp
+.ifeq \is_sp
+        lw      $sp, REG_SP(\reg)
         /* Free stack frame */
-        addu    $sp, $sp, REG_STACK_STORE_SIZE
+        addu    \reg, \reg, REG_STACK_STORE_SIZE
+.else
+        lw      $sp, REG_SP(\reg)
+.endif
 .endm

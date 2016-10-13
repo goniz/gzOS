@@ -138,8 +138,8 @@ uint8_t* recv_file_over_udp(size_t* size) {
 extern "C"
 int kernel_main(void *argument)
 {
-    printf("Current Stack: %p\n", (void*) _get_stack_pointer());
-    printf("Start of heap: %p\n", (void*) &_end);
+    kprintf("Current Stack: %p\n", (void*) _get_stack_pointer());
+    kprintf("Start of heap: %p\n", (void*) &_end);
 
     interface_add("eth0", 0x01010101, 0xffffff00);
 
@@ -156,11 +156,11 @@ int kernel_main(void *argument)
         kprintf("got buffer %p of %d size!\n", buffer, size);
         kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));
 
-        syscall(SYS_NR_CREATE_PROCESS, buffer, size);
+        std::vector<const char*> args{"arg"};
+        pid_t pid = syscall(SYS_NR_CREATE_PROCESS, buffer, size, "main.elf", args.size(), args.data());
+        kprintf("new pid: %d\n", pid);
 
         free(buffer);
-        buffer = NULL;
-        size = 0;
     }
 
     return 0;

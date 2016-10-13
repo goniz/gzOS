@@ -5,6 +5,7 @@
 #include "process.h"
 #include "scheduler.h"
 #include "VirtualFileSystem.h"
+#include "signals.h"
 
 DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
 {
@@ -15,6 +16,7 @@ DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
     SYSCALL_ARG(const char**, argv);
 
     if (!elfBuffer || !elfSize || !name || !argv) {
+        kprintf("%s: wrong args\n", __func__);
         return -1;
     }
 
@@ -56,6 +58,14 @@ DEFINE_SYSCALL(GET_PID, get_pid, SYS_IRQ_DISABLED)
 DEFINE_SYSCALL(GET_TID, get_tid, SYS_IRQ_DISABLED)
 {
     return Scheduler::instance().getCurrentTid();
+}
+
+DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
+{
+    auto proc = Scheduler::instance().CurrentProcess();
+    assert(proc);
+
+    return proc->signal(SIG_KILL);
 }
 
 DEFINE_SYSCALL(IS_THREAD_RESPONSIVE, is_thread_responsive, SYS_IRQ_DISABLED)
