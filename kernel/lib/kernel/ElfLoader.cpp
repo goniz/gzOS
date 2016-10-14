@@ -66,7 +66,6 @@ bool ElfLoader::sanityCheck(void) const
     this->forEachSection([&](const Elf32_Shdr* sec) {
         const uintptr_t start = sec->sh_addr;
         const uintptr_t end = start + sec->sh_size;
-        const char* name = this->getStringByIndex((int) sec->sh_name);
 
         // skip section if he is empty, or not marked for allocation.
         if (0 == sec->sh_size || !(sec->sh_flags & SHF_ALLOC)) {
