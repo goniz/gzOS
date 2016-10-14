@@ -1,6 +1,7 @@
 #include <platform/kprintf.h>
 #include <cassert>
 #include <cstring>
+#include <platform/process.h>
 #include "ElfLoader.h"
 #include "elf.h"
 
@@ -49,6 +50,99 @@ bool ElfLoader::sanityCheck(void) const
         return false;
     }
 
+    // check for EXEC type only, no REL and things
+    if (ehdr->e_type != ET_EXEC) {
+        return false;
+    }
+
+#ifdef ELF32_DEBUG
+    kprintf("Entry point @ %08x\n", ehdr->e_entry);
+    kprintf("sec_num=%d, sec_entsize=%d\n", ehdr->e_shnum, ehdr->e_shentsize);
+#endif
+
+    // First of all check if the sections are not in the user space
+    // boundaries.
+    bool isValid = true;
+    this->forEachSection([&](const Elf32_Shdr* sec) {
+        const uintptr_t start = sec->sh_addr;
+        const uintptr_t end = start + sec->sh_size;
+        const char* name = this->getStringByIndex((int) sec->sh_name);
+
+        // skip section if he is empty, or not marked for allocation.
+        if (0 == sec->sh_size || !(sec->sh_flags & SHF_ALLOC)) {
+            return;
+        }
+
+        if (!platform_is_in_userspace_range(start, end)) {
+            isValid = false;
+        }
+    });
+
+    if (!isValid) {
+        return false;
+    }
+
     kprintf("elf is valid!\n");
     return true;
 }
+
+uintptr_t ElfLoader::getEntryPoint(void) const {
+    const Elf32_Ehdr* ehdr = (Elf32_Ehdr *) _buffer;
+    return ehdr->e_entry;
+}
+
+bool ElfLoader::loadSections(ProcessMemoryMap& memoryMap) {
+
+    bool success = true;
+
+    this->forEachSection([&](const Elf32_Shdr* sec) {
+        const uintptr_t start = sec->sh_addr;
+        const uintptr_t end = start + sec->sh_size;
+        const char* name = this->getStringByIndex((int) sec->sh_name);
+
+        // skip section if he is empty, or not marked for allocation.
+        if (0 == sec->sh_size || !(sec->sh_flags & SHF_ALLOC)) {
+            return;
+        }
+
+        // TODO: when mprotect is implemented, remove the VM_PROT_WRITE here and call mprotect after copying the data.
+        uint32_t prot = VM_PROT_READ | VM_PROT_WRITE;
+        if (sec->sh_flags & SHF_WRITE) {
+            prot |= VM_PROT_WRITE;
+        }
+
+        if (sec->sh_flags & SHF_EXECINSTR) {
+            prot |= VM_PROT_EXEC;
+        }
+
+        kprintf("Adding section '%s' @ %08x... ", name, start);
+        if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot, true)) {
+            success = false;
+            kputs("Failed.\n");
+            return;
+        }
+
+        kputs("Done.\n");
+
+        memoryMap.runInScope([&]() {
+            if (SHT_PROGBITS == sec->sh_type) {
+                const char* from = (const char*)_buffer + sec->sh_offset;
+                void* to = (void*)start;
+                kprintf("Copying from %p to %p\n", from, to);
+                memcpy(to, from, sec->sh_size);
+            } else if (SHT_NOBITS == sec->sh_type) {
+                memset((void *) start, 0, sec->sh_size);
+            }
+        });
+    });
+
+    return success;
+}
+
+const char* ElfLoader::getStringByIndex(int index) const {
+    const Elf32_Ehdr* ehdr = (Elf32_Ehdr *) _buffer;
+    const Elf32_Shdr* strtabsection = (const Elf32_Shdr *) (((uintptr_t)ehdr) + ehdr->e_shoff) + ehdr->e_shstrndx;
+
+    return (const char *) (((uintptr_t)ehdr) + strtabsection->sh_offset + index);
+}
+

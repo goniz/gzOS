@@ -3,6 +3,8 @@
 
 #ifdef __cplusplus
 #include <cstddef>
+#include "ProcessMemoryMap.h"
+#include "elf.h"
 
 class ElfLoader
 {
@@ -14,8 +16,28 @@ public:
     ElfLoader(const ElfLoader&) = delete;
 
     bool sanityCheck(void) const;
+    bool loadSections(ProcessMemoryMap& memoryMap);
+    uintptr_t getEntryPoint(void) const;
 
 private:
+    const char *getStringByIndex(int index) const;
+
+    template<typename TFunc>
+    void forEachSection(TFunc&& func) const {
+        const Elf32_Ehdr* ehdr = (Elf32_Ehdr *) _buffer;
+        const Elf32_Shdr* sec = (Elf32_Shdr*)((uint32_t)ehdr->e_shoff + (uint32_t)ehdr);
+        for (int i = 0;
+             i < ehdr->e_shnum;
+             i++, sec = (Elf32_Shdr*)(((uintptr_t)sec) + ehdr->e_shentsize))
+        {
+            if (SHT_NULL == sec->sh_type) {
+                continue;
+            }
+
+            try { func(sec); } catch (...) { }
+        }
+    }
+
     const void* _buffer;
     size_t _size;
 };
