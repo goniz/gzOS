@@ -62,6 +62,8 @@ public:
 
     uint64_t cpu_time(void) const;
 
+    void terminate(int exit_code);
+
 private:
     Process(const char* name, std::vector<const char*>&& arguments);
 

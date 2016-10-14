@@ -12,7 +12,11 @@ Process::Process(const char* name,
                  std::vector<const char*>&& arguments)
         : Process(name, std::move(arguments))
 {
+    if (!elfLoader.loadSections(_memoryMap)) {
+        panic("%s (%d): failed to load elf section", _name, _pid);
+    }
 
+    _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
 }
 
 Process::Process(const char *name, std::vector<const char*>&& arguments)
@@ -86,6 +90,12 @@ void Process::switchProcess(Process& newProc)
 
 bool Process::is_kernel_proc(void) const {
     return 0 == strcmp("Kernel", _name);
+}
+
+void Process::terminate(int exit_code) {
+    InterruptsMutex mutex(true);
+    _exitCode = exit_code;
+    _state = Process::State::TERMINATED;
 }
 
 

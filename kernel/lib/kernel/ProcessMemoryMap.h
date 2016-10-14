@@ -24,12 +24,15 @@ public:
     ProcessMemoryMap(ProcessMemoryMap&&) = delete;
     ProcessMemoryMap(const ProcessMemoryMap&) = delete;
 
-    VirtualMemoryRegion* createMemoryRegion(const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
+    VirtualMemoryRegion* createMemoryRegion(const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot, bool plain = false);
     void destroyMemoryRegion(const char* name);
 
     VirtualMemoryRegion* get(const char* name) const;
 
     void activate(void) const;
+
+    bool is_kernel_space(void) const;
+    bool is_user_space(void) const;
 
     template<typename TFunc>
     void runInScope(TFunc&& func) const {
@@ -53,12 +56,13 @@ private:
 class VirtualMemoryRegion
 {
 public:
-    VirtualMemoryRegion(ProcessMemoryMap& parent, const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
+    VirtualMemoryRegion(ProcessMemoryMap& parent, const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot, bool plain = true);
     ~VirtualMemoryRegion(void);
 
     VirtualMemoryRegion(VirtualMemoryRegion&& other);
     VirtualMemoryRegion(const VirtualMemoryRegion&) = delete;
 
+    void mprotect(vm_prot_t prot);
     void* allocate(size_t size) const;
     void free(void* ptr) const;
 

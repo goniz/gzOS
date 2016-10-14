@@ -3,6 +3,7 @@
 #include <lib/mm/pmap.h>
 #include <lib/mm/vm_object.h>
 #include <lib/mm/vm_pager.h>
+#include <platform/kprintf.h>
 #include "ProcessMemoryMap.h"
 
 ProcessMemoryMap::ProcessMemoryMap(asid_t id)
@@ -22,12 +23,16 @@ void ProcessMemoryMap::activate(void) const {
     set_active_vm_map(_map);
 }
 
-VirtualMemoryRegion *ProcessMemoryMap::createMemoryRegion(const char *name, vm_addr_t start, vm_addr_t end, vm_prot_t prot) {
+VirtualMemoryRegion* ProcessMemoryMap::createMemoryRegion(const char *name,
+                                                          vm_addr_t start, vm_addr_t end,
+                                                          vm_prot_t prot,
+                                                          bool plain)
+{
     if (_regions.get(name)) {
         return nullptr;
     }
 
-    if (!_regions.put(name, VirtualMemoryRegion(*this, name, start, end, prot))) {
+    if (!_regions.put(name, VirtualMemoryRegion(*this, name, start, end, prot, plain))) {
         return nullptr;
     }
 
@@ -42,7 +47,19 @@ VirtualMemoryRegion *ProcessMemoryMap::get(const char *name) const {
     return _regions.get(name);
 }
 
-VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent, const char *name, vm_addr_t start, vm_addr_t end, vm_prot_t prot)
+bool ProcessMemoryMap::is_kernel_space(void) const {
+    return _map->pmap.type == PMAP_KERNEL;
+}
+
+bool ProcessMemoryMap::is_user_space(void) const {
+    return _map->pmap.type == PMAP_USER;
+}
+
+VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent,
+                                         const char *name,
+                                         vm_addr_t start, vm_addr_t end,
+                                         vm_prot_t prot,
+                                         bool plain)
     : _parent(parent),
       _name(name),
       _pool(std::make_unique<malloc_pool_t>()),
@@ -60,22 +77,27 @@ VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent, const char *n
     *_pool = MALLOC_INITIALIZER(_pool, _poolName.c_str());
     kmalloc_init(_pool.get());
 
-    _header = vm_map_add_entry(_parent._map, start - PAGESIZE, start, (vm_prot_t)VM_PROT_NONE);
-    assert(NULL != _header);
+    if (!plain) {
+        _header = vm_map_add_entry(_parent._map, start - PAGESIZE, start, (vm_prot_t)VM_PROT_NONE);
+        assert(NULL != _header);
+        _header->object = vm_object_alloc();
+    }
 
     _data = vm_map_add_entry(_parent._map, start, end, prot);
     assert(NULL != _data);
-
-    _footer = vm_map_add_entry(_parent._map, end, end + PAGESIZE, (vm_prot_t)VM_PROT_NONE);
-    assert(NULL != _footer);
-
-    _header->object = vm_object_alloc();
-    _footer->object = vm_object_alloc();
     _data->object = default_pager->pgr_alloc();
 
-    _parent.runInScope([&]() {
-        kmalloc_add_arena(_pool.get(), (void *) start, end - start);
-    });
+    if (!plain) {
+        _footer = vm_map_add_entry(_parent._map, end, end + PAGESIZE, (vm_prot_t)VM_PROT_NONE);
+        assert(NULL != _footer);
+        _footer->object = vm_object_alloc();
+    }
+
+    if (!plain) {
+        _parent.runInScope([&]() {
+            kmalloc_add_arena(_pool.get(), (void *) start, end - start);
+        });
+    }
 }
 
 VirtualMemoryRegion::~VirtualMemoryRegion(void)
@@ -126,4 +148,12 @@ void VirtualMemoryRegion::free(void *ptr) const {
     _parent.runInScope([&]() {
         kfree(_pool.get(), ptr);
     });
+}
+
+void VirtualMemoryRegion::mprotect(vm_prot_t prot) {
+    if (!_data) {
+        return;
+    }
+
+    vm_map_protect(_parent._map, _data->start, _data->end, prot);
 }
