@@ -62,10 +62,20 @@ DEFINE_SYSCALL(GET_TID, get_tid, SYS_IRQ_DISABLED)
 
 DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
 {
-    auto proc = Scheduler::instance().CurrentProcess();
+    SYSCALL_ARG(int, exit_code);
+
+    auto& instance = Scheduler::instance();
+    auto proc = instance.CurrentProcess();
     assert(proc);
 
-    return proc->signal(SIG_KILL);
+    if (!instance.signalPid(PID_CURRENT, SIG_KILL)) {
+        return -1;
+    }
+
+    proc->terminate(exit_code);
+
+    *regs = instance.schedule(*regs);
+    return 0;
 }
 
 DEFINE_SYSCALL(IS_THREAD_RESPONSIVE, is_thread_responsive, SYS_IRQ_DISABLED)
@@ -200,4 +210,12 @@ DEFINE_SYSCALL(CLOSE, close, SYS_IRQ_DISABLED)
     SYSCALL_ARG(int, fd);
 
     return vfs_close(fd);
+}
+
+DEFINE_SYSCALL(BRK, brk, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(uintptr_t, pos);
+
+    kprintf("sys_brk pos %08x\n", pos);
+    return 0;
 }

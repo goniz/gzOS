@@ -53,6 +53,8 @@ struct kernel_syscall {
 #define SYSCALL_ARG(type, name) \
             type name = va_arg(args, type)
 
+int syscall_handle(struct user_regs **regs, uint32_t syscallNumber, va_list args);
+
 #endif //__USERSPACE
 
 #define DECLARE_SYSCALL_NR(name) SYS_NR_ ##name
@@ -82,7 +84,8 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(BIND),
     DECLARE_SYSCALL_NR(CONNECT),
     DECLARE_SYSCALL_NR(RECVFROM),
-    DECLARE_SYSCALL_NR(SENDTO)
+    DECLARE_SYSCALL_NR(SENDTO),
+    DECLARE_SYSCALL_NR(BRK)
 };
 
 
