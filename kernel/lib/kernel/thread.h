@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <atomic>
 #include <lib/mm/vm.h>
+#include <platform/process.h>
 
 class Scheduler;
 class Process;
@@ -51,7 +52,7 @@ public:
 
 private:
     vm_page_t* _kernelStackPage;
-    struct user_regs* _context;
+    platform_thread_cb _platformThreadCb;
     PreemptionContext _preemptionContext;
     int _quantum;
     const int _resetQuantum;

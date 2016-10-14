@@ -17,7 +17,7 @@ Thread::Thread(Process& process,
                size_t stackSize, int initialQuantum)
 
     :  _kernelStackPage(nullptr),
-       _context(nullptr),
+       _platformThreadCb(),
        _preemptionContext(Thread::ContextType::UserSpace, false),
        _quantum(initialQuantum),
        _resetQuantum(initialQuantum),
@@ -55,7 +55,7 @@ Thread::Thread(Process& process,
     }
 
     int is_kernel_proc = _proc.is_kernel_proc() ? 1 : 0;
-    _context = platform_initialize_stack(
+    _platformThreadCb.stack_pointer = platform_initialize_stack(
             (void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
             is_kernel_proc ? nullptr : (char*)_stackHead + _stackSize,
             (void*) _entryPoint, _argument,

@@ -91,7 +91,7 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs)
     }
 
     // save current context
-    _currentThread->_context = regs;
+    _currentThread->_platformThreadCb.stack_pointer = regs;
     // advance cpu time counter
     _currentThread->_cpuTime++;
 
@@ -118,10 +118,10 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs)
 
 switch_to_proc:
     Process::switchProcess(_currentThread->proc());
-    platform_set_active_kernel_stack(_currentThread->_context);
+    platform_set_active_thread(&_currentThread->_platformThreadCb);
     // return the context user_regs of the new/existing current proc entry
     _currentThread->_state = Thread::State::RUNNING;
-    return _currentThread->_context;
+    return _currentThread->_platformThreadCb.stack_pointer;
 }
 
 // assumes argument is non-null
@@ -202,6 +202,10 @@ struct user_regs *Scheduler::yield(struct user_regs *regs)
 
 bool Scheduler::signalPid(pid_t pid, int signal)
 {
+    if (PID_CURRENT == pid) {
+        pid = getCurrentPid();
+    }
+
     switch (pid)
     {
         case PID_PROCESS_START ... PID_PROCESS_END:
@@ -298,11 +302,6 @@ void Scheduler::handleSignal(Thread* thread)
 
     switch (sig_nr)
     {
-        case SIG_KILL:
-            thread->_exitCode = -127;
-            thread->_state = Thread::State::TERMINATED;
-            break;
-
         case SIG_NONE:
             break;
 
@@ -487,6 +486,19 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
             ret = true;
             break;
         }
+
+        case Signal::SIG_KILL:
+            mutex.lock();
+            thread->_state = Thread::State::TERMINATED;
+            thread->_exitCode = 127;
+
+            if (thread == _currentThread && !thread->_preemptionContext.preemptionDisallowed) {
+                mutex.unlock();
+                syscall(SYS_NR_SCHEDULE);
+            }
+
+            ret = true;
+            break;
 
         default:
             ret = thread->signal(signal);

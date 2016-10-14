@@ -14,6 +14,7 @@ SECTIONS
 
   .text 0x80100000:
   {
+    _stext = ABSOLUTE(.);
     /* Exception handlers. */
     _ebase = ABSOLUTE(.);
     KEEP (*(.ebase))

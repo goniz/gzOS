@@ -3,6 +3,8 @@
 #include <platform/malta/interrupts.h>
 #include <string.h>
 #include <platform/kprintf.h>
+#include <assert.h>
+#include "mips.h"
 
 
 extern uint32_t _gp;
@@ -32,7 +34,16 @@ struct user_regs* platform_initialize_stack(void* stack, size_t stack_size,
     return context;
 }
 
-void platform_set_active_kernel_stack(void* stack_pointer) {
-//    kprintf("setting C0_USERLOCAL to %p\n", stack_pointer);
-    mips32_set_c0(C0_USERLOCAL, stack_pointer);
+extern platform_thread_cb* _thread_cb_pointer;
+void platform_set_active_thread(platform_thread_cb* cb) {
+    assert(NULL != cb);
+    _thread_cb_pointer = cb;
+}
+
+int platform_is_in_userspace_range(uintptr_t start, uintptr_t end) {
+    if (start >= 0 && end <= MIPS_KSEG0_START) {
+        return 1;
+    }
+
+    return 0;
 }
