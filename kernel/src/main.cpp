@@ -156,6 +156,8 @@ int kernel_main(void *argument)
         kprintf("got buffer %p of %d size!\n", buffer, size);
         kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));
 
+        syscall(SYS_NR_YIELD);
+
         std::vector<const char*> args{"arg"};
         pid_t pid = syscall(SYS_NR_CREATE_PROCESS, buffer, size, "main.elf", args.size(), args.data());
         kprintf("new pid: %d\n", pid);

@@ -234,7 +234,10 @@ void pmap_map(pmap_t *pmap, vm_addr_t start, vm_addr_t end, pm_addr_t paddr, vm_
     assert(is_aligned(start, PAGESIZE) && is_aligned(end, PAGESIZE));
     assert(start < end && start >= pmap->start && end <= pmap->end);
     assert(is_aligned(paddr, PAGESIZE));
-    assert(!pmap_is_range_mapped(pmap, start, end));
+    if (pmap_is_range_mapped(pmap, start, end)) {
+        tlb_print();
+        panic("pmap: trying to re-map an already mapped area! start %08x end %08x", start, end);
+    }
 
     while (start < end) {
         pmap_set_pte(pmap, start, paddr, prot);

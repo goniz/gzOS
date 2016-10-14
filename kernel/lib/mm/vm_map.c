@@ -174,17 +174,25 @@ void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     vm_map_dump(map);
 #endif
 
-    if (!(entry = vm_map_find_entry(map, fault_addr)))
+    if (!(entry = vm_map_find_entry(map, fault_addr))) {
+        vm_map_dump(map);
         panic("Tried to access unmapped memory region: 0x%08lx!\n", fault_addr);
+    }
 
-    if (entry->prot == VM_PROT_NONE)
+    if (entry->prot == VM_PROT_NONE) {
+        vm_map_dump(map);
         panic("Cannot access address: 0x%08lx\n", fault_addr);
+    }
 
-    if (!(entry->prot & VM_PROT_WRITE) && (fault_type == VM_PROT_WRITE))
+    if (!(entry->prot & VM_PROT_WRITE) && (fault_type == VM_PROT_WRITE)) {
+        vm_map_dump(map);
         panic("Cannot write to address: 0x%08lx\n", fault_addr);
+    }
 
-    if (!(entry->prot & VM_PROT_READ) && (fault_type == VM_PROT_READ))
+    if (!(entry->prot & VM_PROT_READ) && (fault_type == VM_PROT_READ)) {
+        vm_map_dump(map);
         panic("Cannot read from address: 0x%08lx\n", fault_addr);
+    }
 
     assert(entry->start <= fault_addr && fault_addr < entry->end);
 
