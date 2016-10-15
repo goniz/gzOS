@@ -6,5 +6,5 @@ int main(int argc, char** argv)
     puts("Hello World 1!");
     puts("Hello World 2!");
 
-    exit(0);
+    return 0;
 }
