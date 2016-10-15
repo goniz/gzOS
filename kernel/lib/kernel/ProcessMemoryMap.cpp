@@ -4,6 +4,7 @@
 #include <lib/mm/vm_object.h>
 #include <lib/mm/vm_pager.h>
 #include <platform/kprintf.h>
+#include <lib/primitives/align.h>
 #include "ProcessMemoryMap.h"
 
 ProcessMemoryMap::ProcessMemoryMap(asid_t id)
@@ -156,4 +157,17 @@ void VirtualMemoryRegion::mprotect(vm_prot_t prot) {
     }
 
     vm_map_protect(_parent._map, _data->start, _data->end, prot);
+}
+
+bool VirtualMemoryRegion::extend(uintptr_t endAddr) {
+    if (!_data) {
+        return false;
+    }
+
+    // already mapped..
+    if (endAddr >= _data->start && endAddr <= _data->end) {
+        return true;
+    }
+
+    return vm_map_extend_entry(_parent._map, _data, endAddr) != 0;
 }

@@ -216,6 +216,14 @@ DEFINE_SYSCALL(BRK, brk, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(uintptr_t, pos);
 
-    kprintf("sys_brk pos %08x\n", pos);
+    Process* currentProc = Scheduler::instance().CurrentProcess();
+    if (NULL == currentProc) {
+        return -1;
+    }
+
+    if (!currentProc->extendHeap(pos)) {
+        return -1;
+    }
+
     return 0;
 }

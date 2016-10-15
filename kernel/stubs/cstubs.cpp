@@ -135,9 +135,9 @@ int _lseek_r(struct _reent * reent, int file, int ptr, int dir) {
  Returns -1 on error or blocks until the number of characters have been read.
  */
 extern "C" int uart_read(char *str, size_t n);
-int _read_r(struct _reent * reent, int file, char *ptr, int len)
+int read(int file, void* ptr, size_t len)
 {
-    return uart_read(ptr, len);
+    return uart_read((char *) ptr, len);
 }
 
 /*
@@ -164,17 +164,8 @@ clock_t _times(struct tms *buf) {
  unlink
  Remove a file's directory entry. Minimal implementation:
  */
-int _unlink(char *name) {
+int unlink(const char *name) {
     errno = ENOENT;
-    return -1;
-}
-
-/*
- wait
- Wait for a child process. Minimal implementation:
- */
-int _wait_r(struct _reent *ptr, int *status) {
-    errno = ECHILD;
     return -1;
 }
 
@@ -190,12 +181,6 @@ int write(int file, const void* buf, size_t len)
 {
     uart_write((const char *) buf, (size_t) len);
     return (int) len;
-}
-
-extern "C"
-int _write_r(struct _reent *ptr, int file, const char *buf, int len)
-{
-	return write(file, buf, (size_t) len);
 }
 
 extern "C"

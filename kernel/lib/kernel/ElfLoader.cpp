@@ -81,7 +81,6 @@ bool ElfLoader::sanityCheck(void) const
         return false;
     }
 
-    kprintf("elf is valid!\n");
     return true;
 }
 
@@ -127,7 +126,6 @@ bool ElfLoader::loadSections(ProcessMemoryMap& memoryMap) {
             if (SHT_PROGBITS == sec->sh_type) {
                 const char* from = (const char*)_buffer + sec->sh_offset;
                 void* to = (void*)start;
-                kprintf("Copying from %p to %p\n", from, to);
                 memcpy(to, from, sec->sh_size);
             } else if (SHT_NOBITS == sec->sh_type) {
                 memset((void *) start, 0, sec->sh_size);
@@ -143,5 +141,27 @@ const char* ElfLoader::getStringByIndex(int index) const {
     const Elf32_Shdr* strtabsection = (const Elf32_Shdr *) (((uintptr_t)ehdr) + ehdr->e_shoff) + ehdr->e_shstrndx;
 
     return (const char *) (((uintptr_t)ehdr) + strtabsection->sh_offset + index);
+}
+
+uintptr_t ElfLoader::getEndAddress(void) const {
+    const Elf32_Shdr* bss = this->getSectionByName(".bss");
+    if (!bss) {
+        return 0;
+    }
+
+    return bss->sh_addr + bss->sh_size;
+}
+
+const Elf32_Shdr *ElfLoader::getSectionByName(const char *name) const {
+    const Elf32_Shdr* found = NULL;
+
+    this->forEachSection([&](const Elf32_Shdr* sec) {
+        const char* sectionName = this->getStringByIndex((int) sec->sh_name);
+        if (0 == strcmp(sectionName, name)) {
+            found = sec;
+        }
+    });
+
+    return found;
 }
 

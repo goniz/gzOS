@@ -527,6 +527,21 @@ bool Scheduler::signalProcessPid(pid_t pid, int signal) {
 }
 
 extern "C"
+void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) {
+    if ((vm_prot_t)-1 == prot) {
+        kprintf("Tried to access unmapped memory region: 0x%08x!\n", fault_addr);
+    } else if (prot == VM_PROT_NONE) {
+        kprintf("Cannot access address: 0x%08x\n", fault_addr);
+    } else if (!(prot & VM_PROT_WRITE) && (fault_type == VM_PROT_WRITE)) {
+        kprintf("Cannot write to address: 0x%08x\n", fault_addr);
+    } else if (!(prot & VM_PROT_READ) && (fault_type == VM_PROT_READ)) {
+        kprintf("Cannot read from address: 0x%08x\n", fault_addr);
+    }
+
+    syscall(SYS_NR_SIGNAL, PID_CURRENT, SIG_KILL);
+}
+
+extern "C"
 pid_t gettid(void) {
     return syscall(SYS_NR_GET_TID);
 }

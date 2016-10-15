@@ -4,6 +4,7 @@
 #include <platform/panic.h>
 #include "scheduler.h"
 #include "IdAllocator.h"
+#include "ConsoleFileDescriptor.h"
 
 static IdAllocator gPidAllocator(PID_PROCESS_START, PID_PROCESS_END);
 
@@ -14,6 +15,15 @@ Process::Process(const char* name,
 {
     if (!elfLoader.loadSections(_memoryMap)) {
         panic("%s (%d): failed to load elf section", _name, _pid);
+    }
+
+    uintptr_t endAddr = elfLoader.getEndAddress();
+    if (0 == endAddr) {
+        panic("%s (%d): failed to obtain end address", _name, _pid);
+    }
+
+    if (!_memoryMap.createMemoryRegion("heap", endAddr, endAddr + PAGESIZE, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE), true)) {
+        panic("%s (%d): failed to create heap region", _name, _pid);
     }
 
     _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
@@ -31,15 +41,16 @@ Process::Process(const char *name, std::vector<const char*>&& arguments)
     assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
 
-    if (!_memoryMap.createMemoryRegion("heap",  0x60000000, 0x66400000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
-        panic("failed to create heap region for %d (%s)", _pid, _name);
-    }
-
     if (!_memoryMap.createMemoryRegion("stack", 0x70000000, 0x70a00000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
         panic("failed to create stack region for %d (%s)", _pid, _name);
     }
 
     _REENT_INIT_PTR(&_reent);
+
+    // setup stdin, stdout, stderr
+    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
+    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
+    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
 }
 
 Process::~Process(void)
@@ -96,6 +107,15 @@ void Process::terminate(int exit_code) {
     InterruptsMutex mutex(true);
     _exitCode = exit_code;
     _state = Process::State::TERMINATED;
+}
+
+bool Process::extendHeap(uintptr_t endAddr){
+    auto* heapRegion = _memoryMap.get("heap");
+    if (!heapRegion) {
+        return false;
+    }
+
+    return heapRegion->extend(endAddr);
 }
 
 

@@ -18,6 +18,9 @@ public:
     bool sanityCheck(void) const;
     bool loadSections(ProcessMemoryMap& memoryMap);
     uintptr_t getEntryPoint(void) const;
+    uintptr_t getEndAddress(void) const;
+
+    const Elf32_Shdr* getSectionByName(const char* name) const;
 
 private:
     const char *getStringByIndex(int index) const;

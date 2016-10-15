@@ -81,10 +81,12 @@ void vm_map_protect(vm_map_t *map, vm_addr_t start, vm_addr_t end,
                     vm_prot_t prot);
 vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
                                  vm_addr_t end, vm_prot_t prot);
+int vm_map_extend_entry(vm_map_t* map, vm_map_entry_t* entry, vm_addr_t end);
 void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry);
 
 void vm_map_dump(vm_map_t *vm_map);
 
+void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot);
 void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type);
 
 #ifdef __cplusplus

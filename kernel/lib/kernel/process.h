@@ -20,7 +20,6 @@
 /*
  * Process virtual address space:
  *
- *   heap   0x60000000 - 0x66400000 (100MB) User virtual memory, TLB mapped (useg)
  *   stack  0x70000000 - 0x70a00000 (10MB)  User virtual memory, TLB mapped (useg)
  */
 
@@ -47,9 +46,14 @@ public:
         return _pid;
     }
 
+    void terminate(int exit_code);
+
+    bool extendHeap(uintptr_t endAddr);
+
     const char* name(void) const;
     int exit_code(void) const;
     int state(void) const;
+    uint64_t cpu_time(void) const;
     bool is_kernel_proc(void) const;
 
     FileDescriptorCollection& fileDescriptorCollection(void) {
@@ -59,10 +63,6 @@ public:
     std::vector<std::unique_ptr<Thread>>& threads(void) {
         return _threads;
     }
-
-    uint64_t cpu_time(void) const;
-
-    void terminate(int exit_code);
 
 private:
     Process(const char* name, std::vector<const char*>&& arguments);

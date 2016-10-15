@@ -148,6 +148,24 @@ vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
     return entry;
 }
 
+int vm_map_extend_entry(vm_map_t* map, vm_map_entry_t* entry, vm_addr_t end) {
+    assert(NULL != map);
+    assert(NULL != entry);
+    assert(is_aligned(end, PAGESIZE));
+    assert(entry->end <= end);
+
+    if (end > map->pmap.end) {
+        return 0;
+    }
+
+    if (vm_map_find_entry(map, end)) {
+        return 0;
+    }
+
+    entry->end = end;
+    return 1;
+}
+
 /* TODO: not implemented */
 void vm_map_protect(vm_map_t *map, vm_addr_t start, vm_addr_t end,
                     vm_prot_t prot) {
@@ -168,30 +186,26 @@ void vm_map_dump(vm_map_t *map) {
 }
 
 void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
-    vm_map_entry_t *entry;
+    vm_map_entry_t *entry = NULL;
 #if TLBDEBUG == 1
     kprintf("vm_page_fault map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
     vm_map_dump(map);
 #endif
 
     if (!(entry = vm_map_find_entry(map, fault_addr))) {
-        vm_map_dump(map);
-        panic("Tried to access unmapped memory region: 0x%08lx!\n", fault_addr);
+        goto segfault;
     }
 
     if (entry->prot == VM_PROT_NONE) {
-        vm_map_dump(map);
-        panic("Cannot access address: 0x%08lx\n", fault_addr);
+        goto segfault;
     }
 
     if (!(entry->prot & VM_PROT_WRITE) && (fault_type == VM_PROT_WRITE)) {
-        vm_map_dump(map);
-        panic("Cannot write to address: 0x%08lx\n", fault_addr);
+        goto segfault;
     }
 
     if (!(entry->prot & VM_PROT_READ) && (fault_type == VM_PROT_READ)) {
-        vm_map_dump(map);
-        panic("Cannot read from address: 0x%08lx\n", fault_addr);
+        goto segfault;
     }
 
     assert(entry->start <= fault_addr && fault_addr < entry->end);
@@ -216,4 +230,14 @@ void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     kprintf("vm_page_fault DONE map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
     vm_map_dump(map);
 #endif
+
+    return;
+
+segfault:
+
+#if TLBDEBUG == 1
+    vm_map_dump(map);
+#endif
+
+    vm_do_segfault(fault_addr, fault_type, (vm_prot_t) (entry ? entry->prot : (uint32_t) -1));
 }

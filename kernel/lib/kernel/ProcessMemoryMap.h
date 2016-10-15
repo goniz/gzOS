@@ -62,6 +62,7 @@ public:
     VirtualMemoryRegion(VirtualMemoryRegion&& other);
     VirtualMemoryRegion(const VirtualMemoryRegion&) = delete;
 
+    bool extend(uintptr_t endAddr);
     void mprotect(vm_prot_t prot);
     void* allocate(size_t size) const;
     void free(void* ptr) const;
