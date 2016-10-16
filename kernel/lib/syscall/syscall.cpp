@@ -1,6 +1,6 @@
 #include <platform/drivers.h>
 #include <lib/primitives/hashmap.h>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include <cerrno>
 #include "syscall.h"
 

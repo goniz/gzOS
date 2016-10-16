@@ -1,8 +1,8 @@
 
 #include <platform/clock.h>
 #include <lib/syscall/syscall.h>
-#include "scheduler.h"
-#include "VirtualFileSystem.h"
+#include "sched/scheduler.h"
+#include "vfs/VirtualFileSystem.h"
 
 extern "C" {
 

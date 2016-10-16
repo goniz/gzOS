@@ -3,8 +3,8 @@
 
 #ifdef __cplusplus
 #include <cstddef>
-#include "ProcessMemoryMap.h"
-#include "elf.h"
+#include "lib/kernel/proccess/ProcessMemoryMap.h"
+#include "lib/kernel/elf/elf.h"
 
 class ElfLoader
 {

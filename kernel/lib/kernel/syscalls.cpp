@@ -2,9 +2,9 @@
 #include <lib/syscall/syscall.h>
 #include <cstring>
 #include <lib/network/socket.h>
-#include "process.h"
-#include "scheduler.h"
-#include "VirtualFileSystem.h"
+#include "proccess/process.h"
+#include "sched/scheduler.h"
+#include "vfs/VirtualFileSystem.h"
 #include "signals.h"
 
 DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)

@@ -31,7 +31,7 @@ int socket_create(int domain, int type, int protocol);
 } //extern "C"
 
 #include <memory>
-#include <lib/kernel/FileDescriptor.h>
+#include <lib/kernel/vfs/FileDescriptor.h>
 
 struct SocketAddress {
     IpAddress address;

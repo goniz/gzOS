@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <lib/kernel/signals.h>
 #include <lib/syscall/syscall.h>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include "Suspendable.h"
 #include "lock_guard.h"
 

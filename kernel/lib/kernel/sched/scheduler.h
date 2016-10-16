@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 #include <lib/primitives/spinlock_mutex.h>
-#include <lib/kernel/process.h>
+#include <lib/kernel/proccess/process.h>
 #include <lib/primitives/basic_queue.h>
 #include <platform/interrupts.h>
 #endif
@@ -13,7 +13,7 @@
 #include <lib/syscall/syscall.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include "thread.h"
+#include "lib/kernel/sched/thread.h"
 
 #define DefaultQuantum              (100)
 #define SCHED_INITIAL_PROC_SIZE     (20)

@@ -1,4 +1,4 @@
-#include <lib/kernel/scheduler.h>
+#include <sched/scheduler.h>
 #include <platform/panic.h>
 #include <cstdio>
 #include <platform/clock.h>
@@ -8,7 +8,7 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <cassert>
-#include "ElfLoader.h"
+#include "elf/ElfLoader.h"
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 

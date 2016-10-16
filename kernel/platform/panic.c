@@ -1,6 +1,6 @@
 #include <platform/kprintf.h>
 #include <unistd.h>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include "interrupts.h"
 
 extern void* scheduler(void);

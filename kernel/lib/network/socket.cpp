@@ -1,6 +1,6 @@
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include <lib/primitives/hashmap.h>
-#include <lib/kernel/VirtualFileSystem.h>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 #include "socket.h"
 
 template<>

@@ -1,10 +1,10 @@
-#include <lib/kernel/process.h>
+#include <proccess/process.h>
 #include <lib/kernel/signals.h>
 #include <cassert>
 #include <platform/panic.h>
-#include "scheduler.h"
+#include "sched/scheduler.h"
 #include "IdAllocator.h"
-#include "ConsoleFileDescriptor.h"
+#include "vfs/ConsoleFileDescriptor.h"
 
 static IdAllocator gPidAllocator(PID_PROCESS_START, PID_PROCESS_END);
 

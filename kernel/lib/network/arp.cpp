@@ -1,6 +1,6 @@
 #include <platform/drivers.h>
 #include <cstring>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include <platform/cpu.h>
 #include <lib/primitives/hashmap.h>
 #include "arp.h"

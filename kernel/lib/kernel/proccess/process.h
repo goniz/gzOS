@@ -9,10 +9,10 @@
 #include <vector>
 #include <sys/types.h>
 #include <atomic>
-#include "FileDescriptorCollection.h"
-#include "ProcessMemoryMap.h"
-#include "ElfLoader.h"
-#include "thread.h"
+#include "lib/kernel/vfs/FileDescriptorCollection.h"
+#include "lib/kernel/proccess/ProcessMemoryMap.h"
+#include "lib/kernel/elf/ElfLoader.h"
+#include "lib/kernel/sched/thread.h"
 #include <reent.h>
 #include <lib/mm/vm_map.h>
 #include <cassert>

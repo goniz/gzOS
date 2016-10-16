@@ -6,7 +6,7 @@
 #include <cstring>
 #include <atomic>
 #include <cassert>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include "ethernet.h"
 #include "nbuf.h"
 

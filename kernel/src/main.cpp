@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <lib/kernel/scheduler.h>
+#include <lib/kernel/sched/scheduler.h>
 #include <ctime>
 #include <lib/network/arp.h>
 #include <lib/network/interface.h>
