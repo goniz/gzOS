@@ -49,7 +49,7 @@ static int idleProcMain(void* argument)
 Scheduler::Scheduler(void)
     : _currentThread(nullptr),
       _readyQueue(SCHED_INITIAL_QUEUE_SIZE),
-      _kernelProc(new Process("Kernel", {})),
+      _kernelProc(new Process("Kernel", {}, false)),
       _idleThread(nullptr),
       _processList(),
       _mutex()

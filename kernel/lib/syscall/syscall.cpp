@@ -16,8 +16,8 @@ static int syscall_layer_init(void) {
     for (size_t i = 0; i < n_syscalls; i++) {
         kernel_syscall& current = syscall_table[i];
 
-        kprintf("[syscall] loaded syscall @ %p { .number = %d, .handler = %p, .irq = %d }\n",
-                &current, current.number, current.handler, current.irq);
+        kprintf("[syscall] loaded syscall %s @ %p { .number = %d, .handler = %p, .irq = %d }\n",
+                current.name, &current, current.number, current.handler, current.irq);
         _syscallsMap.put(current.number, &current);
     }
 

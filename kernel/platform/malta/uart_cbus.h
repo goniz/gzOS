@@ -3,6 +3,10 @@
 
 #include <stddef.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * Raw UART2 interface. Useful for debugging.
  * A higher-level solution will have to be implemented eventually, but
@@ -39,9 +43,17 @@ int uart_write(const char *str, size_t n);
  */
 int uart_read(char *str, size_t n);
 
+/* Returns 1 if a char is available in the fifo, 0 otherwise.
+ */
+int uart_has_char();
+
 /* Receives a single byte from UART.
  * This function blocks execution until a byte is available.
  */
 unsigned char uart_getch();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // UART_RAW_H

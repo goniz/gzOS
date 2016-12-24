@@ -158,8 +158,13 @@ public:
         return true;
     }
 
-    void iterate(PFany f, any_t item) {
+//    template<typename TFunc>
+    void iterate(PFany f, any_t item) const {
         hashmap_iterate(_map, f, item);
+    }
+
+    int size(void) const {
+        return hashmap_length(_map);
     }
 
 private:

@@ -13,6 +13,8 @@
 #include <lib/syscall/syscall.h>
 #include <sys/time.h>
 #include <platform/clock.h>
+#include <platform/kprintf.h>
+#include <platform/malta/uart_cbus.h>
 
 extern "C" {
 
@@ -34,32 +36,24 @@ void _exit(int status) {
 	panic("_exit called.");
 }
 
-int _open_r(struct _reent * reent, const char *pathname, int flags, mode_t mode)
+int open(const char *pathname, int flags, mode_t mode)
 {
 	errno = -ENOENT;
 	return 0;
 }
 
-int _close_r(int file)
+int close(int file)
 {
 	errno = -ENOENT;
 	return -1;
 }
 
 /*
- execve
- Transfer control to a new process. Minimal implementation (for a system without processes):
- */
-int _execve(char *name, char **argv, char **env) {
-    errno = ENOMEM;
-    return -1;
-}
-/*
  fork
  Create a new process. Minimal implementation (for a system without processes):
  */
 
-int _fork() {
+int fork() {
     errno = EAGAIN;
     return -1;
 }
@@ -69,9 +63,11 @@ int _fork() {
  all files are regarded as character special devices.
  The `sys/stat.h' header file required is distributed in the `include' subdirectory for this C library.
  */
-int _fstat_r(struct _reent * reent, int file, struct stat *st) {
-    st->st_mode = S_IFCHR;
-    return 0;
+#if defined(__mips__)
+__attribute__((nomips16))
+#endif
+int fstat(int file, struct stat *st) {
+    return -1;
 }
 
 /*
@@ -134,10 +130,21 @@ int _lseek_r(struct _reent * reent, int file, int ptr, int dir) {
  Read a character to a file. `libc' subroutines will use this system routine for input from all files, including stdin
  Returns -1 on error or blocks until the number of characters have been read.
  */
-extern "C" int uart_read(char *str, size_t n);
 int read(int file, void* ptr, size_t len)
 {
-    return uart_read((char *) ptr, len);
+    int count = 0;
+    uint8_t* buf = (uint8_t *) ptr;
+
+    for (size_t i = 0; i < len; i++) {
+        if (!uart_has_char() && 0 != count) {
+            return count;
+        }
+
+        buf[i] = uart_getch();
+        count++;
+    }
+
+    return count;
 }
 
 /*
@@ -146,7 +153,7 @@ int read(int file, void* ptr, size_t len)
  int    _EXFUN(stat,( const char *__path, struct stat *__sbuf ));
  */
 
-int _stat_r(struct _reent * reent, const char *filepath, struct stat *st) {
+int stat(const char *filepath, struct stat *st) {
     st->st_mode = S_IFCHR;
     return 0;
 }
@@ -174,8 +181,6 @@ int unlink(const char *name) {
  Write a character to a file. `libc' subroutines will use this system routine for output to all files, including stdout
  Returns -1 on error or number of bytes sent
  */
-extern "C" int uart_write(const char* s, size_t n);
-
 extern "C"
 int write(int file, const void* buf, size_t len)
 {

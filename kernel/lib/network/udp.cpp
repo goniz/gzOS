@@ -4,6 +4,7 @@
 #include <lib/primitives/basic_queue.h>
 #include <sys/param.h>
 #include <platform/drivers.h>
+#include <lib/primitives/hexdump.h>
 #include "udp.h"
 #include "icmp.h"
 #include "socket.h"
@@ -156,6 +157,9 @@ static bool udp_validate_packet(const NetworkBuffer* nbuf, const udp_t* udp)
     const auto found = ntohs(udp->csum);
     if (found != expected) {
         kprintf("udp: invalid checksum - expected %04x found %04x\n", expected, found);
+
+        const iphdr_t* ip = ip_hdr(nbuf);
+        hexDump(NULL, (void*)ip, ip->len);
         return false;
     }
 

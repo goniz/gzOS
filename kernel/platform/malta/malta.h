@@ -66,6 +66,9 @@
 #define MALTA_CORECTRL_BASE     0x1be00000
 #define MALTA_FPGA_BASE         0x1f000000
 
+#define MALTA_FLASH_BASE	    0x1e000000
+#define MALTA_FLASH_SIZE	    (4 * 1024 * 1024)
+
 #define MALTA_CBUS_UART         (MALTA_FPGA_BASE + 0x900)
 #define MALTA_CBUS_UART_INTR    2
 

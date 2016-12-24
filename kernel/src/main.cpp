@@ -6,6 +6,8 @@
 #include <lib/network/socket.h>
 #include <platform/cpu.h>
 #include <lib/network/checksum.h>
+#include <platform/malta/mips.h>
+#include <platform/malta/malta.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"

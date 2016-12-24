@@ -38,12 +38,12 @@ void platform_cpu_wait(void);
 #if BYTE_ORDER == BIG_ENDIAN
     #define cpu_to_be32(x)  (x)
     #define cpu_to_be16(x)  (x)
-    #define cpu_to_le32(x)  (__builtin_bswap32(x))
-    #define cpu_to_le16(x)  (__builtin_bswap16(x))
+    #define cpu_to_le32(x)  (__builtin_bswap32((x)))
+    #define cpu_to_le16(x)  (__builtin_bswap16((x)))
     #define be32_to_cpu(x)  (x)
     #define be16_to_cpu(x)  (x)
-    #define le32_to_cpu(x)  (__builtin_bswap32(x))
-    #define le16_to_cpu(x)  (__builtin_bswap16(x))
+    #define le32_to_cpu(x)  (__builtin_bswap32((x)))
+    #define le16_to_cpu(x)  (__builtin_bswap16((x)))
 
 #elif BYTE_ORDER == LITTLE_ENDIAN
     #define cpu_to_be32(x)  (__builtin_bswap32(x))
@@ -63,6 +63,8 @@ void platform_cpu_wait(void);
 #define htons(x)    cpu_to_be16(x)
 #define ntohl(x)    be32_to_cpu(x)
 #define ntohs(x)    be16_to_cpu(x)
+
+#define endian_set(mode, var) (var) = (mode((var)))
 
 #define write32(base, reg, value)   (*((volatile uint32_t*)((uint32_t)(base) + (uint32_t)(reg))) = (uint32_t)(value))
 #define read32(base, reg)           (*((volatile uint32_t*)((uint32_t)(base) + (uint32_t)(reg))))

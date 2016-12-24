@@ -212,6 +212,31 @@ DEFINE_SYSCALL(CLOSE, close, SYS_IRQ_DISABLED)
     return vfs_close(fd);
 }
 
+DEFINE_SYSCALL(LSEEK, lseek, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(off_t, offset);
+    SYSCALL_ARG(int, whence);
+
+    return vfs_seek(fd, offset, whence);
+}
+
+DEFINE_SYSCALL(MOUNT, mount, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const char*, fstype);
+    SYSCALL_ARG(const char*, source);
+    SYSCALL_ARG(const char*, destination);
+
+    return vfs_mount(fstype, source, destination);
+}
+
+DEFINE_SYSCALL(READDIR, readdir, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const char*, path);
+
+    return vfs_readdir(path);
+}
+
 DEFINE_SYSCALL(BRK, brk, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(uintptr_t, pos);

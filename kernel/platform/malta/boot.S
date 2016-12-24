@@ -35,19 +35,22 @@ clear_bss:
         addiu   $t0, 4
 
 kernel_go:
-        # Status.ERL is set by the processor when a Reset, Soft Reset, NMI or
-        # Cache Error exception are taken. When ERL is set:
-        # - The processor is running in kernel mode
-        # - Hardware and software interrupts are disabled
-        # - The ERET instruction will use the return address held in ErrorEPC
-        #   instead of EPC
+        /*
+        *  Bits to preserve if set:
+        *   - Soft reset
+        *   - Boot exception vectors (firmware-provided)
+        */
+        li      $t0, (SR_BEV | SR_SR)
+        mfc0    $t1, C0_STATUS
+        and     $t1, $t0
+        mtc0    $t1, C0_STATUS
+        ehb
 
-        la      $ra, kernel_exit
         la      $t0, platform_init
-        mtc0    $t0, C0_EPC    # Return from exception to platform_init
-		ehb
-        eret                     # exception => normal level (SR_ERL = 0)
-		nop
+        la      $ra, kernel_exit
+        jr      $t0
+        nop
+
 END(_start)
 
 LEAF(kernel_exit)

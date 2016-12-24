@@ -199,7 +199,7 @@ void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
     }
 
 	kmalloc_dump(mp);
-    panic("memory exhausted in '%s'", mp->mp_desc);;
+    panic("memory exhausted in '%s' size requested %d", mp->mp_desc, size);;
 }
 
 void kfree(malloc_pool_t *mp, void *addr) {

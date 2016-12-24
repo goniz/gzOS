@@ -12,8 +12,8 @@ typedef enum {
 } socket_family_t;
 
 typedef enum {
-    SOCK_STREAM = 1,
-    SOCK_DGRAM,
+    SOCK_DGRAM = 1,
+    SOCK_STREAM,
     SOCK_RAW
 } socket_type_t;
 

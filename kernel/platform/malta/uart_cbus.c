@@ -67,9 +67,13 @@ int uart_write(const char *str, size_t n) {
 
 unsigned char uart_getch() {
   /* Wait until receive data available. */
-  while (! (LSR & LSR_RXRDY));
+  while (! uart_has_char());
 
   return RBR;
+}
+
+int uart_has_char() {
+    return (LSR & LSR_RXRDY);
 }
 
 int uart_read(char *str, size_t n)

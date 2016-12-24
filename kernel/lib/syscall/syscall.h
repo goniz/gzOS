@@ -36,6 +36,7 @@ struct kernel_syscall {
     uint32_t number;
     sys_handler_t handler;
     syscall_irq_t irq;
+    char name[64];
 };
 
 #define DEFINE_SYSCALL(number, name, irq) \
@@ -45,7 +46,8 @@ struct kernel_syscall {
             static const struct kernel_syscall __sys_ ##name## _ks = { \
                 ( SYS_NR_ ##number ), \
                 (sys_handler_t) sys_ ##name , \
-                (syscall_irq_t) (irq) \
+                (syscall_irq_t) (irq), \
+                #name \
             }; \
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args)
@@ -85,6 +87,9 @@ enum system_call_numbers
     DECLARE_SYSCALL_NR(CONNECT),
     DECLARE_SYSCALL_NR(RECVFROM),
     DECLARE_SYSCALL_NR(SENDTO),
+    DECLARE_SYSCALL_NR(LSEEK),
+    DECLARE_SYSCALL_NR(MOUNT),
+    DECLARE_SYSCALL_NR(READDIR),
     DECLARE_SYSCALL_NR(BRK)
 };
 

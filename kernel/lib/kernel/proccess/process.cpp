@@ -2,6 +2,7 @@
 #include <lib/kernel/signals.h>
 #include <cassert>
 #include <platform/panic.h>
+#include <vfs/VirtualFileSystem.h>
 #include "sched/scheduler.h"
 #include "IdAllocator.h"
 #include "vfs/ConsoleFileDescriptor.h"
@@ -29,7 +30,7 @@ Process::Process(const char* name,
     _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
 }
 
-Process::Process(const char *name, std::vector<const char*>&& arguments)
+Process::Process(const char *name, std::vector<const char*>&& arguments, bool initializeFds)
         : _pid(gPidAllocator.allocate()),
           _state(Process::State::READY),
           _exitCode(0),
@@ -47,10 +48,12 @@ Process::Process(const char *name, std::vector<const char*>&& arguments)
 
     _REENT_INIT_PTR(&_reent);
 
-    // setup stdin, stdout, stderr
-    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
-    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
-    _fileDescriptors.push_filedescriptor(std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor()));
+    if (initializeFds) {
+        // setup stdin, stdout, stderr
+        _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_RDONLY));
+        _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
+        _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
+    }
 }
 
 Process::~Process(void)

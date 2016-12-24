@@ -12,13 +12,15 @@ set( CMAKE_SYSTEM_PROCESSOR     MIPS    )
 set( CMAKE_PLATFORM_NAME		malta CACHE STRING "" )
 
 # The toolchain prefix for all toolchain executables
-set( CROSS_COMPILE mips-mti-elf- )
+set( CROSS_COMPILE mips-mti-elf-)
 
 # specify the cross compiler. We force the compiler so that CMake doesn't
 # attempt to build a simple test program as this will fail without us using
 # the -nostartfiles option on the command line
 set(CMAKE_C_COMPILER ${CROSS_COMPILE}gcc)
 set(CMAKE_CXX_COMPILER ${CROSS_COMPILE}g++)
+set(CMAKE_AR ${CROSS_COMPILE}gcc-ar CACHE STRING "")
+set(CMAKE_RANLIB ${CROSS_COMPILE}gcc-ranlib CACHE STRING "")
 
 # We must set the OBJCOPY setting into cache so that it's available to the
 # whole project. Otherwise, this does not get set into the CACHE and therefore
@@ -34,4 +36,4 @@ set( COMMON_FLAGS "-Os -g0 -s -nostartfiles")
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAGS} ${COMMON_FLAGS} -std=gnu11" CACHE STRING "" )
 set( CMAKE_ASM_FLAGS "${CMAKE_C_FLAGS} -x assembler-with-cpp" CACHE STRING "" )
 set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARCH_FLAGS} ${COMMON_FLAGS} -std=c++14 -ffunction-sections -Wl,--gc-sections" CACHE STRING "" )
-set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-T,${CMAKE_CURRENT_LIST_DIR}/script.ld,--gc-sections" CACHE STRING "" )
+set( CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${ARCH_FLAGS} -Wl,-T,${CMAKE_CURRENT_LIST_DIR}/script.ld,--gc-sections" CACHE STRING "" )

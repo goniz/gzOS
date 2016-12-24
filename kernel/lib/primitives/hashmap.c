@@ -5,8 +5,9 @@
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <stringutils.h>
 #include <platform/kprintf.h>
+#include <string.h>
 
 #define INITIAL_SIZE        (256)
 #define MAX_CHAIN_LENGTH    (8)

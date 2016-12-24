@@ -1,6 +1,7 @@
 
 #include <platform/clock.h>
 #include <lib/syscall/syscall.h>
+#include <vfs/AccessControlledFileDescriptor.h>
 #include "sched/scheduler.h"
 #include "vfs/VirtualFileSystem.h"
 
@@ -50,12 +51,8 @@ FileDescriptor* vfs_num_to_fd(int fdnum)
     return fdc.get_filedescriptor(fdnum);
 }
 
-int vfs_open(const char* path, int flags) {
-    auto fd = vfs()->open(path, flags);
-    if (nullptr == fd) {
-        return -1;
-    }
-
+static int vfs_pushfd(std::unique_ptr<FileDescriptor> fd)
+{
     const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {
         return -1;
@@ -63,6 +60,15 @@ int vfs_open(const char* path, int flags) {
 
     FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
     return fdc.push_filedescriptor(std::move(fd));
+}
+
+int vfs_open(const char* path, int flags) {
+    auto fd = VirtualFileSystem::instance().open(path, flags);
+    if (nullptr == fd) {
+        return -1;
+    }
+
+    return vfs_pushfd(std::move(fd));
 }
 
 int vfs_close(int fd)
@@ -105,6 +111,25 @@ int vfs_seek(int fd, off_t offset, int whence)
     }
 
     return fileDes->seek(offset, whence);
+}
+
+int vfs_mount(const char* fstype, const char* source, const char* destination)
+{
+    if (VirtualFileSystem::instance().mountFilesystem(fstype, source, destination)) {
+        return 0;
+    }
+
+    return -1;
+}
+
+int vfs_readdir(const char* path)
+{
+    auto fd = VirtualFileSystem::instance().readdir(path);
+    if (!fd) {
+        return -1;
+    }
+
+    return vfs_pushfd(std::move(fd));
 }
 
 }

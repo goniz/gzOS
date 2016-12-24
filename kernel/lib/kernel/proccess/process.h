@@ -65,7 +65,7 @@ public:
     }
 
 private:
-    Process(const char* name, std::vector<const char*>&& arguments);
+    Process(const char* name, std::vector<const char*>&& arguments, bool initializeFds = true);
 
     static void switchProcess(Process& newProc);
 
