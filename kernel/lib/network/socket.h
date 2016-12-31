@@ -57,6 +57,10 @@ public:
     virtual int sendto(const void* buffer, size_t size, const SocketAddress& address) {
         return -1;
     }
+
+    virtual int stat(struct stat *stat) override {
+        return -1;
+    }
 };
 
 typedef std::unique_ptr<SocketFileDescriptor> (*SocketFileDescriptorCreator)(void);

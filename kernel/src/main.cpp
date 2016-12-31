@@ -8,6 +8,7 @@
 #include <lib/network/checksum.h>
 #include <platform/malta/mips.h>
 #include <platform/malta/malta.h>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -146,6 +147,11 @@ int kernel_main(void *argument)
     interface_add("eth0", 0x01010101, 0xffffff00);
 
 //    Scheduler::instance().createKernelThread("top", ps_main, nullptr, 8192);
+    vfs_mount("fat32", "/pflash/userdata", "/usr");
+    vfs_mount("tmpfs", "none", "/tmp");
+
+    std::vector<const char*> shellArgs{};
+    syscall(SYS_NR_EXEC, "/usr/bin/shell", shellArgs.size(), shellArgs.data());
 
     while (1) {
         uint32_t size = 0;

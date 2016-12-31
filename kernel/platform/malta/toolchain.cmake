@@ -32,7 +32,7 @@ set( CMAKE_OBJCOPY  ${TC_PATH}${CROSS_COMPILE}objcopy
 
 # Set the CMAKE C flags (which should also be used by the assembler!
 set( ARCH_FLAGS "-msoft-float -march=mips32r2 -minterlink-mips16 -mno-gpopt -G 0 -mno-abicalls -fno-pic")
-set( COMMON_FLAGS "-O2 -ggdb -nostartfiles")
+set( COMMON_FLAGS "-Og -ggdb -nostartfiles")
 # set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -finstrument-functions" )
 
 set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${ARCH_FLAGS} ${COMMON_FLAGS} -std=gnu11" CACHE STRING "" )

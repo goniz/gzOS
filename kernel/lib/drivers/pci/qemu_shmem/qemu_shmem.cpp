@@ -113,3 +113,7 @@ int ShmemFileDescriptor::read(void* buffer, size_t size)          { return -1; }
 int ShmemFileDescriptor::write(const void* buffer, size_t size)   { return -1; }
 int ShmemFileDescriptor::seek(int where, int whence)              { return -1; }
 void ShmemFileDescriptor::close(void)                             { }
+
+int ShmemFileDescriptor::stat(struct stat *stat) {
+    return -1;
+}

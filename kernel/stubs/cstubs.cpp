@@ -141,6 +141,10 @@ int read(int file, void* ptr, size_t len)
         }
 
         buf[i] = uart_getch();
+        if ('\r' == buf[i]) {
+            buf[i] = '\n';
+        }
+
         count++;
     }
 

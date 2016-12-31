@@ -113,6 +113,20 @@ int vfs_seek(int fd, off_t offset, int whence)
     return fileDes->seek(offset, whence);
 }
 
+int vfs_stat(int fd, struct stat* stat)
+{
+    if (nullptr == stat) {
+        return -1;
+    }
+
+    auto fileDes = vfs_num_to_fd(fd);
+    if (nullptr == fileDes) {
+        return -1;
+    }
+
+    return fileDes->stat(stat);
+}
+
 int vfs_mount(const char* fstype, const char* source, const char* destination)
 {
     if (VirtualFileSystem::instance().mountFilesystem(fstype, source, destination)) {
@@ -131,6 +145,7 @@ int vfs_readdir(const char* path)
 
     return vfs_pushfd(std::move(fd));
 }
+
 
 }
 

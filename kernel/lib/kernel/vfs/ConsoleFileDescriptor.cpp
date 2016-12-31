@@ -23,3 +23,7 @@ int ConsoleFileDescriptor::read(void* buffer, size_t size)          { return ::r
 int ConsoleFileDescriptor::write(const void* buffer, size_t size)   { return ::write(0, buffer, size); }
 int ConsoleFileDescriptor::seek(int where, int whence)              { return -1; }
 void ConsoleFileDescriptor::close(void)                             { }
+
+int ConsoleFileDescriptor::stat(struct stat *stat) {
+    return -1;
+}

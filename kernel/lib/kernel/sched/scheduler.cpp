@@ -8,13 +8,15 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <cassert>
+#include <vfs/VirtualFileSystem.h>
 #include "elf/ElfLoader.h"
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
 
-static Scheduler* gInstance = nullptr;
-Scheduler& Scheduler::instance(void) {
-    auto* sched = gInstance;
+static Scheduler *gInstance = nullptr;
+
+Scheduler &Scheduler::instance(void) {
+    auto *sched = gInstance;
 
     if (NULL == sched) {
         panic("Scheduler instance is NULL. yayks..");
@@ -23,12 +25,11 @@ Scheduler& Scheduler::instance(void) {
     return *sched;
 }
 
-extern "C" void* scheduler(void) {
+extern "C" void *scheduler(void) {
     return gInstance;
 }
 
-static int scheduler_init(void)
-{
+static int scheduler_init(void) {
     gInstance = new Scheduler();
 //    gInstance->setDebugMode();
     return 0;
@@ -37,8 +38,7 @@ static int scheduler_init(void)
 DECLARE_DRIVER(scheduler, scheduler_init, STAGE_FIRST);
 
 __attribute__((noreturn))
-static int idleProcMain(void* argument)
-{
+static int idleProcMain(void *argument) {
     kputs("Idle thread is running!\n");
     while (true) {
         platform_cpu_wait();
@@ -47,13 +47,12 @@ static int idleProcMain(void* argument)
 }
 
 Scheduler::Scheduler(void)
-    : _currentThread(nullptr),
-      _readyQueue(SCHED_INITIAL_QUEUE_SIZE),
-      _kernelProc(new Process("Kernel", {}, false)),
-      _idleThread(nullptr),
-      _processList(),
-      _mutex()
-{
+        : _currentThread(nullptr),
+          _readyQueue(SCHED_INITIAL_QUEUE_SIZE),
+          _kernelProc(new Process("Kernel", {}, false)),
+          _idleThread(nullptr),
+          _processList(),
+          _mutex() {
     _processList.reserve(SCHED_INITIAL_PROC_SIZE);
     _timers.reserve(SCHED_INITIAL_TIMERS_SIZE);
 
@@ -64,9 +63,8 @@ Scheduler::Scheduler(void)
     _readyQueue.pop(_idleThread, false);
 }
 
-Thread* Scheduler::andTheWinnerIs(void)
-{
-    Thread* newThread = nullptr;
+Thread *Scheduler::andTheWinnerIs(void) {
+    Thread *newThread = nullptr;
 
     // first, try getting a task from _responsiveQueue
     if (_readyQueue.pop(newThread)) {
@@ -79,8 +77,7 @@ Thread* Scheduler::andTheWinnerIs(void)
     return _idleThread;
 }
 
-struct user_regs* Scheduler::schedule(struct user_regs* regs)
-{
+struct user_regs *Scheduler::schedule(struct user_regs *regs) {
     lock_guard<spinlock_mutex> guard(_mutex);
     // a normal schedule starts here..
     // we've got an existing proc and a potential new one
@@ -116,7 +113,7 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs)
     }
 
 
-switch_to_proc:
+    switch_to_proc:
     Process::switchProcess(_currentThread->proc());
     platform_set_active_thread(&_currentThread->_platformThreadCb);
     // return the context user_regs of the new/existing current proc entry
@@ -125,20 +122,18 @@ switch_to_proc:
 }
 
 // assumes argument is non-null
-struct user_regs *Scheduler::onTickTimer(void *argument, struct user_regs *regs)
-{
-    Scheduler* self = (Scheduler*)argument;
+struct user_regs *Scheduler::onTickTimer(void *argument, struct user_regs *regs) {
+    Scheduler *self = (Scheduler *) argument;
 
     self->doTimers();
 
     return self->schedule(regs);
 }
 
-Process* Scheduler::createProcess(const char* name,
+Process *Scheduler::createProcess(const char *name,
                                   const void *buffer, size_t size,
                                   std::vector<const char *> &&arguments,
-                                  size_t stackSize)
-{
+                                  size_t stackSize) {
     ElfLoader loader(buffer, size);
     if (!loader.sanityCheck()) {
         return nullptr;
@@ -158,11 +153,10 @@ Process* Scheduler::createProcess(const char* name,
     return processPtr;
 }
 
-Thread* Scheduler::createThread(Process& process,
+Thread *Scheduler::createThread(Process &process,
                                 const char *name,
                                 Thread::EntryPointFunction entryPoint, void *argument,
-                                size_t stackSize)
-{
+                                size_t stackSize) {
     auto thread = std::make_unique<Thread>(process, name, entryPoint, argument, stackSize, DefaultQuantum);
     auto threadPtr = thread.get();
 
@@ -174,21 +168,18 @@ Thread* Scheduler::createThread(Process& process,
     return threadPtr;
 }
 
-Thread* Scheduler::createKernelThread(const char *name,
+Thread *Scheduler::createKernelThread(const char *name,
                                       Thread::EntryPointFunction entryPoint, void *argument,
-                                      size_t stackSize)
-{
+                                      size_t stackSize) {
     assert(nullptr != _kernelProc);
     return this->createThread(*_kernelProc, name, entryPoint, argument, stackSize);
 }
 
-void Scheduler::setDebugMode(void)
-{
+void Scheduler::setDebugMode(void) {
     _debugMode = true;
 }
 
-struct user_regs *Scheduler::yield(struct user_regs *regs)
-{
+struct user_regs *Scheduler::yield(struct user_regs *regs) {
     if (!_currentThread) {
         panic("wtf.. yielding with no current proc...");
     }
@@ -200,14 +191,12 @@ struct user_regs *Scheduler::yield(struct user_regs *regs)
     return this->schedule(regs);
 }
 
-bool Scheduler::signalPid(pid_t pid, int signal)
-{
+bool Scheduler::signalPid(pid_t pid, int signal) {
     if (PID_CURRENT == pid) {
         pid = getCurrentPid();
     }
 
-    switch (pid)
-    {
+    switch (pid) {
         case PID_PROCESS_START ... PID_PROCESS_END:
             return this->signalProcessPid(pid, signal);
 
@@ -224,7 +213,7 @@ Thread *Scheduler::CurrentThread(void) const {
 }
 
 Process *Scheduler::CurrentProcess(void) const {
-    Thread* thread = _currentThread;
+    Thread *thread = _currentThread;
     if (!thread) {
         return nullptr;
     }
@@ -243,10 +232,8 @@ Thread *Scheduler::getThreadByTid(pid_t tid) const {
 
     InterruptsMutex mutex(true);
 
-    for (const auto& proc : _processList)
-    {
-        for (const auto& thread : proc->threads())
-        {
+    for (const auto &proc : _processList) {
+        for (const auto &thread : proc->threads()) {
             if (thread->tid() == tid) {
                 return thread.get();
             }
@@ -257,16 +244,14 @@ Thread *Scheduler::getThreadByTid(pid_t tid) const {
 }
 
 
-Process* Scheduler::getProcessByPid(pid_t pid) const
-{
+Process *Scheduler::getProcessByPid(pid_t pid) const {
     InterruptsMutex mutex(true);
 
     if (PID_CURRENT == pid) {
         return this->CurrentProcess();
     }
 
-    for (const auto& proc : _processList)
-    {
+    for (const auto &proc : _processList) {
         if (proc->pid() != pid) {
             continue;
         }
@@ -278,7 +263,7 @@ Process* Scheduler::getProcessByPid(pid_t pid) const
 }
 
 pid_t Scheduler::getCurrentPid(void) const {
-    Thread* thread = _currentThread;
+    Thread *thread = _currentThread;
     if (nullptr == thread) {
         return -1;
     }
@@ -287,7 +272,7 @@ pid_t Scheduler::getCurrentPid(void) const {
 }
 
 pid_t Scheduler::getCurrentTid(void) const {
-    Thread* thread = _currentThread;
+    Thread *thread = _currentThread;
     if (nullptr == thread) {
         return -1;
     }
@@ -296,12 +281,10 @@ pid_t Scheduler::getCurrentTid(void) const {
 }
 
 // handle signal as it gets to the running process.
-void Scheduler::handleSignal(Thread* thread)
-{
+void Scheduler::handleSignal(Thread *thread) {
     const int sig_nr = thread->_pending_signal_nr.exchange(SIG_NONE);
 
-    switch (sig_nr)
-    {
+    switch (sig_nr) {
         case SIG_NONE:
             break;
 
@@ -311,7 +294,7 @@ void Scheduler::handleSignal(Thread* thread)
     }
 }
 
-bool Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb, void* arg) {
+bool Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb, void *arg) {
     InterruptsMutex mutex;
     mutex.lock();
 
@@ -325,7 +308,7 @@ void Scheduler::doTimers(void) {
 
     while (iter != _timers.end()) {
         bool remove = false;
-        uint64_t  now = clock_get_ms();
+        uint64_t now = clock_get_ms();
         if (now >= iter->target_ms) {
             if (iter->callbackFunc) {
                 remove = !iter->callbackFunc(this, iter->arg);
@@ -351,7 +334,7 @@ void Scheduler::sleep(pid_t pid, int ms) {
         pid = this->getCurrentTid();
     }
 
-    this->setTimeout(ms, [](Scheduler* self, void* arg) {
+    this->setTimeout(ms, [](Scheduler *self, void *arg) {
         self->signalPid((pid_t) arg, SIG_CONT);
         return false;
     }, (void *) pid);
@@ -377,15 +360,40 @@ void Scheduler::resume(pid_t pid) {
 }
 
 int Scheduler::syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args) {
-    switch (syscall->irq) {
-        case SYS_IRQ_ENABLED:
-            return this->handleIRQEnabledSyscall(regs, syscall, args);
+    int ret;
 
-        case SYS_IRQ_DISABLED:
-            return this->handleIRQDisabledSyscall(regs, syscall, args);
+    if (syscall->number != SYS_NR_YIELD && _currentThread && _currentThread->proc().traceme()) {
+        // TODO: output this to the proc stderr
+        kprintf("traceme %d: entering %s(", _currentThread->proc().pid(), syscall->name);
+        vkprintf("%08x, %08x, %08x, %08x, ...)\n", args);
     }
 
-    panic("Unknown syscall irq type: %d", syscall->irq);
+    try {
+        switch (syscall->irq) {
+            case SYS_IRQ_ENABLED:
+                ret = this->handleIRQEnabledSyscall(regs, syscall, args);
+                break;
+
+            case SYS_IRQ_DISABLED:
+                ret = this->handleIRQDisabledSyscall(regs, syscall, args);
+                break;
+
+            default:
+                panic("Unknown syscall irq type: %d", syscall->irq);
+        }
+    } catch (...) {
+        ret = -1;
+        kprintf("exception occurred in syscall %s: %s\n", syscall->name, "<EX>");
+    }
+
+    if (syscall->number != SYS_NR_YIELD && _currentThread && _currentThread->proc().traceme()) {
+        // TODO: output this to the proc stderr
+        kprintf("traceme %d: leaving %s(", _currentThread->proc().pid(), syscall->name);
+        vkprintf("%08x, %08x, %08x, %08x, ...)", args);
+        kprintf(" = %d\n", ret);
+    }
+
+    return ret;
 }
 
 int Scheduler::handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args) {
@@ -430,7 +438,7 @@ int Scheduler::handleIRQEnabledSyscall(struct user_regs **regs, const kernel_sys
 }
 
 bool Scheduler::signalThreadPid(pid_t pid, int signal) {
-    Thread* thread = this->getThreadByTid(pid);
+    Thread *thread = this->getThreadByTid(pid);
     if (!thread) {
         return false;
     }
@@ -438,7 +446,7 @@ bool Scheduler::signalThreadPid(pid_t pid, int signal) {
     return this->signalThread(thread, signal);
 }
 
-bool Scheduler::signalThread(Thread* thread, int signal) {
+bool Scheduler::signalThread(Thread *thread, int signal) {
     bool ret;
     InterruptsMutex mutex;
 
@@ -447,8 +455,7 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
     }
 
     // handle signals that need to be taken care of before they get to the running process..
-    switch (signal)
-    {
+    switch (signal) {
         case SIG_STOP:
             mutex.lock();
             thread->_quantum = thread->_resetQuantum;
@@ -462,8 +469,7 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
             ret = true;
             break;
 
-        case Signal::SIG_CONT:
-        {
+        case Signal::SIG_CONT: {
             mutex.lock();
             thread->_quantum = thread->_resetQuantum;
             thread->_state = Thread::State::READY;
@@ -487,6 +493,7 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
             break;
         }
 
+        case Signal::SIG_ABORT:
         case Signal::SIG_KILL:
             mutex.lock();
             thread->_state = Thread::State::TERMINATED;
@@ -509,14 +516,13 @@ bool Scheduler::signalThread(Thread* thread, int signal) {
 }
 
 bool Scheduler::signalProcessPid(pid_t pid, int signal) {
-    Process* proc = this->getProcessByPid(pid);
+    Process *proc = this->getProcessByPid(pid);
     if (!proc) {
         return false;
     }
 
     InterruptsMutex mutex(true);
-    for (auto& thread : proc->threads())
-    {
+    for (auto &thread : proc->threads()) {
         auto preemptionDisallowed = true;
         std::swap(thread->_preemptionContext.preemptionDisallowed, preemptionDisallowed);
         this->signalThread(thread.get(), signal);
@@ -528,7 +534,7 @@ bool Scheduler::signalProcessPid(pid_t pid, int signal) {
 
 extern "C"
 void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) {
-    if ((vm_prot_t)-1 == prot) {
+    if ((vm_prot_t) -1 == prot) {
         kprintf("Tried to access unmapped memory region: 0x%08x!\n", fault_addr);
     } else if (prot == VM_PROT_NONE) {
         kprintf("Cannot access address: 0x%08x\n", fault_addr);

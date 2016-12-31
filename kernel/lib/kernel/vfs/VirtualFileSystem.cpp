@@ -36,6 +36,10 @@ VirtualFileSystem::VirtualFileSystem(void)
 }
 
 VirtualFileSystem::FindFsResult VirtualFileSystem::findFilesystem(const char *path) const {
+    if (!path) {
+        return {};
+    }
+
     FindFsResult iterateData;
 
     iterateData.fs = nullptr;
@@ -68,6 +72,10 @@ VirtualFileSystem::FindFsResult VirtualFileSystem::findFilesystem(const char *pa
 std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char *path, int flags)
 {
     auto fsResult = this->findFilesystem(path);
+    if (!fsResult.fs) {
+        return nullptr;
+    }
+
     auto fd = fsResult.fs->open(fsResult.path, flags);
     if (nullptr == fd) {
         return nullptr;
@@ -143,6 +151,7 @@ private:
 
         const auto& fsName = _fsIterations.front(); _fsIterations.pop_front();
         strncpy(dirEntry.name, fsName.c_str(), sizeof(dirEntry.name));
+        dirEntry.type = DirEntryType::DIRENT_DIR;
         return true;
     }
 
@@ -151,9 +160,10 @@ private:
 };
 
 std::unique_ptr<FileDescriptor> VirtualFileSystem::readdir(const char* path) {
-    if (0 == strcmp(path, "/")) {
+    if (path && 0 == strcmp(path, "/")) {
         return std::make_unique<AccessControlledFileDescriptor>(
-                std::make_unique<VFSReaddirFileDescriptor>(*this), O_RDONLY
+                std::make_unique<VFSReaddirFileDescriptor>(*this),
+                O_RDONLY
         );
     }
 

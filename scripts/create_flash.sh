@@ -14,10 +14,11 @@ dd if=/dev/zero of="$part_yamon" bs=1M count=1
 part_userdata="${build_dir}/part_userdata"
 userdata_mnt="${build_dir}/mnt"
 dd if=/dev/zero of="$part_userdata" bs=1M count=3
-mkfs.ext2 -L userdata -I 128 -r 0 "$part_userdata"
+#mkfs.ext2 -L userdata -I 128 -r 0 "$part_userdata"
+mkfs.vfat -n userdata "$part_userdata"
 
 mkdir -p "${userdata_mnt}"
-sudo mount -t ext2 -o loop "$part_userdata" "$userdata_mnt"
+sudo mount -o loop "$part_userdata" "$userdata_mnt"
 sudo rsync -a "${input_dir}/" "${userdata_mnt}/"
 sudo umount "${userdata_mnt}"
 

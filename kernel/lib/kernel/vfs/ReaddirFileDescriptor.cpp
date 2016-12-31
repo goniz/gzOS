@@ -28,3 +28,7 @@ int ReaddirFileDescriptor::seek(int where, int whence) {
 void ReaddirFileDescriptor::close(void) {
 
 }
+
+int ReaddirFileDescriptor::stat(struct stat *stat) {
+    return -1;
+}

@@ -6,6 +6,7 @@ enum Signal
     SIG_KILL,
     SIG_STOP,
     SIG_CONT,
+    SIG_ABORT = 6,
     SIG_NONE = -1
 };
 

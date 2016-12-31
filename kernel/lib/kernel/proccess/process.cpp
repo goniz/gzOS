@@ -37,7 +37,8 @@ Process::Process(const char *name, std::vector<const char*>&& arguments, bool in
           _entryPoint(nullptr),
           _arguments(std::move(arguments)),
           _pending_signal_nr((int)SIG_NONE),
-          _memoryMap((asid_t) this->pid())
+          _memoryMap((asid_t) this->pid()),
+          _traceme(false)
 {
     assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
@@ -119,6 +120,14 @@ bool Process::extendHeap(uintptr_t endAddr){
     }
 
     return heapRegion->extend(endAddr);
+}
+
+bool Process::traceme(bool state) {
+    return (_traceme = state);
+}
+
+bool Process::traceme(void) {
+    return _traceme;
 }
 
 

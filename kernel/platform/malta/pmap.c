@@ -343,6 +343,11 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
     if ((PT_BASE <= vaddr) && (vaddr < PT_BASE + PT_SIZE)) {
         uint32_t index = PTE_INDEX(vaddr - PT_BASE) & ~1;
         vm_addr_t orig_vaddr = (vaddr - PT_BASE) * PTF_ENTRIES;
+        if (0 == orig_vaddr) {
+            kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
+            vm_do_segfault(orig_vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE, VM_PROT_NONE);
+            return regs;
+        }
 
 #if TLBDEBUG == 1
         kprintf("tlb miss in page table: %p for page %p\n", (void*)vaddr, (void*)orig_vaddr);

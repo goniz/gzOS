@@ -7,6 +7,8 @@
 
 class DevFileSystem : public FileSystem
 {
+    friend class DevReaddirFileDescriptor;
+
 public:
     using FileDescriptorFactory = std::unique_ptr<FileDescriptor> (*)(void);
 

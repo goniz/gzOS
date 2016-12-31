@@ -17,3 +17,11 @@ clean:
 	make -C kernel clean
 	make -C userland clean
 
+rootfs:
+	./scripts/create_rootfs.sh
+	./scripts/create_flash.sh build/rootfs/ kernel/flash.bin
+
+qemu: compile
+qemu: rootfs
+qemu:
+	./scripts/run_qemu_gzos.sh

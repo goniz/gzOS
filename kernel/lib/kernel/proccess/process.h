@@ -55,6 +55,8 @@ public:
     int state(void) const;
     uint64_t cpu_time(void) const;
     bool is_kernel_proc(void) const;
+    bool traceme(bool state);
+    bool traceme(void);
 
     FileDescriptorCollection& fileDescriptorCollection(void) {
         return _fileDescriptors;
@@ -80,6 +82,7 @@ private:
     FileDescriptorCollection _fileDescriptors;
     std::vector<std::unique_ptr<Thread>>   _threads;
     struct _reent _reent;
+    bool _traceme;
 };
 
 #endif

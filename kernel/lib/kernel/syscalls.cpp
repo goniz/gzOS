@@ -50,6 +50,41 @@ DEFINE_SYSCALL(CREATE_THREAD, create_thread, SYS_IRQ_DISABLED)
     return newThread->tid();
 }
 
+DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const char*, filename);
+    SYSCALL_ARG(int, argc);
+    SYSCALL_ARG(const char**, argv);
+
+    int fd = vfs_open(filename, O_RDONLY);
+    if (fd < 0) {
+        return -1;
+    }
+
+    struct stat stinfo{};
+    if (0 != vfs_stat(fd, &stinfo)) {
+        vfs_close(fd);
+        return -1;
+    }
+
+    size_t size = (size_t) stinfo.st_size;
+    auto buffer = std::make_unique<uint8_t[]>(size);
+    if (-1 == vfs_read(fd, buffer.get(), size)) {
+        vfs_close(fd);
+        return -1;
+    }
+
+    vfs_close(fd);
+
+    std::vector<const char*> arguments(argv, argv + argc);
+    Process* newProc = Scheduler::instance().createProcess(filename, buffer.get(), size, std::move(arguments), 8192);
+    if (!newProc) {
+        return -1;
+    }
+
+    return newProc->pid();
+}
+
 DEFINE_SYSCALL(GET_PID, get_pid, SYS_IRQ_DISABLED)
 {
     return Scheduler::instance().getCurrentPid();
@@ -250,5 +285,18 @@ DEFINE_SYSCALL(BRK, brk, SYS_IRQ_DISABLED)
         return -1;
     }
 
+    return 0;
+}
+
+DEFINE_SYSCALL(TRACEME, traceme, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, state);
+
+    Process* currentProc = Scheduler::instance().CurrentProcess();
+    if (NULL == currentProc) {
+        return -1;
+    }
+
+    currentProc->traceme((bool) state);
     return 0;
 }

@@ -23,7 +23,7 @@ AccessControlledFileDescriptor::AccessControlledFileDescriptor(std::unique_ptr<F
 }
 
 int AccessControlledFileDescriptor::read(void *buffer, size_t size) {
-    if (!_readable) {
+    if (!_fd || !_readable) {
         return -1;
     }
 
@@ -31,7 +31,7 @@ int AccessControlledFileDescriptor::read(void *buffer, size_t size) {
 }
 
 int AccessControlledFileDescriptor::write(const void *buffer, size_t size) {
-    if (!_writable) {
+    if (!_fd || !_writable) {
         return -1;
     }
 
@@ -39,9 +39,25 @@ int AccessControlledFileDescriptor::write(const void *buffer, size_t size) {
 }
 
 int AccessControlledFileDescriptor::seek(int where, int whence) {
+    if (!_fd) {
+        return -1;
+    }
+
     return _fd->seek(where, whence);
 }
 
 void AccessControlledFileDescriptor::close(void) {
+    if (!_fd) {
+        return;
+    }
+
     _fd->close();
+}
+
+int AccessControlledFileDescriptor::stat(struct stat *stat) {
+    if (!_fd) {
+        return -1;
+    }
+
+    return _fd->stat(stat);
 }

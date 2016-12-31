@@ -6,8 +6,8 @@
 #ifdef __cplusplus
 
 enum DirEntryType {
-    REG,
-    DIR
+    DIRENT_REG,
+    DIRENT_DIR
 };
 
 struct DirEntry {
@@ -21,6 +21,8 @@ public:
     virtual int write(const void* buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
     virtual void close(void) override;
+
+    int stat(struct stat *stat) override;
 
 protected:
     virtual bool getNextEntry(struct DirEntry& dirEntry) = 0;
