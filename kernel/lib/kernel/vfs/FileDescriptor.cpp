@@ -1,16 +1,17 @@
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
+#include <lib/primitives/align.h>
 #include "FileDescriptor.h"
 
-int NullFileDescriptor::read(void *buffer, size_t size) {
+int NullFileDescriptor::read(void* buffer, size_t size) {
     memset(buffer, 0, size);
     this->offset += size;
     return (int) size;
 }
 
-int NullFileDescriptor::write(const void *buffer, size_t size) {
-    (void)buffer;
+int NullFileDescriptor::write(const void* buffer, size_t size) {
+    (void) buffer;
     this->offset += size;
     return (int) size;
 }
@@ -23,7 +24,7 @@ int NullFileDescriptor::seek(int where, int whence) {
         case SEEK_CUR:
             this->offset += where;
             break;
-        // fall through
+            // fall through
         case SEEK_END:
         default:
             return -1;
@@ -36,16 +37,16 @@ void NullFileDescriptor::close(void) {
     this->offset = 0;
 }
 
-int NullFileDescriptor::stat(struct stat *stat) {
+int NullFileDescriptor::stat(struct stat* stat) {
     stat->st_size = 0;
     return 0;
 }
 
-int InvalidFileDescriptor::read(void *buffer, size_t size) {
+int InvalidFileDescriptor::read(void* buffer, size_t size) {
     return -1;
 }
 
-int InvalidFileDescriptor::write(const void *buffer, size_t size) {
+int InvalidFileDescriptor::write(const void* buffer, size_t size) {
     return -1;
 }
 
@@ -57,7 +58,7 @@ void InvalidFileDescriptor::close(void) {
 
 }
 
-int InvalidFileDescriptor::stat(struct stat *stat) {
+int InvalidFileDescriptor::stat(struct stat* stat) {
     return -1;
 }
 
@@ -69,25 +70,28 @@ bool FileDescriptor::is_valid(void) const {
     return nullptr != dynamic_cast<const InvalidFileDescriptor*>(this);
 }
 
+int FileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
+    return -1;
+}
+
 MemoryBackedFileDescriptor::MemoryBackedFileDescriptor(uintptr_t start, uintptr_t end)
         : _start(start),
-          _end(end)
-{
+          _end(end) {
 
 }
 
-int MemoryBackedFileDescriptor::read(void *buffer, size_t size) {
+int MemoryBackedFileDescriptor::read(void* buffer, size_t size) {
     const auto length = std::min(size, this->size_left());
     if (0 == length) {
         return 0;
     }
 
-    memcpy(buffer, (const void *) (_start + this->offset), length);
+    memcpy(buffer, (const void*) (_start + this->offset), length);
     this->offset += length;
     return (int) length;
 }
 
-int MemoryBackedFileDescriptor::write(const void *buffer, size_t size) {
+int MemoryBackedFileDescriptor::write(const void* buffer, size_t size) {
     const auto length = std::min(size, this->size_left());
     if (0 == length) {
         return 0;
@@ -123,7 +127,81 @@ void MemoryBackedFileDescriptor::close(void) {
 
 }
 
-int MemoryBackedFileDescriptor::stat(struct stat *stat) {
+int MemoryBackedFileDescriptor::stat(struct stat* stat) {
     stat->st_size = _end - _start;
+    return 0;
+}
+
+VectorBackedFileDescriptor::VectorBackedFileDescriptor(std::shared_ptr<std::vector<uint8_t>> vector)
+        : _data(vector) {
+
+}
+
+size_t VectorBackedFileDescriptor::size_left(void) {
+    return _data->size() - this->offset;
+}
+
+int VectorBackedFileDescriptor::read(void* buffer, size_t size) {
+    const auto length = std::min(size, this->size_left());
+    if (0 == length) {
+        return 0;
+    }
+
+    memcpy(buffer, (const void*) (_data->data() + this->offset), length);
+    this->offset += length;
+    return (int) length;
+}
+
+int VectorBackedFileDescriptor::write(const void* buffer, size_t size) {
+    const uint8_t* start = (const uint8_t*) buffer;
+    const uint8_t* end = start + size;
+
+    _data->insert(_data->end(), start, end);
+
+    this->offset += size;
+    return (int) size;
+}
+
+int VectorBackedFileDescriptor::seek(int where, int whence) {
+    const auto start = _data->begin().base();
+    const auto end = _data->end().base();
+    switch (whence) {
+        case SEEK_SET:
+            if (!pointer_is_in_range(where, start, end)) {
+                return -1;
+            }
+
+            this->offset = where;
+            break;
+
+        case SEEK_CUR:
+            if (!pointer_is_in_range(this->offset + where, start, end)) {
+                return -1;
+            }
+
+            this->offset += where;
+            break;
+
+        case SEEK_END:
+            if (!pointer_is_in_range(_data->size() - where, start, end)) {
+                return -1;
+            }
+
+            this->offset = (int) (_data->size() - where);
+            break;
+
+        default:
+            return -1;
+    }
+
+    return this->offset;
+}
+
+void VectorBackedFileDescriptor::close(void) {
+
+}
+
+int VectorBackedFileDescriptor::stat(struct stat* stat) {
+    stat->st_size = _data->size();
     return 0;
 }

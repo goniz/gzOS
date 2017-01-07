@@ -7,4 +7,4 @@ add_library(
     ffconf.h
     integer.h
     fs_ops.cpp fs_ops.h
-)
+        Fat32FileDescriptor.cpp Fat32FileDescriptor.h)

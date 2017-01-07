@@ -8,16 +8,15 @@
 #include <lib/network/checksum.h>
 #include <platform/malta/mips.h>
 #include <platform/malta/malta.h>
-#include <lib/kernel/vfs/VirtualFileSystem.h>
+#include <lib/kernel/vfs/vfs_api.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
 extern "C" char _end;
 extern "C" caddr_t _get_stack_pointer(void);
 
-std::vector<struct ps_ent> getProcessList(int expected_entries)
-{
-    std::vector<struct ps_ent> buffer((unsigned long)expected_entries);
+std::vector<struct ps_ent> getProcessList(int expected_entries) {
+    std::vector<struct ps_ent> buffer((unsigned long) expected_entries);
 
     int nr_entries = syscall(SYS_NR_PS, buffer.data(), buffer.size() * sizeof(struct ps_ent));
     if (-1 == nr_entries) {
@@ -28,16 +27,14 @@ std::vector<struct ps_ent> getProcessList(int expected_entries)
     return std::move(buffer);
 }
 
-void printProcessList(void)
-{
+void printProcessList(void) {
     std::vector<struct ps_ent> proclist = std::move(getProcessList(10));
 
     InterruptsMutex mutex;
     mutex.lock();
     kprintf("%-7s %-20s %-10s %-10s %s\n",
             "PID", "Name", "State", "CPU Time", "ExitCode");
-    for (const auto& proc : proclist)
-    {
+    for (const auto& proc : proclist) {
         kprintf("pid: %d\n", proc.pid);
         kprintf("name: %p\n", proc.name);
         kprintf("state: %p\n", proc.state);
@@ -47,16 +44,14 @@ void printProcessList(void)
     mutex.unlock();
 }
 
-void printArpCache(void)
-{
+void printArpCache(void) {
     InterruptsMutex mutex;
     mutex.lock();
     arp_print_cache();
     mutex.unlock();
 }
 
-int ps_main(void* argument)
-{
+int ps_main(void* argument) {
     while (1) {
         printProcessList();
         syscall(SYS_NR_SLEEP, 5000);
@@ -79,7 +74,7 @@ static uint32_t read_size(int sock) {
         size = 0;
     }
 
-exit:
+    exit:
     if (clientaddr.address != 0) {
         uint32_t networkSize = htonl(size);
         syscall(SYS_NR_SENDTO, sock, &networkSize, sizeof(networkSize), &clientaddr);
@@ -108,7 +103,7 @@ uint8_t* recv_file_over_udp(size_t* size) {
         return nullptr;
     }
 
-    uint8_t* buffer = (uint8_t *) malloc(bufferSize);
+    uint8_t* buffer = (uint8_t*) malloc(bufferSize);
     if (!buffer) {
         syscall(SYS_NR_CLOSE, sock);
         return nullptr;
@@ -139,23 +134,26 @@ uint8_t* recv_file_over_udp(size_t* size) {
 }
 
 extern "C"
-int kernel_main(void *argument)
-{
+int kernel_main(void* argument) {
     kprintf("Current Stack: %p\n", (void*) _get_stack_pointer());
     kprintf("Start of heap: %p\n", (void*) &_end);
 
     interface_add("eth0", 0x01010101, 0xffffff00);
 
-//    Scheduler::instance().createKernelThread("top", ps_main, nullptr, 8192);
+    vfs_mkdir("/tmp");
+
+    vfs_mkdir("/pflash");
+    vfs_mount("pflashfs", "none", "/pflash");
+
+    vfs_mkdir("/usr");
     vfs_mount("fat32", "/pflash/userdata", "/usr");
-    vfs_mount("tmpfs", "none", "/tmp");
 
     std::vector<const char*> shellArgs{};
-    syscall(SYS_NR_EXEC, "/usr/bin/shell", shellArgs.size(), shellArgs.data());
+    syscall(SYS_NR_EXEC, "/usr/BIN/SHELL", shellArgs.size(), shellArgs.data());
 
     while (1) {
         uint32_t size = 0;
-        uint8_t *buffer = recv_file_over_udp(&size);
+        uint8_t* buffer = recv_file_over_udp(&size);
         if (!buffer) {
             syscall(SYS_NR_SLEEP, 5000);
             continue;

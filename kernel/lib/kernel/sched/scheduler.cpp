@@ -8,7 +8,6 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <cassert>
-#include <vfs/VirtualFileSystem.h>
 #include "elf/ElfLoader.h"
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
@@ -544,7 +543,11 @@ void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) 
         kprintf("Cannot read from address: 0x%08x\n", fault_addr);
     }
 
-    syscall(SYS_NR_SIGNAL, PID_CURRENT, SIG_KILL);
+    if (-1 == scheduler_current_pid()) {
+        panic("segfault in kernel..");
+    } else {
+        syscall(SYS_NR_SIGNAL, PID_CURRENT, SIG_KILL);
+    }
 }
 
 extern "C"

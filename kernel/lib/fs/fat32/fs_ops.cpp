@@ -1,16 +1,18 @@
 #include <platform/drivers.h>
 #include <platform/kprintf.h>
 #include <lib/kernel/vfs/ReaddirFileDescriptor.h>
-#include <lib/primitives/interrupts_mutex.h>
 #include <cstdio>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 #include "fs_ops.h"
+#include "Fat32FileDescriptor.h"
 #include "ff.h"
 
 static int fs_fat32_init(void) {
     VirtualFileSystem &vfs = VirtualFileSystem::instance();
 
-    vfs.registerFilesystem("fat32", [](const char *source) {
-        return std::unique_ptr<FileSystem>(new Fat32FileSystem(source));
+    vfs.registerFilesystem("fat32", [](const char *source, const char* destName) {
+        auto fatRootNode = std::make_shared<Fat32FileSystem>(source, std::string(destName));
+        return std::static_pointer_cast<VFSNode>(fatRootNode);
     });
 
     return 0;
@@ -18,145 +20,135 @@ static int fs_fat32_init(void) {
 
 DECLARE_DRIVER(fs_fat32, fs_fat32_init, STAGE_SECOND + 1);
 
-Fat32FileSystem::Fat32FileSystem(const char *sourceDevice)
-        : _sourceFd()
+Fat32VFSNode::Fat32VFSNode(VFSNode::Type type, std::string&& fullPath, std::string&& segment)
+        : BasicVFSNode(type, std::move(segment)),
+          _parentFullPath(std::move(fullPath))
+{
+//    kprintf("_parentFullPath: %s\n", _parentFullPath.c_str());
+//    kprintf("segment: %s\n", this->getPathSegment().c_str());
+}
+
+const std::vector<SharedNode>& Fat32VFSNode::childNodes(void) {
+    if (VFSNode::Type::Directory != this->getType()) {
+        return _nodes;
+    }
+
+    if (_nodes.empty()) {
+        DIR dp;
+        memset(&dp, 0, sizeof(dp));
+
+        Path dirPath = std::move(this->getCurrentFatPath());
+        auto dirString = dirPath.string();
+
+        if (FR_OK != f_opendir(&dp, dirString.c_str())) {
+            return _nodes;
+        }
+
+        while (true) {
+            FILINFO fno;
+            memset(&fno, 0, sizeof(fno));
+
+            auto result = f_readdir(&dp, &fno);
+            if (FR_OK != result || fno.fname[0] == 0) {
+                break;
+            }
+
+            VFSNode::Type type(VFSNode::Type::File);
+            if (fno.fattrib & AM_DIR) {
+                type = VFSNode::Type::Directory;
+            }
+
+            auto fatnode = std::make_shared<Fat32VFSNode>(type, std::string(dirString), std::string(fno.fname));
+            auto node = std::static_pointer_cast<VFSNode>(fatnode);
+            _nodes.push_back(node);
+        }
+
+        f_closedir(&dp);
+    }
+
+    return _nodes;
+}
+
+std::unique_ptr<FileDescriptor> Fat32VFSNode::open(void) {
+    Path dirPath = std::move(this->getCurrentFatPath());
+    auto pathString = dirPath.string();
+    return std::make_unique<Fat32FileDescriptor>(pathString.c_str(), O_RDONLY);
+}
+
+SharedNode Fat32VFSNode::createNode(VFSNode::Type type, std::string&& path) {
+    if (this->getType() != VFSNode::Type::Directory) {
+        return nullptr;
+    }
+
+    Path fullPath(_parentFullPath);
+    fullPath.append(path);
+    auto str  = fullPath.string();
+
+    switch (type)
+    {
+        case Type::File:
+            FIL fil;
+            if (FR_OK != f_open(&fil, str.c_str(), FA_CREATE_ALWAYS)) {
+                return nullptr;
+            }
+
+            break;
+
+        case Type::Directory:
+#if !defined(_FS_READONLY)
+            if (FR_OK != f_mkdir(str.c_str())) {
+                return nullptr;
+            }
+#else
+            return nullptr;
+#endif
+
+            break;
+    }
+
+    auto fatnode = std::make_shared<Fat32VFSNode>(type, std::string(str), std::move(path));
+    auto node = std::static_pointer_cast<VFSNode>(fatnode);
+    _nodes.push_back(node);
+    return node;
+}
+
+bool Fat32VFSNode::isRootNode(void) const {
+    return false;
+}
+
+Path Fat32VFSNode::getCurrentFatPath(void) const {
+    Path dirPath(_parentFullPath);
+    if (!this->isRootNode()) {
+        if ("" == dirPath.string()) {
+            dirPath = Path(this->getPathSegment());
+        } else {
+            dirPath.append(this->getPathSegment());
+        }
+    }
+
+    return dirPath;
+}
+
+// TODO: check this path thingy
+Fat32FileSystem::Fat32FileSystem(const char* sourceDevice, std::string&& path)
+        : Fat32VFSNode(VFSNode::Type::Directory, std::string(""), std::string(path)),
+          _sourceFd()
 {
     VirtualFileSystem &vfs = VirtualFileSystem::instance();
 
     _sourceFd = vfs.open(sourceDevice, O_RDONLY);
     if (!_sourceFd) {
-        kprintf("Could NOT open file \"%s\"\n", sourceDevice);
+        kprintf("Could NOT open file '%s'\n", sourceDevice);
         throw std::exception();
     }
 
-    f_mount(&_fs, "PFLASH", 1);
+    if (FR_OK != f_mount(&_fs, "PFLASH", 1)) {
+        kprintf("Could NOT mount file system: '%s'\n", sourceDevice);
+        throw std::exception();
+    }
 }
 
-class Fat32ReaddirFileDescriptor : public ReaddirFileDescriptor {
-public:
-    Fat32ReaddirFileDescriptor(const char* path)
-    {
-        auto result = f_opendir(&_dir, path);
-        if (FR_OK != result) {
-            kprintf("failed to open dir: %d\n", result);
-            throw std::exception();
-        }
-    }
-
-private:
-    bool getNextEntry(struct DirEntry &dirEntry) override {
-        InterruptsMutex mutex(true);
-        FILINFO finfo;
-
-        memset(&finfo, 0, sizeof(finfo));
-        auto result = f_readdir(&_dir, &finfo);
-        if (FR_OK != result || finfo.fname[0] == 0) {
-            return false;
-        }
-
-        strncpy(dirEntry.name, finfo.fname, sizeof(dirEntry.name));
-        if (finfo.fattrib & AM_DIR) {
-            dirEntry.type = DIRENT_DIR;
-        } else {
-            dirEntry.type = DIRENT_REG;
-        }
-
-        return true;
-    }
-
-    DIR _dir;
-};
-
-std::unique_ptr<FileDescriptor> Fat32FileSystem::readdir(const char* path) {
-    return std::make_unique<Fat32ReaddirFileDescriptor>(path);
+bool Fat32FileSystem::isRootNode(void) const {
+    return true;
 }
 
-class Fat32FileDescriptor : public FileDescriptor {
-public:
-    Fat32FileDescriptor(const char* name, int flags)
-        : _filename(name),
-          _fp()
-    {
-        if (FR_OK != f_open(&_fp, name, this->translateFlags(flags))) {
-            throw std::exception();
-        }
-    }
-
-    virtual ~Fat32FileDescriptor(void) override {
-        this->close();
-    }
-
-    virtual int read(void *buffer, size_t size) override {
-        unsigned int bytesRead = 0;
-        int result = f_read(&_fp, buffer, size, &bytesRead);
-        if (FR_OK == result) {
-            return bytesRead;
-        }
-
-        return -1;
-    }
-
-    virtual int write(const void *buffer, size_t size) override {
-#if !defined(_FS_READONLY)
-        UINT bytesWritten = 0;
-        int result = f_write(&_fp, buffer, size, &bytesWritten);
-        if (FR_OK == result) {
-            return bytesWritten;
-        }
-#endif
-        return -1;
-    }
-
-    virtual int seek(int where, int whence) override {
-        if (SEEK_SET != whence) {
-            return -1;
-        }
-
-        int result = f_lseek(&_fp, (FSIZE_t) where);
-        if (FR_OK != result) {
-            return -1;
-        }
-
-        return where;
-    }
-
-    virtual int stat(struct stat *stat) override {
-        FILINFO info;
-        if (FR_OK != f_stat(_filename.c_str(), &info)) {
-            return -1;
-        }
-
-        stat->st_size = info.fsize;
-        return 0;
-    }
-
-    virtual void close(void) override {
-        f_close(&_fp);
-    }
-
-private:
-    uint8_t translateFlags(int flags) const {
-        uint8_t result = 0;
-
-        if (flags == O_RDONLY) {
-            result = FA_READ;
-        } else if (flags == O_WRONLY) {
-            result = FA_WRITE;
-        } else if (flags == O_RDWR) {
-            result = FA_READ | FA_WRITE;
-        }
-
-        if (flags & O_CREAT && flags & O_TRUNC) {
-            result |= FA_CREATE_ALWAYS;
-        }
-
-        return result;
-    }
-
-    std::string _filename;
-    FIL _fp;
-};
-
-std::unique_ptr<FileDescriptor> Fat32FileSystem::open(const char *path, int flags) {
-    return std::make_unique<Fat32FileDescriptor>(path, flags);
-}

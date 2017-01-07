@@ -4,4 +4,3 @@ project(gzOS_fs C CXX ASM)
 
 #add_subdirectory(ext4)
 add_subdirectory(fat32)
-add_subdirectory(tmpfs)

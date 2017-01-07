@@ -1,91 +1,106 @@
-#include <lib/primitives/hashmap.h>
+#include <platform/kprintf.h>
 #include <platform/drivers.h>
 #include <platform/panic.h>
-#include <lib/primitives/stringutils.h>
-#include <platform/kprintf.h>
-#include <deque>
-#include <lib/primitives/interrupts_mutex.h>
+#include <vfs/AccessControlledFileDescriptor.h>
 #include "VirtualFileSystem.h"
-#include "AccessControlledFileDescriptor.h"
-#include "Path.h"
-#include "ReaddirFileDescriptor.h"
+#include "TmpfsNode.h"
+#include "VFSReaddirFileDescriptor.h"
 
-static VirtualFileSystem* gVFS = nullptr;
-static int vfs_init(void)
-{
-    gVFS = new VirtualFileSystem();
+static VirtualFileSystem* _vfsInstance = nullptr;
+static int vfs2_layer_init(void) {
+    _vfsInstance = new VirtualFileSystem();
     return 0;
 }
 
-DECLARE_DRIVER(vfs, vfs_init, STAGE_FIRST);
+DECLARE_DRIVER(vfs2_layer, vfs2_layer_init, STAGE_FIRST);
 
 VirtualFileSystem& VirtualFileSystem::instance(void) {
-    auto* ptr = gVFS;
-    if (nullptr == ptr) {
-        panic("gVFS == nullptr\n");
+    if (nullptr == _vfsInstance) {
+        panic("_vfsInstance is null");
     }
 
-    return *ptr;
+    return *_vfsInstance;
+}
+
+SharedNode VirtualFileSystem::lookup(SharedNode rootNode, Path&& path) {
+    // let start from the baseNode provided
+    SharedNode node = rootNode;
+
+    path.trim();
+    path.sanitize();
+    const auto pathString = std::move(path.string());
+
+    // split the given path to its segments
+    const auto segments = std::move(path.split());
+
+    // if its "/", return the root node.
+    if ("" == pathString) {
+        return rootNode;
+    }
+
+    // iterate over its segments and try to walk the nodes until we find the requested node, or fail
+    for (size_t i = 0; i < segments.size(); i++) {
+        const auto& segment = segments[i];
+        const bool is_last = (segments.size() - 1) == i;
+        const bool is_first = 0 == i;
+
+        if (is_first && "" == segment.segment) {
+            continue;
+        }
+
+        // the current node can only be a non-directory if its the last segment (destination segment)
+        // because if its not, we wont be able to traverse it..
+        if (is_last && segment.segment == node->getPathSegment()) {
+            return node;
+        }
+
+        // if its a file, and the segment is not last, we cannot find this path..
+        if (VFSNode::Type::Directory != node->getType()) {
+            return nullptr;
+        }
+
+        for (auto currentNode : node->childNodes()) {
+            if (is_last && currentNode->getPathSegment() == segment.segment) {
+                return currentNode;
+            }
+
+            if (currentNode->getPathSegment() == segment.segment &&
+                VFSNode::Type::Directory == currentNode->getType()) {
+                node = currentNode;
+                break;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+SharedNode VirtualFileSystem::lookup(Path&& path) {
+    return this->lookup(_rootNode, std::forward<Path>(path));
 }
 
 VirtualFileSystem::VirtualFileSystem(void)
-    : _filesystems(),
-      _supportedFs()
+        : _rootNode(std::make_shared<TmpfsDirectoryNode>(VFSNode::Type::Directory, "/"))
 {
 
 }
 
-VirtualFileSystem::FindFsResult VirtualFileSystem::findFilesystem(const char *path) const {
-    if (!path) {
-        return {};
+bool VirtualFileSystem::registerFilesystem(const char* fstype, VirtualFileSystem::MountpointFactoryFunc factory) {
+    if (_supportedFs.get(fstype)) {
+        return false;
     }
 
-    FindFsResult iterateData;
-
-    iterateData.fs = nullptr;
-    iterateData.path = path;
-
-    _filesystems.iterate([](any_t userarg, char* key, any_t data) {
-        FindFsResult* argument = (FindFsResult*) userarg;
-        std::unique_ptr<FileSystem>* value = (std::unique_ptr<FileSystem>*) data;
-
-        if (startsWith(key, argument->path)) {
-            argument->fs = value->get();
-            argument->path = argument->path + strlen(key) + 1;
-            return MAP_FULL;
-        }
-
-        return MAP_OK;
-    }, &iterateData);
-
-    if (!iterateData.fs) {
-        return {};
-    }
-
-    if (!iterateData.path) {
-        return {};
-    }
-
-    return iterateData;
-}
-
-std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char *path, int flags)
-{
-    auto fsResult = this->findFilesystem(path);
-    if (!fsResult.fs) {
-        return nullptr;
-    }
-
-    auto fd = fsResult.fs->open(fsResult.path, flags);
-    if (nullptr == fd) {
-        return nullptr;
-    }
-
-    return std::make_unique<AccessControlledFileDescriptor>(std::move(fd), flags);
+    return _supportedFs.put(fstype, std::move(factory));
 }
 
 bool VirtualFileSystem::mountFilesystem(const char* fstype, const char* source, const char* destination) {
-    if (_filesystems.get(destination)) {
+    auto mountpointNode = this->lookup(Path(destination));
+    if (!mountpointNode) {
+        kprintf("[vfs] failed to mount %s (%s): %s does not exist\n", source, fstype, destination);
+        return false;
+    }
+
+    if (_rootNode == mountpointNode || mountpointNode->isMounted()) {
         kprintf("[vfs] failed to mount %s (%s): %s is busy\n", source, fstype, destination);
         return false;
     }
@@ -96,83 +111,80 @@ bool VirtualFileSystem::mountFilesystem(const char* fstype, const char* source, 
         return false;
     }
 
-    std::unique_ptr<FileSystem> fs;
+    SharedNode newFsRootNode;
     try {
-        fs = (*fsFactory)(source);
-        if (!fs) {
-            kprintf("[vfs] failed to mount %s (%s): failed to create fs\n", source, fstype, fstype);
-            return false;
-        }
+        auto dirname = Path(destination).filename();
+        newFsRootNode = (*fsFactory)(source, dirname.c_str());
     } catch (...) {
+        newFsRootNode = nullptr;
+    }
+
+    if (!newFsRootNode) {
         kprintf("[vfs] failed to mount %s (%s): failed to create fs\n", source, fstype, fstype);
         return false;
     }
 
-    kprintf("[vfs] successfully mounted %s of type %s on %s\n", source, fstype, destination);
-    return _filesystems.put(destination, std::move(fs));
-}
-
-FileSystem* VirtualFileSystem::getFilesystem(const char *mountPoint) const {
-    auto* fs = _filesystems.get(mountPoint);
-    if (!fs) {
-        return nullptr;
-    }
-
-    return fs->get();
-}
-
-bool VirtualFileSystem::registerFilesystem(const char* fstype, VirtualFileSystem::FilesystemFactory factory) {
-    if (_supportedFs.get(fstype)) {
+    if (!mountpointNode->mountNode(newFsRootNode)) {
+        kprintf("[vfs] failed to mount %s (%s): destination path does not allow mounting (%s)\n", source, fstype, destination);
         return false;
     }
 
-    return _supportedFs.put(fstype, std::move(factory));
+    kprintf("[vfs] successfully mounted %s of type %s on %s\n", source, fstype, destination);
+    return true;
 }
 
-
-class VFSReaddirFileDescriptor : public ReaddirFileDescriptor {
-public:
-    VFSReaddirFileDescriptor(VirtualFileSystem& vfs)
-        : _vfs(vfs)
-    {
-        _vfs._filesystems.iterate([](any_t userarg, char * key, any_t data) -> int {
-            std::deque<std::string>* fsIterations = (std::deque<std::string> *)userarg;
-            fsIterations->emplace_back(key);
-            return MAP_OK;
-        }, &_fsIterations);
+std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char* path, int flags) {
+    auto node = this->lookup(Path(path));
+    if (!node && flags & O_CREAT) {
+        node = this->createNode(path, VFSNode::Type::File);
     }
 
-private:
-    bool getNextEntry(struct DirEntry &dirEntry) override {
-        InterruptsMutex mutex(true);
-        if (_fsIterations.empty()) {
-            return false;
-        }
-
-        const auto& fsName = _fsIterations.front(); _fsIterations.pop_front();
-        strncpy(dirEntry.name, fsName.c_str(), sizeof(dirEntry.name));
-        dirEntry.type = DirEntryType::DIRENT_DIR;
-        return true;
+    if (!node) {
+        return nullptr;
     }
 
-    VirtualFileSystem& _vfs;
-    std::deque<std::string> _fsIterations;
-};
+    auto fd = node->open();
+    if (!fd) {
+        return nullptr;
+    }
+
+    if (flags & O_TRUNC) {
+        // TODO: support truncate on fds
+//        fd->truncate(0);
+    }
+
+    return std::make_unique<AccessControlledFileDescriptor>(std::move(fd), flags);
+}
+
+SharedNode VirtualFileSystem::createNode(const char* nodePath, VFSNode::Type type) {
+    Path destinationPath(nodePath);
+    auto basename = destinationPath.filename();
+    if ("" == basename) {
+        return nullptr;
+    }
+
+    destinationPath.trim();
+    destinationPath.sanitize();
+    destinationPath.up();
+
+    auto node = this->lookup(std::move(destinationPath));
+    if (!node) {
+        return nullptr;
+    }
+
+    return node->createNode(type, std::move(basename));
+}
 
 std::unique_ptr<FileDescriptor> VirtualFileSystem::readdir(const char* path) {
-    if (path && 0 == strcmp(path, "/")) {
-        return std::make_unique<AccessControlledFileDescriptor>(
-                std::make_unique<VFSReaddirFileDescriptor>(*this),
-                O_RDONLY
-        );
+    auto node = this->lookup(Path(path));
+    if (!node) {
+        return nullptr;
     }
 
-    auto fsResult = this->findFilesystem(path);
-    if (!fsResult.fs) {
-        return {};
-    }
-
-    return std::make_unique<AccessControlledFileDescriptor>(fsResult.fs->readdir(fsResult.path), O_RDONLY);
+    return std::make_unique<AccessControlledFileDescriptor>(std::make_unique<VFSReaddirFileDescriptor>(node), O_RDONLY);
 }
 
+bool VirtualFileSystem::mkdir(const char* path) {
+    return nullptr != this->createNode(path, VFSNode::Type::Directory);
+}
 

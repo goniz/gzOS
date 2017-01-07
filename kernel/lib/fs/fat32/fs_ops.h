@@ -1,20 +1,38 @@
-#ifndef GZOS_EXT2_FS_H
-#define GZOS_EXT2_FS_H
+#ifndef GZOS_FAT32_FS_H
+#define GZOS_FAT32_FS_H
 
-#include <lib/kernel/vfs/VirtualFileSystem.h>
+#include <lib/kernel/vfs/BasicVFSNode.h>
 #include "ff.h"
 
 #ifdef __cplusplus
 
-class Fat32FileSystem : public FileSystem
+class Fat32VFSNode : public BasicVFSNode
 {
-    friend class Fat32ReaddirFileDescriptor;
-
 public:
-    Fat32FileSystem(const char* sourceDevice);
-    virtual std::unique_ptr<FileDescriptor> open(const char *path, int flags) override;
+    Fat32VFSNode(VFSNode::Type type, std::string&& fullPath, std::string&& segment);
+    virtual ~Fat32VFSNode(void) = default;
 
-    std::unique_ptr<FileDescriptor> readdir(const char* path) override;
+    virtual std::unique_ptr<FileDescriptor> open(void) override;
+    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+
+protected:
+    Path getCurrentFatPath(void) const;
+    virtual bool isRootNode(void) const;
+
+private:
+    std::vector<SharedNode> _nodes;
+    std::string _parentFullPath;
+};
+
+class Fat32FileSystem : public Fat32VFSNode
+{
+public:
+    Fat32FileSystem(const char* sourceDevice, std::string&& path);
+    virtual ~Fat32FileSystem(void) = default;
+
+protected:
+    virtual bool isRootNode(void) const override;
 
 private:
     std::unique_ptr<FileDescriptor> _sourceFd;
@@ -22,4 +40,4 @@ private:
 };
 
 #endif //cplusplus
-#endif //GZOS_EXT2_FS_H
+#endif //GZOS_FAT32_FS_H

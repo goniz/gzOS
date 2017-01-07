@@ -1,70 +1,97 @@
 #include <platform/drivers.h>
 #include <lib/primitives/interrupts_mutex.h>
-#include <deque>
+#include <vfs/VirtualFileSystem.h>
+#include <algorithm>
 #include "DevFileSystem.h"
-#include "ReaddirFileDescriptor.h"
 
 static int vfs_dev_init(void)
 {
     VirtualFileSystem& vfs = VirtualFileSystem::instance();
 
-    vfs.registerFilesystem("devfs", [](const char* source) {
-        return std::unique_ptr<FileSystem>(new DevFileSystem());
+    vfs.registerFilesystem("devfs", [](const char* source, const char* destName) {
+        auto node = std::make_shared<DevFileSystem>(std::string(destName));
+        return std::static_pointer_cast<VFSNode>(node);
     });
 
+    vfs.mkdir("/dev");
     vfs.mountFilesystem("devfs", "none", "/dev");
     return 0;
 }
 
 DECLARE_DRIVER(vfs_dev, vfs_dev_init, STAGE_SECOND);
 
-std::unique_ptr<FileDescriptor> DevFileSystem::open(const char* path, int flags)
-{
-    auto* factoryFunction = _devices.get(path);
-    if (nullptr == factoryFunction || nullptr == *factoryFunction) {
-        return nullptr;
-    }
 
-    return (*factoryFunction)();
+DevVFSNode::DevVFSNode(std::string&& path, FileDescriptorFactory fdf)
+    : BasicVFSNode(VFSNode::Type::File, std::move(path)),
+      _fdFactory(fdf)
+{
+
 }
 
-bool DevFileSystem::registerDevice(const char *deviceName, DevFileSystem::FileDescriptorFactory factory) {
-    if (_devices.get(deviceName)) {
+std::unique_ptr<FileDescriptor> DevVFSNode::open(void) {
+    if (_fdFactory) {
+        return _fdFactory();
+    } else {
+        return nullptr;
+    }
+}
+
+static const std::vector<SharedNode> _empty;
+const std::vector<SharedNode>& DevVFSNode::childNodes(void) {
+    return _empty;
+}
+
+SharedNode DevVFSNode::createNode(VFSNode::Type type, std::string&& path) {
+    return nullptr;
+}
+
+DevFileSystem::DevFileSystem(std::string&& path)
+        : BasicVFSNode(VFSNode::Type::Directory, std::move(path))
+{
+
+}
+
+bool DevFileSystem::registerDevice(const char *deviceName, FileDescriptorFactory factory) {
+    auto comparator = [deviceName](const SharedNode& iter) -> bool {
+        return (iter && deviceName && iter->getPathSegment() == deviceName);
+    };
+
+    auto result = std::find_if(_devices.begin(), _devices.end(), comparator);
+    if (result != _devices.end()) {
         return false;
     }
 
-    return _devices.put(deviceName, std::move(factory));
+    _devices.push_back(std::make_shared<DevVFSNode>(std::string(deviceName), factory));
+    return true;
 }
 
-class DevReaddirFileDescriptor : public ReaddirFileDescriptor {
-public:
-    DevReaddirFileDescriptor(const DevFileSystem& fs)
-            : _fs(fs)
-    {
-        _fs._devices.iterate([](any_t userarg, char * key, any_t data) -> int {
-            std::deque<std::string>* fsIterations = (std::deque<std::string> *)userarg;
-            fsIterations->emplace_back(key);
-            return MAP_OK;
-        }, &_devices);
-    }
+const std::vector<SharedNode>& DevFileSystem::childNodes(void) {
+    return _devices;
+}
 
-private:
-    bool getNextEntry(struct DirEntry &dirEntry) override {
-        InterruptsMutex mutex(true);
-        if (_devices.empty()) {
-            return false;
+SharedNode DevFileSystem::createNode(VFSNode::Type type, std::string&& path) {
+    return nullptr;
+}
+
+std::unique_ptr<FileDescriptor> DevFileSystem::open(void) {
+    return std::make_unique<DevfsIoctlFileDescriptor>(*this);
+}
+
+DevfsIoctlFileDescriptor::DevfsIoctlFileDescriptor(DevFileSystem& devfs)
+        : _devfs(devfs)
+{
+
+}
+
+int DevfsIoctlFileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
+    if ((int)DevFileSystem::IoctlCommands::RegisterDevice == cmd) {
+        auto* cmdbuf = (DevFileSystem::IoctlRegisterDevice*)buffer;
+        if (size != sizeof(*cmdbuf)) {
+            return -1;
         }
 
-        const auto& devName = _devices.front(); _devices.pop_front();
-        strncpy(dirEntry.name, devName.c_str(), sizeof(dirEntry.name));
-        dirEntry.type = DirEntryType::DIRENT_REG;
-        return true;
+        return _devfs.registerDevice(cmdbuf->deviceName, cmdbuf->fdFactory) ? 0 : -1;
     }
 
-    const DevFileSystem& _fs;
-    std::deque<std::string> _devices;
-};
-
-std::unique_ptr<FileDescriptor> DevFileSystem::readdir(const char* path) {
-    return std::make_unique<DevReaddirFileDescriptor>(*this);
+    return -1;
 }

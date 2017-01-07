@@ -1,6 +1,6 @@
 #include <lib/kernel/sched/scheduler.h>
 #include <lib/primitives/hashmap.h>
-#include <lib/kernel/vfs/VirtualFileSystem.h>
+#include <lib/kernel/vfs/vfs_api.h>
 #include "socket.h"
 
 template<>
@@ -12,13 +12,11 @@ struct StringKeyConverter<socket_triple_t> {
 
 static HashMap<socket_triple_t, SocketFileDescriptorCreator> _sockFamilies;
 
-void socket_register_triple(socket_triple_t triple, SocketFileDescriptorCreator descriptorCreator)
-{
+void socket_register_triple(socket_triple_t triple, SocketFileDescriptorCreator descriptorCreator) {
     _sockFamilies.put(triple, std::move(descriptorCreator));
 }
 
-int socket_create(int domain, int type, int protocol)
-{
+int socket_create(int domain, int type, int protocol) {
     const socket_triple_t triple{(socket_family_t) domain, (socket_type_t) type, protocol};
     SocketFileDescriptorCreator* socketFileDescriptorCreator = _sockFamilies.get(triple);
     if (!socketFileDescriptorCreator) {
@@ -39,6 +37,6 @@ int socket_create(int domain, int type, int protocol)
     return fdc.push_filedescriptor(std::move(fd));
 }
 
-SocketFileDescriptor *socket_num_to_fd(int fdnum) {
+SocketFileDescriptor* socket_num_to_fd(int fdnum) {
     return dynamic_cast<SocketFileDescriptor*>(vfs_num_to_fd(fdnum));
 }

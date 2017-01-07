@@ -1,20 +1,23 @@
 #include <unistd.h>
 #include <platform/drivers.h>
+#include <vfs/VirtualFileSystem.h>
 #include "ConsoleFileDescriptor.h"
-#include "VirtualFileSystem.h"
 #include "DevFileSystem.h"
 
 static int dev_console_init(void)
 {
-    auto* devFs = dynamic_cast<DevFileSystem*>(VirtualFileSystem::instance().getFilesystem("/dev"));
-    if (!devFs) {
+    auto fd = VirtualFileSystem::instance().open("/dev", O_WRONLY);
+    if (!fd) {
         return 1;
     }
 
-    devFs->registerDevice("console", []() {
+    DevFileSystem::IoctlRegisterDevice cmdbuf;
+    cmdbuf.deviceName = "console";
+    cmdbuf.fdFactory = []() {
         return std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor());
-    });
-    return 0;
+    };
+
+    return fd->ioctl((int)DevFileSystem::IoctlCommands::RegisterDevice, &cmdbuf, sizeof(cmdbuf));
 }
 
 DECLARE_DRIVER(dev_console, dev_console_init, STAGE_SECOND + 1);

@@ -8,9 +8,10 @@
 /*-----------------------------------------------------------------------*/
 
 #include <string.h>
-#include <lib/kernel/vfs/VirtualFileSystem.h>
 #include <fcntl.h>
 #include <platform/kprintf.h>
+#include <lib/kernel/vfs/FileDescriptor.h>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 #include "diskio.h"		/* FatFs lower layer API */
 #include "ffconf.h"
 

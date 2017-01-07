@@ -1,31 +1,45 @@
 #ifndef GZOS_PFLASH_FS_H
 #define GZOS_PFLASH_FS_H
-
-#include <lib/kernel/vfs/VirtualFileSystem.h>
-#include <platform/malta/mips.h>
-#include <platform/malta/malta.h>
-
 #ifdef __cplusplus
 
-class PFlashFileSystem : public FileSystem
+#include <platform/malta/mips.h>
+#include <platform/malta/malta.h>
+#include <vector>
+#include <lib/kernel/vfs/VFSNode.h>
+
+struct PFlashPartition {
+    const char* name;
+    uintptr_t offset;
+    uint32_t size;
+};
+
+class PFlashVFSNode : public BasicVFSNode
 {
-    friend class PFlashReaddirFileDescriptor;
-
 public:
-    using FileDescriptorFactory = std::unique_ptr<FileDescriptor> (*)(void);
+    PFlashVFSNode(const PFlashPartition& partition);
+    virtual ~PFlashVFSNode(void) = default;
 
-    PFlashFileSystem(void);
-    virtual std::unique_ptr<FileDescriptor> open(const char *path, int flags) override;
-
-    std::unique_ptr<FileDescriptor> readdir(const char* path) override;
+    virtual std::unique_ptr<FileDescriptor> open(void) override;
+    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
 
 private:
-    struct PFlashPartition {
-        const char* name;
-        uintptr_t offset;
-        uint32_t size;
-    };
+    const uintptr_t _flash_base = MIPS_PHYS_TO_KSEG1(MALTA_FLASH_BASE);
 
+    const PFlashPartition _partition;
+};
+
+class PFlashFileSystem : public BasicVFSNode
+{
+public:
+    PFlashFileSystem(std::string&& path);
+    virtual ~PFlashFileSystem(void) = default;
+
+    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual std::unique_ptr<FileDescriptor> open(void) override;
+
+private:
     const PFlashPartition _partitions[2] = {
             {
                     .name = "yamon",
@@ -39,7 +53,7 @@ private:
             }
     };
 
-    const uintptr_t _flash_base = MIPS_PHYS_TO_KSEG1(MALTA_FLASH_BASE);
+    std::vector<SharedNode> _nodes;
 };
 
 #endif //cplusplus

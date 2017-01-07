@@ -1,72 +1,64 @@
 #include <platform/drivers.h>
 #include <lib/kernel/vfs/DevFileSystem.h>
-#include <lib/kernel/vfs/FileSystem.h>
 #include <lib/kernel/vfs/ReaddirFileDescriptor.h>
 #include <lib/primitives/interrupts_mutex.h>
 #include <lib/primitives/array.h>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 #include "pflash_fs.h"
 #include "pflash_fd.h"
 
-static int dev_pflash_init(void)
-{
+static int dev_pflash_init(void) {
     VirtualFileSystem& vfs = VirtualFileSystem::instance();
 
-    vfs.registerFilesystem("pflashfs", [](const char* source) {
-        return std::unique_ptr<FileSystem>(new PFlashFileSystem());
+
+    vfs.registerFilesystem("pflashfs", [](const char* source, const char* destName) -> SharedNode {
+        return std::static_pointer_cast<VFSNode>(std::make_shared<PFlashFileSystem>(std::string(destName)));
     });
 
-    vfs.mountFilesystem("pflashfs", "none", "/pflash");
     return 0;
 }
 
 DECLARE_DRIVER(dev_flash, dev_pflash_init, STAGE_SECOND + 1);
 
-PFlashFileSystem::PFlashFileSystem(void)
+PFlashFileSystem::PFlashFileSystem(std::string&& path)
+        : BasicVFSNode(VFSNode::Type::Directory, std::move(path))
+{
+    for (const auto& part : _partitions) {
+        auto node = std::make_shared<PFlashVFSNode>(part);
+        _nodes.push_back(std::static_pointer_cast<VFSNode>(node));
+    }
+}
+
+std::unique_ptr<FileDescriptor> PFlashFileSystem::open(void) {
+    return nullptr;
+}
+
+const std::vector<SharedNode>& PFlashFileSystem::childNodes(void) {
+    return _nodes;
+}
+
+SharedNode PFlashFileSystem::createNode(VFSNode::Type type, std::string&& path) {
+    return nullptr;
+}
+
+PFlashVFSNode::PFlashVFSNode(const PFlashPartition& partition)
+    : BasicVFSNode(VFSNode::Type::File, std::string(partition.name)),
+      _partition(partition)
 {
 
 }
 
-std::unique_ptr<FileDescriptor> PFlashFileSystem::open(const char *path, int flags) {
-    for (const auto part : _partitions) {
-        int ret = strcmp(part.name, path);
-        if (0 != ret) {
-            continue;
-        }
-
-        auto start = _flash_base + part.offset;
-        auto end = start + part.size;
-        return std::make_unique<PFlashFileDescriptor>(start, end);
-    }
-
-    return nullptr;
+std::unique_ptr<FileDescriptor> PFlashVFSNode::open(void) {
+    auto start = _flash_base + _partition.offset;
+    auto end = start + _partition.size;
+    return std::make_unique<PFlashFileDescriptor>(start, end);
 }
 
-class PFlashReaddirFileDescriptor : public ReaddirFileDescriptor {
-public:
-    PFlashReaddirFileDescriptor(PFlashFileSystem& fs)
-        : _index(0),
-          _fs(fs)
-    {
+static std::vector<SharedNode> _empty;
+const std::vector<SharedNode>& PFlashVFSNode::childNodes(void) {
+    return _empty;
+}
 
-    }
-
-private:
-    bool getNextEntry(struct DirEntry &dirEntry) override {
-        InterruptsMutex mutex(true);
-        if ((ARRAY_SIZE(_fs._partitions) - 1) < (uint32_t)_index) {
-            return false;
-        }
-
-        strncpy(dirEntry.name, _fs._partitions[_index].name, sizeof(dirEntry.name));
-
-        _index++;
-        return true;
-    }
-
-    int _index;
-    PFlashFileSystem& _fs;
-};
-
-std::unique_ptr<FileDescriptor> PFlashFileSystem::readdir(const char* path) {
-    return std::make_unique<PFlashReaddirFileDescriptor>(*this);
+SharedNode PFlashVFSNode::createNode(VFSNode::Type type, std::string&& path) {
+    return nullptr;
 }

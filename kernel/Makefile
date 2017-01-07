@@ -2,7 +2,7 @@
 .PHONY: malta
 
 compile: build
-	make -C build
+	make -C build -j6
 
 build:
 	mkdir -p build

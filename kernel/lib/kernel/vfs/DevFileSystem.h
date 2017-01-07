@@ -2,24 +2,59 @@
 #define GZOS_DEVFILESYSTEM_H
 
 #ifdef __cplusplus
-#include "VirtualFileSystem.h"
-#include <lib/kernel/vfs/FileSystem.h>
+#include <lib/kernel/vfs/BasicVFSNode.h>
 
-class DevFileSystem : public FileSystem
+using FileDescriptorFactory = std::unique_ptr<FileDescriptor> (*)(void);
+
+class DevVFSNode : public BasicVFSNode
 {
-    friend class DevReaddirFileDescriptor;
-
 public:
-    using FileDescriptorFactory = std::unique_ptr<FileDescriptor> (*)(void);
+    DevVFSNode(std::string&& path, FileDescriptorFactory fdf);
+    virtual ~DevVFSNode(void) = default;
+
+    virtual std::unique_ptr<FileDescriptor> open(void) override;
+    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+
+private:
+    FileDescriptorFactory _fdFactory;
+};
+
+class DevFileSystem : public BasicVFSNode
+{
+public:
+    enum class IoctlCommands : int {
+        RegisterDevice
+    };
+
+    struct IoctlRegisterDevice {
+        const char* deviceName;
+        FileDescriptorFactory fdFactory;
+    };
+
+    DevFileSystem(std::string&& path);
+    virtual ~DevFileSystem(void) = default;
 
     bool registerDevice(const char* deviceName, FileDescriptorFactory factory);
 
-    virtual std::unique_ptr<FileDescriptor> open(const char *path, int flags) override;
-
-    std::unique_ptr<FileDescriptor> readdir(const char* path) override;
+    virtual std::unique_ptr<FileDescriptor> open(void) override;
+    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedNode>& childNodes(void) override;
 
 private:
-    HashMap<const char*, FileDescriptorFactory> _devices;
+    std::vector<SharedNode> _devices;
+};
+
+class DevfsIoctlFileDescriptor : public InvalidFileDescriptor
+{
+public:
+    DevfsIoctlFileDescriptor(DevFileSystem& devfs);
+    virtual ~DevfsIoctlFileDescriptor(void) = default;
+
+    virtual int ioctl(int cmd, void* buffer, size_t size) override;
+
+private:
+    DevFileSystem& _devfs;
 };
 
 #endif //cplusplus

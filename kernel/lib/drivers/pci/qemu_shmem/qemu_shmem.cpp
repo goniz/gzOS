@@ -5,6 +5,7 @@
 #include <platform/clock.h>
 #include <lib/kernel/vfs/DevFileSystem.h>
 #include <platform/drivers.h>
+#include <lib/kernel/vfs/VirtualFileSystem.h>
 
 DECLARE_PCI_DRIVER(PCI_VENDOR_ID_REDHAT_QUMRANET, PCI_DEVICE_ID_VIRTIO_SHARED_MEMORY, qemu_shmem, qemu_shmem_pci_probe);
 static std::vector<qemu_shmem_drv> __shmem_devices;
@@ -95,15 +96,18 @@ uint32_t qemu_shmem_drv::readReg(QEMUSharedMemoryRegs reg) {
 
 static int dev_shmem_init(void)
 {
-    auto* devFs = dynamic_cast<DevFileSystem*>(VirtualFileSystem::instance().getFilesystem("/dev"));
-    if (!devFs) {
+    auto fd = VirtualFileSystem::instance().open("/dev", O_WRONLY);
+    if (!fd) {
         return 1;
     }
 
-    devFs->registerDevice("shmem", []() {
+    DevFileSystem::IoctlRegisterDevice cmdbuf;
+    cmdbuf.deviceName = "shmem";
+    cmdbuf.fdFactory = []() {
         return std::unique_ptr<FileDescriptor>(new ShmemFileDescriptor());
-    });
-    return 0;
+    };
+
+    return fd->ioctl((int)DevFileSystem::IoctlCommands::RegisterDevice, &cmdbuf, sizeof(cmdbuf));
 }
 
 DECLARE_DRIVER(dev_shmem, dev_shmem_init, STAGE_SECOND + 1);
