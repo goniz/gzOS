@@ -21,7 +21,7 @@ DEFINE_SYSCALL(BIND, bind, SYS_IRQ_DISABLED) {
     return sockFd->bind(*address);
 }
 
-DEFINE_SYSCALL(CONNECT, connect, SYS_IRQ_DISABLED) {
+DEFINE_SYSCALL(CONNECT, connect, SYS_IRQ_ENABLED) {
     SYSCALL_ARG(int, fd);
     SYSCALL_ARG(const SocketAddress*, address);
 

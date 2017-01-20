@@ -29,4 +29,5 @@ add_library(cstubs STATIC
         libc/endian.h
         libc/mount.c
         libc/mount.h
+        libc/connect.c
         libc/readdir.c libc/readdir.h libc/traceme.c libc/traceme.h libc/exec.c)

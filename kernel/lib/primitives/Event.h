@@ -11,6 +11,7 @@ public:
 
     void wait(void);
     void raise(void);
+    void reset(void);
 };
 
 #endif //GZOS_EVENT_H

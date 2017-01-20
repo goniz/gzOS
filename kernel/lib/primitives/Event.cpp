@@ -7,3 +7,7 @@ void Event::wait(void) {
 void Event::raise(void) {
     this->notifyAll();
 }
+
+void Event::reset(void) {
+    this->notifyAll();
+}

@@ -64,6 +64,9 @@ int socket(int __domain, int __type, int __protocol);
 /* Give the socket FD the local address ADDR (which is LEN bytes long).  */
 int bind(int __fd, const sockaddr_t*__addr, size_t __len);
 
+/* connect to remote endpoint */
+int connect(int fd, const sockaddr_t* addr);
+
 /* Send N bytes of BUF to socket FD.  Returns the number sent or -1.
 
    This function is a cancellation point and therefore not marked with

@@ -40,14 +40,18 @@ void Suspendable::wait(void)
 
 void Suspendable::notifyOne(void)
 {
-    lock_guard<InterruptsMutex> guard(m_mutex);
+    pid_t pid;
 
-    if (m_waitingPids.empty()) {
-        return;;
+    {
+        lock_guard<InterruptsMutex> guard(m_mutex);
+
+        if (m_waitingPids.empty()) {
+            return;;
+        }
+
+        pid = m_waitingPids.back();
+        m_waitingPids.pop_back();
     }
-
-    pid_t pid = m_waitingPids.back();
-    m_waitingPids.pop_back();
 
     scheduler_resume(pid);
 }

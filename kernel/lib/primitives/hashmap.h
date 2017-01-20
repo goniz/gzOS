@@ -100,7 +100,7 @@ template<typename TKey, typename TValue>
 class HashMap
 {
 public:
-    static constexpr int MAX_KEY_SIZE = 16;
+    static constexpr int MAX_KEY_SIZE = 32;
     HashMap(void) {
         _map = hashmap_new();
     }

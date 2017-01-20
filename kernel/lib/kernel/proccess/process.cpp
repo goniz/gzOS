@@ -164,8 +164,6 @@ void Process::createArgsRegion() {
         panic("failed to allocate argv region for %d (%s)", _pid, _name);
     }
 
-    kprintf("[process] user args ptr: %p\n", user_argv);
-
     _memoryMap.runInScope([this, user_argv, argv_table_size]() {
         char** argv_table = (char**) (user_argv);
         char* argv_data_pos = (user_argv + argv_table_size);
@@ -173,7 +171,6 @@ void Process::createArgsRegion() {
 
         for (index = 0; index < this->_arguments.size(); index++) {
             const auto& arg = this->_arguments[index];
-            kprintf("arg: %s %d\n", arg.c_str(), arg.size());
             argv_table[index] = argv_data_pos;
 
             strcpy(argv_data_pos, arg.c_str());
@@ -185,5 +182,4 @@ void Process::createArgsRegion() {
     });
 
     this->_userArgv = user_argv;
-    kprintf("[process] user args ptr: %p\n", this->_userArgv);
 }
