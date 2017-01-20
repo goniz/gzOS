@@ -21,6 +21,7 @@
  * Process virtual address space:
  *
  *   stack  0x70000000 - 0x70a00000 (10MB)  User virtual memory, TLB mapped (useg)
+ *   args   0x70b00000 - 0x70b01000 (4kb) User virtual memory, TLB mapped (useg)
  */
 
 class Scheduler;
@@ -35,7 +36,7 @@ class Process
 public:
     Process(const char* name,
             ElfLoader& elfLoader,
-            std::vector<const char*>&& arguments);
+            std::vector<std::string>&& arguments);
 
     ~Process(void);
 
@@ -51,6 +52,7 @@ public:
     bool extendHeap(uintptr_t endAddr);
 
     const char* name(void) const;
+    const std::vector<std::string>& arguments(void) const;
     int exit_code(void) const;
     int state(void) const;
     uint64_t cpu_time(void) const;
@@ -67,22 +69,25 @@ public:
     }
 
 private:
-    Process(const char* name, std::vector<const char*>&& arguments, bool initializeFds = true);
-
     static void switchProcess(Process& newProc);
+
+    Process(const char* name, std::vector<std::string>&& arguments, bool initializeFds = true);
+    void createStackRegion();
+    void createArgsRegion();
 
     char _name[64];
     const pid_t _pid;
     enum State _state;
     int _exitCode;
     Thread::EntryPointFunction _entryPoint;
-    std::vector<const char*> _arguments;
+    std::vector<std::string> _arguments;
     std::atomic<int> _pending_signal_nr;
     ProcessMemoryMap _memoryMap;
     FileDescriptorCollection _fileDescriptors;
     std::vector<std::unique_ptr<Thread>>   _threads;
     struct _reent _reent;
     bool _traceme;
+    void* _userArgv;
 };
 
 #endif

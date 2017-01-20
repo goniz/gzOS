@@ -69,7 +69,6 @@ Thread::~Thread(void) {
     assert(NULL != stackRegion);
 
     stackRegion->free(_stackHead);
-    _stackHead = NULL;
 
     if (_kernelStackPage) {
         pm_free(_kernelStackPage);

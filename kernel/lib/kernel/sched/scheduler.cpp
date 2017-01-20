@@ -51,7 +51,8 @@ Scheduler::Scheduler(void)
           _kernelProc(new Process("Kernel", {}, false)),
           _idleThread(nullptr),
           _processList(),
-          _mutex() {
+          _mutex()
+{
     _processList.reserve(SCHED_INITIAL_PROC_SIZE);
     _timers.reserve(SCHED_INITIAL_TIMERS_SIZE);
 
@@ -129,9 +130,9 @@ struct user_regs *Scheduler::onTickTimer(void *argument, struct user_regs *regs)
     return self->schedule(regs);
 }
 
-Process *Scheduler::createProcess(const char *name,
-                                  const void *buffer, size_t size,
-                                  std::vector<const char *> &&arguments,
+Process *Scheduler::createProcess(const char* name,
+                                  const void* buffer, size_t size,
+                                  std::vector<std::string>&& arguments,
                                   size_t stackSize) {
     ElfLoader loader(buffer, size);
     if (!loader.sanityCheck()) {
@@ -139,7 +140,11 @@ Process *Scheduler::createProcess(const char *name,
     }
 
     auto process = std::make_unique<Process>(name, loader, std::move(arguments));
-    auto mainThread = this->createThread(*process, "main", process->_entryPoint, NULL, stackSize);
+    if (!process) {
+        return nullptr;
+    }
+
+    auto mainThread = this->createThread(*process, "main", process->_entryPoint, process->_userArgv, stackSize);
     if (!mainThread) {
         return nullptr;
     }
@@ -294,12 +299,11 @@ void Scheduler::handleSignal(Thread *thread) {
 }
 
 bool Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb, void *arg) {
-    InterruptsMutex mutex;
-    mutex.lock();
-
-    uint64_t now = clock_get_ms();
-    _timers.push_back({(uint64_t) timeout_ms, now + timeout_ms, cb, arg});
-    return true;
+    InterruptsMutex mutex(true); {
+        uint64_t now = clock_get_ms();
+        _timers.push_back({(uint64_t) timeout_ms, now + timeout_ms, cb, arg});
+        return true;
+    }
 }
 
 void Scheduler::doTimers(void) {
@@ -326,8 +330,7 @@ void Scheduler::doTimers(void) {
 }
 
 void Scheduler::sleep(pid_t pid, int ms) {
-    InterruptsMutex mutex;
-    mutex.lock();
+    InterruptsMutex mutex(true);
 
     if (PID_CURRENT == pid) {
         pid = this->getCurrentTid();
@@ -339,23 +342,18 @@ void Scheduler::sleep(pid_t pid, int ms) {
     }, (void *) pid);
 
     this->signalPid(pid, SIG_STOP);
-    mutex.unlock();
 }
 
 void Scheduler::suspend(pid_t pid) {
-    InterruptsMutex mutex;
+    InterruptsMutex mutex(true);
 
-    mutex.lock();
     this->signalPid(pid, SIG_STOP);
-    mutex.unlock();
 }
 
 void Scheduler::resume(pid_t pid) {
-    InterruptsMutex mutex;
+    InterruptsMutex mutex(true);
 
-    mutex.lock();
     this->signalPid(pid, SIG_CONT);
-    mutex.unlock();
 }
 
 int Scheduler::syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args) {

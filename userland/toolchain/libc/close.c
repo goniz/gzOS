@@ -1,7 +1,7 @@
 #include <errno.h>
+#include <syscall.h>
 
 int close(int file)
 {
-    errno = -ENOENT;
-    return -1;
+    syscall(SYS_NR_CLOSE, file);
 }

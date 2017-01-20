@@ -21,7 +21,12 @@ DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
         return -1;
     }
 
-    std::vector<const char*> arguments(argv, argv + argc);
+    std::vector<std::string> arguments;
+    arguments.reserve(argc);
+    for (int i = 0; i < argc; i++) {
+        arguments.emplace_back(argv[i]);
+    }
+
     Process* newProc = Scheduler::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 8192);
     if (NULL == newProc) {
         return -1;
@@ -77,7 +82,12 @@ DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
 
     vfs_close(fd);
 
-    std::vector<const char*> arguments(argv, argv + argc);
+    std::vector<std::string> arguments;
+    arguments.reserve(argc);
+    for (int i = 0; i < argc; i++) {
+        arguments.emplace_back(argv[i]);
+    }
+
     Process* newProc = Scheduler::instance().createProcess(filename, buffer.get(), size, std::move(arguments), 8192);
     if (!newProc) {
         return -1;

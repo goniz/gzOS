@@ -1,6 +1,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 
 extern int __init_array_start;
 extern int __init_array_end;
@@ -30,11 +31,19 @@ static void invoke_constructors(void)
 
 void _start(void* argument)
 {
-    const char* argv[] = {};
+
+    int argc = 0;
+    const char** argv = argument;
+    const char** pos = argument;
+    while (NULL != *pos++) {
+        argc++;
+    }
 
     clear_bss();
     invoke_constructors();
 
-    exit(main(0, argv));
+    int exitcode = main(argc, argv);
+
+    exit(exitcode);
     while(1);
 }

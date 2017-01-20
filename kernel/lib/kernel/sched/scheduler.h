@@ -40,9 +40,9 @@ public:
     Scheduler(void);
 
     Process* createProcess(const char* name,
-                        const void* buffer, size_t size,
-                        std::vector<const char*>&& arguments,
-                        size_t stackSize);
+                           const void* buffer, size_t size,
+                           std::vector<std::string>&& arguments,
+                           size_t stackSize);
 
     Thread* createThread(Process& process,
                        const char* name,
@@ -139,7 +139,7 @@ typedef enum {
     TIMER_KEEP_GOING = 1
 } timeout_callback_ret;
 
-typedef timeout_callback_ret (*timeout_callback_t)(void* arg);
+typedef timeout_callback_ret (*timeout_callback_t)(void* scheduler, void* arg);
 int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg);
 
 void scheduler_sleep(int timeout_ms);

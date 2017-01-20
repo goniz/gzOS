@@ -11,7 +11,7 @@ static IdAllocator gPidAllocator(PID_PROCESS_START, PID_PROCESS_END);
 
 Process::Process(const char* name,
                  ElfLoader& elfLoader,
-                 std::vector<const char*>&& arguments)
+                 std::vector<std::string>&& arguments)
         : Process(name, std::move(arguments))
 {
     if (!elfLoader.loadSections(_memoryMap)) {
@@ -23,14 +23,18 @@ Process::Process(const char* name,
         panic("%s (%d): failed to obtain end address", _name, _pid);
     }
 
-    if (!_memoryMap.createMemoryRegion("heap", endAddr, endAddr + PAGESIZE, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE), true)) {
+    if (!_memoryMap.createMemoryRegion("heap",
+                                       endAddr, endAddr + PAGESIZE,
+                                       (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE),
+                                       true))
+    {
         panic("%s (%d): failed to create heap region", _name, _pid);
     }
 
     _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
 }
 
-Process::Process(const char *name, std::vector<const char*>&& arguments, bool initializeFds)
+Process::Process(const char* name, std::vector<std::string>&& arguments, bool initializeFds)
         : _pid(gPidAllocator.allocate()),
           _state(Process::State::READY),
           _exitCode(0),
@@ -38,14 +42,14 @@ Process::Process(const char *name, std::vector<const char*>&& arguments, bool in
           _arguments(std::move(arguments)),
           _pending_signal_nr((int)SIG_NONE),
           _memoryMap((asid_t) this->pid()),
-          _traceme(false)
+          _traceme(false),
+          _userArgv(nullptr)
 {
     assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
 
-    if (!_memoryMap.createMemoryRegion("stack", 0x70000000, 0x70a00000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
-        panic("failed to create stack region for %d (%s)", _pid, _name);
-    }
+    this->createStackRegion();
+    this->createArgsRegion();
 
     _REENT_INIT_PTR(&_reent);
 
@@ -130,6 +134,56 @@ bool Process::traceme(void) {
     return _traceme;
 }
 
+const std::vector<std::string>& Process::arguments(void) const {
+    return _arguments;
+}
 
+void Process::createStackRegion() {
+    if (!_memoryMap.createMemoryRegion("stack", 0x70000000, 0x70a00000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
+        panic("failed to create stack region for %d (%s)", _pid, _name);
+    }
+}
 
+void Process::createArgsRegion() {
+    auto* argsRegion = _memoryMap.createMemoryRegion("args",
+                                                     0x70b00000, 0x70b01000,
+                                                     (vm_prot_t) (VM_PROT_READ | VM_PROT_WRITE));
+    if (!argsRegion) {
+        panic("failed to create args region for %d (%s)", _pid, _name);
+    }
 
+    auto argv_elements = _arguments.size() + 1; // for null ptr at the end
+    auto argv_table_size = (sizeof(const char*) * argv_elements);
+    int argv_size = argv_table_size;
+    for (const auto& arg : _arguments) {
+        argv_size += arg.size() + 1; // plus null
+    }
+
+    char* user_argv = (char*) argsRegion->allocate(argv_size);
+    if (!user_argv) {
+        panic("failed to allocate argv region for %d (%s)", _pid, _name);
+    }
+
+    kprintf("[process] user args ptr: %p\n", user_argv);
+
+    _memoryMap.runInScope([this, user_argv, argv_table_size]() {
+        char** argv_table = (char**) (user_argv);
+        char* argv_data_pos = (user_argv + argv_table_size);
+        size_t index;
+
+        for (index = 0; index < this->_arguments.size(); index++) {
+            const auto& arg = this->_arguments[index];
+            kprintf("arg: %s %d\n", arg.c_str(), arg.size());
+            argv_table[index] = argv_data_pos;
+
+            strcpy(argv_data_pos, arg.c_str());
+            argv_data_pos += arg.size();
+            argv_data_pos += 1; // for the null
+        }
+
+        argv_table[index] = nullptr;
+    });
+
+    this->_userArgv = user_argv;
+    kprintf("[process] user args ptr: %p\n", this->_userArgv);
+}
