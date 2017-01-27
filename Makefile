@@ -24,4 +24,4 @@ rootfs:
 qemu: compile
 qemu: rootfs
 qemu:
-	./scripts/run_qemu_gzos.sh
+	sudo ./scripts/run_qemu_gzos.sh

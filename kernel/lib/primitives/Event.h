@@ -2,16 +2,20 @@
 #define GZOS_EVENT_H
 
 #include "Suspendable.h"
+#include <atomic>
 
 class Event : private Suspendable
 {
 public:
-    Event(void) = default;
+    Event(void);
     virtual ~Event(void) = default;
 
     void wait(void);
     void raise(void);
     void reset(void);
+
+private:
+    std::atomic_bool _flag;
 };
 
 #endif //GZOS_EVENT_H

@@ -20,25 +20,24 @@ Suspendable::~Suspendable(void)
     // TODO: this is shit, replace this with a proper cleanup
     // make sure that processes that are still waiting will exit nicely
     // instead of returning from suspended state into an garbage object
-    this->notifyAll();
+    this->notifyAll(0);
 }
 
-void Suspendable::wait(void)
+uintptr_t Suspendable::wait(void)
 {
     pid_t currentTid = gettid();
 
     {
         lock_guard<InterruptsMutex> guard(m_mutex);
         if (m_waitingPids.end() == std::find(m_waitingPids.begin(), m_waitingPids.end(), currentTid)) {
-
             m_waitingPids.push_back(currentTid);
         }
     }
 
-    kill(currentTid, SIG_STOP);
+    return kill(currentTid, SIG_STOP);
 }
 
-void Suspendable::notifyOne(void)
+void Suspendable::notifyOne(uintptr_t value)
 {
     pid_t pid;
 
@@ -46,22 +45,22 @@ void Suspendable::notifyOne(void)
         lock_guard<InterruptsMutex> guard(m_mutex);
 
         if (m_waitingPids.empty()) {
-            return;;
+            return;
         }
 
         pid = m_waitingPids.back();
         m_waitingPids.pop_back();
     }
 
-    scheduler_resume(pid);
+    Scheduler::instance().resume(pid, value);
 }
 
-void Suspendable::notifyAll(void)
+void Suspendable::notifyAll(uintptr_t value)
 {
     lock_guard<InterruptsMutex> guard(m_mutex);
 
     for (pid_t pid : m_waitingPids) {
-        scheduler_resume(pid);
+        Scheduler::instance().resume(pid, value);
     }
 
     m_waitingPids.clear();

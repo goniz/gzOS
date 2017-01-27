@@ -114,7 +114,7 @@ DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
     auto proc = instance.CurrentProcess();
     assert(proc);
 
-    if (!instance.signalPid(PID_CURRENT, SIG_KILL)) {
+    if (!instance.signalPid(PID_CURRENT, SIG_KILL, 0)) {
         return -1;
     }
 
@@ -167,8 +167,9 @@ DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(pid_t, pid);
     SYSCALL_ARG(int, signal_nr);
+    SYSCALL_ARG(uintptr_t, value);
 
-    if (!Scheduler::instance().signalPid(pid, signal_nr)) {
+    if (!Scheduler::instance().signalPid(pid, signal_nr, value)) {
         return -1;
     }
 

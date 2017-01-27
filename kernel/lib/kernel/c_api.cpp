@@ -12,10 +12,10 @@ void scheduler_run_main(init_main_t init_main, void* argument)
     clock_set_handler(Scheduler::onTickTimer, &Scheduler::instance());
 }
 
-int scheduler_signal_process(pid_t pid, int signal) {
+int scheduler_signal_process(pid_t pid, int signal, uintptr_t value) {
     InterruptsMutex mutex;
     mutex.lock();
-    return Scheduler::instance().signalPid(pid, signal);
+    return Scheduler::instance().signalPid(pid, signal, value);
 }
 
 int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {
@@ -30,8 +30,8 @@ void scheduler_suspend(void) {
     Scheduler::instance().suspend(PID_CURRENT);
 }
 
-void scheduler_resume(pid_t pid) {
-    Scheduler::instance().resume(pid);
+void scheduler_resume(pid_t pid, uintptr_t value) {
+    Scheduler::instance().resume(pid, value);
 }
 
 pid_t scheduler_current_pid(void)

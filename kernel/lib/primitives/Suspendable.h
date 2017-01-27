@@ -13,9 +13,9 @@ public:
     Suspendable& operator=(const Suspendable& rhs) = delete;
     virtual ~Suspendable(void);
 
-    void wait(void);
-    void notifyOne(void);
-    void notifyAll(void);
+    uintptr_t wait(void);
+    void notifyOne(uintptr_t value);
+    void notifyAll(uintptr_t value);
 
 private:
     InterruptsMutex      m_mutex;

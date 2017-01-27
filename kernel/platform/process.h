@@ -20,6 +20,8 @@ int platform_is_in_userspace_range(uintptr_t start, uintptr_t end);
 
 void platform_set_active_thread(platform_thread_cb* cb);
 
+void platform_thread_set_return_value(platform_thread_cb* cb, uintptr_t return_value);
+
 struct user_regs* platform_initialize_stack(void* stack, size_t stack_size,
                                             void* user_stack,
                                             void* entryPoint, void* argument,

@@ -2,7 +2,8 @@
 
 BasicTimer::BasicTimer(int intervalInMs, void* userdata)
         : _intervalInMs(intervalInMs),
-          _userdata(userdata)
+          _userdata(userdata),
+          _keep_running(false)
 {
 
 }

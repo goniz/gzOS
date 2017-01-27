@@ -40,6 +40,13 @@ void platform_set_active_thread(platform_thread_cb* cb) {
     _thread_cb_pointer = cb;
 }
 
+void platform_thread_set_return_value(platform_thread_cb* cb, uintptr_t return_value) {
+    assert(NULL != cb);
+    assert(NULL != cb->stack_pointer);
+
+    cb->stack_pointer->v0 = return_value;
+}
+
 int platform_is_in_userspace_range(uintptr_t start, uintptr_t end) {
     if (start >= 0 && end <= MIPS_KSEG0_START) {
         return 1;

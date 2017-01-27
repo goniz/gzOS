@@ -29,6 +29,7 @@ public:
     using reference = typename std::vector<T>::reference;
     using const_reference = typename std::vector<T>::const_reference;
 
+    basic_queue() = default;
     basic_queue(size_t capacity)
     {
         _data.reserve(capacity);
@@ -52,7 +53,7 @@ public:
             _data.push_back(value);
         }
 
-        this->notifyOne();
+        this->notifyOne(0);
         return true;
     }
 
@@ -62,7 +63,7 @@ public:
             _data.insert(_data.begin(), value);
         }
 
-        this->notifyOne();
+        this->notifyOne(0);
     }
 
     inline bool push(T&& value, bool wait = false) {
@@ -83,7 +84,7 @@ public:
             _data.push_back(std::move(value));
         }
 
-        this->notifyOne();
+        this->notifyOne(0);
         return true;
     }
 
@@ -104,6 +105,10 @@ public:
         out = _data.front();
         _data.erase(_data.begin());
         return true;
+    }
+
+    void reserve(size_t size) {
+        _data.reserve(size);
     }
 
     inline size_t capacity(void) const  {

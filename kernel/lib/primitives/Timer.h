@@ -21,7 +21,7 @@ private:
 
     int _intervalInMs;
     void* _userdata;
-    bool _keep_running = false;
+    std::atomic_bool _keep_running;
 };
 
 template<typename T>

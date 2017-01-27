@@ -195,17 +195,17 @@ struct user_regs *Scheduler::yield(struct user_regs *regs) {
     return this->schedule(regs);
 }
 
-bool Scheduler::signalPid(pid_t pid, int signal) {
+bool Scheduler::signalPid(pid_t pid, int signal, uintptr_t value) {
     if (PID_CURRENT == pid) {
         pid = getCurrentPid();
     }
 
     switch (pid) {
         case PID_PROCESS_START ... PID_PROCESS_END:
-            return this->signalProcessPid(pid, signal);
+            return this->signalProcessPid(pid, signal, value);
 
         case PID_THREAD_START ... PID_THREAD_END:
-            return this->signalThreadPid(pid, signal);
+            return this->signalThreadPid(pid, signal, value);
 
         default:
             return false;
@@ -337,23 +337,23 @@ void Scheduler::sleep(pid_t pid, int ms) {
     }
 
     this->setTimeout(ms, [](Scheduler *self, void *arg) {
-        self->signalPid((pid_t) arg, SIG_CONT);
+        self->signalPid((pid_t) arg, SIG_CONT, 0);
         return false;
     }, (void *) pid);
 
-    this->signalPid(pid, SIG_STOP);
+    this->signalPid(pid, SIG_STOP, 0);
 }
 
 void Scheduler::suspend(pid_t pid) {
     InterruptsMutex mutex(true);
 
-    this->signalPid(pid, SIG_STOP);
+    this->signalPid(pid, SIG_STOP, 0);
 }
 
-void Scheduler::resume(pid_t pid) {
+void Scheduler::resume(pid_t pid, uintptr_t value) {
     InterruptsMutex mutex(true);
 
-    this->signalPid(pid, SIG_CONT);
+    this->signalPid(pid, SIG_CONT, value);
 }
 
 int Scheduler::syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args) {
@@ -434,16 +434,16 @@ int Scheduler::handleIRQEnabledSyscall(struct user_regs **regs, const kernel_sys
     return ret;
 }
 
-bool Scheduler::signalThreadPid(pid_t pid, int signal) {
+bool Scheduler::signalThreadPid(pid_t pid, int signal, uintptr_t value) {
     Thread *thread = this->getThreadByTid(pid);
     if (!thread) {
         return false;
     }
 
-    return this->signalThread(thread, signal);
+    return this->signalThread(thread, signal, value);
 }
 
-bool Scheduler::signalThread(Thread *thread, int signal) {
+bool Scheduler::signalThread(Thread* thread, int signal, uintptr_t value) {
     bool ret;
     InterruptsMutex mutex;
 
@@ -470,6 +470,7 @@ bool Scheduler::signalThread(Thread *thread, int signal) {
             mutex.lock();
             thread->_quantum = thread->_resetQuantum;
             thread->_state = Thread::State::READY;
+            platform_thread_set_return_value(&thread->_platformThreadCb, value);
 
             if (thread->_responsive) {
                 if (_currentThread) {
@@ -512,7 +513,7 @@ bool Scheduler::signalThread(Thread *thread, int signal) {
     return ret;
 }
 
-bool Scheduler::signalProcessPid(pid_t pid, int signal) {
+bool Scheduler::signalProcessPid(pid_t pid, int signal, uintptr_t value) {
     Process *proc = this->getProcessByPid(pid);
     if (!proc) {
         return false;
@@ -522,7 +523,7 @@ bool Scheduler::signalProcessPid(pid_t pid, int signal) {
     for (auto &thread : proc->threads()) {
         auto preemptionDisallowed = true;
         std::swap(thread->_preemptionContext.preemptionDisallowed, preemptionDisallowed);
-        this->signalThread(thread.get(), signal);
+        this->signalThread(thread.get(), signal, value);
         std::swap(thread->_preemptionContext.preemptionDisallowed, preemptionDisallowed);
     }
 

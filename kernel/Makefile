@@ -8,7 +8,7 @@ build:
 	mkdir -p build
 
 malta: build
-	cd build && cmake -DCMAKE_TOOLCHAIN_FILE=../platform/malta/toolchain.cmake ../
+	cd build && cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_TOOLCHAIN_FILE=../platform/malta/toolchain.cmake ../
 
 clean:
 	rm -rf build

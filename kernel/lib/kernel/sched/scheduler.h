@@ -60,7 +60,7 @@ public:
     pid_t getCurrentPid(void) const;
     pid_t getCurrentTid(void) const;
 
-    bool signalPid(pid_t pid, int signal);
+    bool signalPid(pid_t pid, int signal, uintptr_t value);
     bool setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
     void sleep(pid_t pid, int ms);
 
@@ -75,7 +75,7 @@ public:
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
     void suspend(pid_t pid);
-    void resume(pid_t pid);
+    void resume(pid_t pid, uintptr_t value);
 
     static Scheduler& instance(void);
     static bool isProcessPid(pid_t pid) {
@@ -88,9 +88,12 @@ public:
 
 private:
     Thread* andTheWinnerIs(void);
-    bool signalThreadPid(pid_t pid, int signal);
-    bool signalThread(Thread* thread, int signal);
-    bool signalProcessPid(pid_t pid, int signal);
+
+    bool signalThreadPid(pid_t pid, int signal, uintptr_t value);
+
+    bool signalThread(Thread* thread, int signal, uintptr_t value);
+
+    bool signalProcessPid(pid_t pid, int signal, uintptr_t value);
     void handleSignal(Thread* thread);
     void doTimers(void);
     int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
@@ -144,10 +147,10 @@ int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg
 
 void scheduler_sleep(int timeout_ms);
 void scheduler_suspend(void);
-void scheduler_resume(pid_t pid);
+void scheduler_resume(pid_t pid, uintptr_t value);
 
 pid_t scheduler_current_pid(void);
-int scheduler_signal_process(pid_t pid, int signal);
+int scheduler_signal_process(pid_t pid, int signal, uintptr_t value);
 
 pid_t gettid(void);
 
