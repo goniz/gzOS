@@ -268,6 +268,14 @@ DEFINE_SYSCALL(LSEEK, lseek, SYS_IRQ_DISABLED)
     return vfs_seek(fd, offset, whence);
 }
 
+DEFINE_SYSCALL(DUP, dup, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, old_fd);
+    SYSCALL_ARG(int, new_fd);
+
+    return vfs_dup(old_fd, new_fd);
+}
+
 DEFINE_SYSCALL(MOUNT, mount, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const char*, fstype);

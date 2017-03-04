@@ -25,3 +25,14 @@ qemu: compile
 qemu: rootfs
 qemu:
 	sudo ./scripts/run_qemu_gzos.sh
+
+debug: compile
+debug: rootfs
+debug:
+	sudo ./scripts/run_qemu_gzos.sh -S
+
+gdb:
+	TERM=xterm mips-mti-elf-gdb kernel/build/gzOS.elf
+
+objdump:
+	mips-mti-elf-objdump -Cd kernel/build/gzOS.elf | less

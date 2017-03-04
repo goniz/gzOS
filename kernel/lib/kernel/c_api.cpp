@@ -18,8 +18,12 @@ int scheduler_signal_process(pid_t pid, int signal, uintptr_t value) {
     return Scheduler::instance().signalPid(pid, signal, value);
 }
 
-int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {
+uint32_t scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {
     return Scheduler::instance().setTimeout(timeout_ms, (Scheduler::TimeoutCallbackFunc) callback, arg);
+}
+
+void scheduler_unset_timeout(uint32_t timeoutId) {
+    Scheduler::instance().unsetTimeout(timeoutId);
 }
 
 void scheduler_sleep(int timeout_ms) {

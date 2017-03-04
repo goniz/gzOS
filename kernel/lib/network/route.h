@@ -1,8 +1,8 @@
 #ifndef GZOS_ROUTE_H
 #define GZOS_ROUTE_H
 
-#include "ip.h"
-#include "interface.h"
+#include "lib/network/ip/ip.h"
+#include "lib/network/interface.h"
 
 #ifdef __cplusplus
 extern "C" {

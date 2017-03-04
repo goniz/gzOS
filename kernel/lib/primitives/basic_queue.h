@@ -35,7 +35,7 @@ public:
         _data.reserve(capacity);
     }
 
-    inline bool push(const T& value, bool wait = false) {
+    bool push(const T& value, bool wait = false) {
         // if wait = true and full, then just wait
         if (this->full() && wait) {
             this->wait();
@@ -57,7 +57,7 @@ public:
         return true;
     }
 
-    inline void push_head(const T& value) {
+    void push_head(const T& value) {
         {
             lock_guard<InterruptsMutex> guard(_mutex);
             _data.insert(_data.begin(), value);
@@ -66,7 +66,7 @@ public:
         this->notifyOne(0);
     }
 
-    inline bool push(T&& value, bool wait = false) {
+    bool push(T&& value, bool wait = false) {
         // if wait = true and full, then just wait
         if (this->full() && wait) {
             this->wait();
@@ -88,7 +88,7 @@ public:
         return true;
     }
 
-    inline bool pop(T& out, bool wait = false) {
+    bool pop(T& out, bool wait = false) {
         // if wait = true and empty, then just wait
         if (this->empty() && wait) {
             this->wait();
@@ -104,6 +104,22 @@ public:
         lock_guard<InterruptsMutex> guard(_mutex);
         out = _data.front();
         _data.erase(_data.begin());
+        return true;
+    }
+
+    bool peek(T& out, bool wait = false) {
+        _mutex.lock();
+        if (this->empty() && wait) {
+            _mutex.unlock();
+            this->wait();
+        }
+
+        if (this->empty()) {
+            return false;
+        }
+
+        out = _data.front();
+        _mutex.unlock();
         return true;
     }
 

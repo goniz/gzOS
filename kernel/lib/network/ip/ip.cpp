@@ -6,16 +6,14 @@
 #include <vector>
 #include <lib/primitives/basic_queue.h>
 #include <algorithm>
-#include "ethernet.h"
-#include "ip.h"
-#include "checksum.h"
-#include "route.h"
-#include "arp.h"
-#include "icmp.h"
-#include "udp.h"
-#include "socket.h"
-#include "ip_raw.h"
-#include "interface.h"
+#include <lib/network/tcp/tcp.h>
+#include "lib/network/checksum.h"
+#include "lib/network/route.h"
+#include "lib/network/arp/arp.h"
+#include "lib/network/icmp/icmp.h"
+#include "lib/network/udp/udp.h"
+#include "lib/network/socket.h"
+#include "lib/network/ip/ip_raw.h"
 
 static int ip_layer_init(void);
 static void ip_handler(void* user_ctx, NetworkBuffer* incomingPacket);
@@ -84,15 +82,21 @@ int ip_input(NetworkBuffer *incomingPacket)
         goto error;
     }
 
+    // TODO: implement register_protocol() interface
     switch (iphdr->proto)
     {
         case IPPROTO_ICMP:
             icmp_input(incomingPacket);
             break;
 
+        case IPPROTO_TCP:
+            tcp_input(incomingPacket);
+            break;
+
         case IPPROTO_UDP:
             udp_input(incomingPacket);
             break;
+
 
         default:
             goto error;
@@ -175,7 +179,7 @@ int ip_output(NetworkBuffer* packet)
 {
     iphdr_t* iphdr = ip_hdr(packet);
     iphdr->csum = 0;
-    iphdr->csum = ip_fast_csum(iphdr, iphdr->ihl);
+    iphdr->csum = checksum(iphdr, iphdr->ihl * 4, 0);
 
     NetworkBuffer* arpContextNbuf = nbuf_alloc(sizeof(ArpResolveContext));
     if (!arpContextNbuf) {
@@ -229,7 +233,7 @@ static bool ip_is_valid(iphdr_t* iphdr) {
     uint16_t orig_csum = iphdr->csum;
     iphdr->csum = 0;
 
-    uint16_t new_csum = ip_fast_csum(iphdr, iphdr->ihl);
+    uint16_t new_csum = checksum(iphdr, iphdr->ihl * 4, 0);
     iphdr->csum = orig_csum;
 
     if (orig_csum != new_csum) {

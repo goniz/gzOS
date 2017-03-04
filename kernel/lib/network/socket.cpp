@@ -1,7 +1,7 @@
 #include <lib/kernel/sched/scheduler.h>
 #include <lib/primitives/hashmap.h>
 #include <lib/kernel/vfs/vfs_api.h>
-#include "socket.h"
+#include "lib/network/socket.h"
 
 template<>
 struct StringKeyConverter<socket_triple_t> {

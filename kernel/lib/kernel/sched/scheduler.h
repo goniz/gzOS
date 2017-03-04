@@ -61,7 +61,11 @@ public:
     pid_t getCurrentTid(void) const;
 
     bool signalPid(pid_t pid, int signal, uintptr_t value);
-    bool setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
+
+    uint32_t setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
+
+    void unsetTimeout(uint32_t timerId);
+
     void sleep(pid_t pid, int ms);
 
     const std::vector<std::unique_ptr<Process>>& processList(void) const {
@@ -103,6 +107,7 @@ private:
     friend int ::sys_ps(struct user_regs **regs, va_list args);
 
     struct TimerControlBlock {
+        uint32_t id;
         uint64_t timeout_ms;
         uint64_t target_ms;
         TimeoutCallbackFunc callbackFunc;
@@ -112,6 +117,7 @@ private:
     Thread*                                 _currentThread;
     basic_queue<Thread*>                    _readyQueue;
     Process*                                _kernelProc;
+    Process*                                _timerProc;
     Thread*                                 _idleThread;
     std::vector<std::unique_ptr<Process>>   _processList;
     std::vector<struct TimerControlBlock>   _timers;
@@ -143,7 +149,8 @@ typedef enum {
 } timeout_callback_ret;
 
 typedef timeout_callback_ret (*timeout_callback_t)(void* scheduler, void* arg);
-int scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg);
+uint32_t scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg);
+void scheduler_unset_timeout(uint32_t timeoutId);
 
 void scheduler_sleep(int timeout_ms);
 void scheduler_suspend(void);

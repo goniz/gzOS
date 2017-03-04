@@ -2,15 +2,15 @@
 #define GZOS_CHECKSUM_H
 
 #include <stdint.h>
+#include "lib/network/nbuf.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-uint32_t csum_partial(const void *buff, int len, uint32_t wsum);
-uint16_t csum_partial_done(uint32_t csum);
-uint16_t ip_compute_csum(const void *buff, int len);
-uint16_t ip_fast_csum(const void *iph, unsigned int ihl);
+uint16_t checksum(const void * addr, int count, int start_sum);
+uint16_t udp_checksum(const NetworkBuffer* nbuf);
+uint16_t tcp_checksum(const NetworkBuffer* nbuf);
 
 #ifdef __cplusplus
 }

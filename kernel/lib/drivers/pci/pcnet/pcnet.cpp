@@ -8,7 +8,7 @@
 #include <malloc.h>
 #include <lib/primitives/align.h>
 #include <lib/network/nbuf.h>
-#include <lib/network/ethernet.h>
+#include <lib/network/ethernet/ethernet.h>
 #include <platform/malta/clock.h>
 #include "pcnet.h"
 

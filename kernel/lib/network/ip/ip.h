@@ -2,8 +2,9 @@
 #define GZOS_IP_H
 
 #include <stdint.h>
-#include "nbuf.h"
-#include "ethernet.h"
+#include "platform/cpu.h"
+#include "lib/network/nbuf.h"
+#include "lib/network/ethernet/ethernet.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -51,6 +52,10 @@ static inline iphdr_t* ip_hdr(const NetworkBuffer* nbuf) {
     assert(nbuf->l3_proto == ETH_P_IPv4);
     assert(NULL != nbuf->l3_offset);
     return (iphdr_t*)(nbuf->l3_offset);
+}
+
+static inline uint16_t ip_data_length(const iphdr_t* hdr) {
+    return (uint16_t)(ntohs(hdr->len) - (hdr->ihl * sizeof(uint32_t)));
 }
 
 #ifdef __cplusplus

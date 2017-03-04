@@ -393,6 +393,12 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
         panic("No virtual address space defined for %08lx!", vaddr);
     }
 
-    vm_page_fault(map, vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE);
+    uint32_t page_fault_prot = code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE;
+    if (!vm_page_fault(map, vaddr, page_fault_prot)) {
+        kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
+        vm_do_segfault(vaddr, page_fault_prot, VM_PROT_NONE);
+//        vm_do_segfault(fault_addr, fault_type, (vm_prot_t) (entry ? entry->prot : (uint32_t) -1));
+    }
+
     return regs;
 }

@@ -1,16 +1,15 @@
-#include <platform/drivers.h>
 #include <cstring>
-#include <lib/kernel/sched/scheduler.h>
+#include <platform/drivers.h>
 #include <platform/cpu.h>
-#include <lib/primitives/hashmap.h>
-#include "arp.h"
-#include "ethernet.h"
-#include "nbuf.h"
-#include "route.h"
-#include "interface.h"
+#include <lib/kernel/sched/scheduler.h>
+#include "lib/network/nbuf.h"
+#include "lib/network/ethernet/ethernet.h"
+#include "lib/network/arp/arp.h"
+#include "lib/network/interface.h"
+#include "lib/network/route.h"
 
 static int arp_layer_init(void);
-static timeout_callback_ret arp_timeout_callback(void* arg);
+static timeout_callback_ret arp_timeout_callback(void* scheduler, void* arg);
 static void arp_handler(void* user_ctx, NetworkBuffer* nbuf);
 static bool arp_is_valid(arp_t *arp);
 static int arp_handle_request(arp_t *arp, const char *inputDevice);
@@ -175,7 +174,7 @@ static bool arp_is_valid(arp_t* arp) {
     return true;
 }
 
-static timeout_callback_ret arp_timeout_callback(void* arg)
+static timeout_callback_ret arp_timeout_callback(void* scheduler, void* arg)
 {
     lock_guard<InterruptsMutex> guard(_mutex);
     _arp_cache.iterate([](any_t, char * key, any_t data) -> int {
@@ -257,18 +256,18 @@ int arp_get_hwaddr(IpAddress ipAddress, uint8_t *outputMac)
     return 0;
 }
 
-struct ArpResolveContext {
+struct ArpResolveInternalContext {
     IpAddress ipAddress;
     int rounds;
     arp_resolve_cb_t cb;
     void* ctx;
 };
 
-static timeout_callback_ret arp_resolve_callback(NetworkBuffer* arpContext)
+static timeout_callback_ret arp_resolve_callback(void* scheduler, NetworkBuffer* arpContext)
 {
     MacAddress mac{};
     int found = 0;
-    ArpResolveContext* ctx = (ArpResolveContext *) nbuf_data(arpContext);
+    ArpResolveInternalContext* ctx = (ArpResolveInternalContext*) nbuf_data(arpContext);
 
     if (0 == arp_get_hwaddr(ctx->ipAddress, mac)) {
         found = 1;
@@ -304,14 +303,14 @@ int arp_resolve(IpAddress ipAddress, arp_resolve_cb_t cb, void* ctx)
         return 0;
     }
 
-    NetworkBuffer* nbuf = nbuf_alloc(sizeof(ArpResolveContext));
+    NetworkBuffer* nbuf = nbuf_alloc(sizeof(ArpResolveInternalContext));
     if (!nbuf) {
         return -1;
     }
 
-    ArpResolveContext* arpContext = (ArpResolveContext *) nbuf_data(nbuf);
+    ArpResolveInternalContext* arpContext = (ArpResolveInternalContext*) nbuf_data(nbuf);
     arpContext->rounds = 10;
-    arpContext->ctx = arpContext;
+    arpContext->ctx = ctx;
     arpContext->cb = cb;
     arpContext->ipAddress = ipAddress;
 

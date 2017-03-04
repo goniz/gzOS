@@ -1,8 +1,8 @@
 #include <platform/drivers.h>
 #include <vector>
 #include <cstring>
-#include "ip.h"
-#include "route.h"
+#include "lib/network/ip/ip.h"
+#include "lib/network/route.h"
 
 static int ip_route_init(void);
 DECLARE_DRIVER(ip_route, ip_route_init, STAGE_FIRST);

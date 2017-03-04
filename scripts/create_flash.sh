@@ -15,7 +15,7 @@ part_userdata="${build_dir}/part_userdata"
 userdata_mnt="${build_dir}/mnt"
 dd if=/dev/zero of="$part_userdata" bs=1M count=3
 #mkfs.ext2 -L userdata -I 128 -r 0 "$part_userdata"
-mkfs.vfat -n userdata "$part_userdata"
+sudo mkfs.vfat -n userdata "$part_userdata"
 
 mkdir -p "${userdata_mnt}"
 sudo mount -o loop "$part_userdata" "$userdata_mnt"

@@ -1,14 +1,14 @@
-#include <platform/drivers.h>
-#include <lib/primitives/basic_queue.h>
-#include <lib/syscall/syscall.h>
 #include <cstdio>
 #include <algorithm>
 #include <cstring>
 #include <atomic>
 #include <cassert>
+#include <lib/primitives/basic_queue.h>
+#include <platform/drivers.h>
+#include <lib/syscall/syscall.h>
 #include <lib/kernel/sched/scheduler.h>
-#include "ethernet.h"
-#include "nbuf.h"
+#include "lib/network/nbuf.h"
+#include "lib/network/ethernet/ethernet.h"
 
 struct EthernetHandler {
     uint16_t ether_type;

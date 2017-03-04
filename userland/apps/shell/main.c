@@ -5,7 +5,11 @@
 #include <libc/readdir.h>
 #include <libc/traceme.h>
 #include <string.h>
+#include <stdint.h>
+#include <libc/socket.h>
+#include <libc/endian.h>
 
+static int handle_line(char* line);
 
 static int ls_main(int argc, char* argv[]) {
     struct DirEntry dirent;
@@ -39,7 +43,7 @@ static int ls_main(int argc, char* argv[]) {
     }
 
     for (int index = optind; index < argc; index++) {
-//        printf("Non-option argument %s\n", argv[index]);
+        printf("Non-option argument %s\n", argv[index]);
 
         int readdirfd = readdir_create(argv[index]);
         if (-1 == readdirfd) {
@@ -62,7 +66,7 @@ static int exec_main(int argc, char* argv[]) {
         return -1;
     }
 
-    return execv(argv[1], argv + 2);
+    return execv(argv[1], argv + 1);
 }
 
 static int trace_main(int argc, char* argv[]) {
@@ -81,6 +85,10 @@ static int trace_main(int argc, char* argv[]) {
     return 0;
 }
 
+static int connect_main(int argc, char* argv[]) {
+    return handle_line("exec /usr/BIN/NC 1.1.1.2:8888");
+}
+
 static int exit_main(int argc, char* argv[]) {
     return 1;
 }
@@ -94,6 +102,7 @@ static struct cmdline _commands[] = {
         {"ls", ls_main},
         {"trace", trace_main},
         {"exec", exec_main},
+        {"connect", connect_main},
         {"exit", exit_main},
         {"q", exit_main}
 };
@@ -111,7 +120,7 @@ static int count_spaces(const char* line) {
 }
 
 static int handle_line(char* line) {
-    int argc = count_spaces(line)+ 1;
+    int argc = count_spaces(line) + 1;
     char* argv[argc];
 
     memset(argv, 0, sizeof(argv));
@@ -123,15 +132,15 @@ static int handle_line(char* line) {
         index++;
     }
 
-//    printf("argc: %d\n", argc);
-//    for (int i = 0; i < argc; i++) {
-//        printf("argv[%d] = %p\n", i, (void *) argv[i]);
-//    }
+    printf("argc: %d\n", argc);
+    for (int i = 0; i < argc; i++) {
+        printf("argv[%d] = %p\n", i, (void *) argv[i]);
+    }
 
     for (int i = 0; i < (sizeof(_commands) / sizeof(_commands[0])); i++) {
         struct cmdline* cmd = &_commands[i];
 
-//        printf("cmd: %s\n", cmd->cmd);
+        printf("cmd: %s\n", cmd->cmd);
 
         if (0 == strcmp(cmd->cmd, argv[0])) {
             return cmd->cmd_main(argc, argv);
@@ -146,13 +155,70 @@ static void output_char(int c) {
     fflush(stdout);
 }
 
+static int parse_ip_port(int argc, char** argv, uint32_t* out_ip, uint16_t* out_port) {
+    if (argc != 2) {
+        return 0;
+    }
+
+    uint32_t ip1, ip2, ip3, ip4;
+    uint32_t port;
+
+    int result = sscanf(argv[1], "%d.%d.%d.%d:%d", &ip1, &ip2, &ip3, &ip4, &port);
+    if (5 != result) {
+        return 0;
+    }
+
+    uint32_t ip = (ip1 << 24) | (ip2 << 16) | (ip3 << 8) | ip4;
+
+    if (out_ip) {
+        *out_ip = ip;
+    }
+
+    if (out_port) {
+        *out_port = port;
+    }
+
+    return 1;
+}
+
+static int connect_and_dup(uint32_t ip, uint16_t port) {
+    sockaddr_t addr = {
+        .address = htonl(ip),
+        .port = htons(port)
+    };
+
+    int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (0 > sock) {
+        printf("failed to create socket\n");
+        return 0;
+    }
+
+    if (0 != connect(sock, &addr)) {
+        printf("failed to connect\n");
+        close(sock);
+        return 0;
+    }
+
+    dup2(sock, 0);
+    dup2(sock, 1);
+    dup2(sock, 2);
+
+    return 1;
+}
+
 int main(int argc, char **argv) {
     char linebuf[128];
     int index = 0;
     int c = 0;
     memset(linebuf, 0, sizeof(linebuf));
 
-//    traceme(1);
+    traceme(1);
+
+    uint32_t ip = 0;
+    uint16_t port = 0;
+    if (parse_ip_port(argc, argv, &ip, &port)) {
+        connect_and_dup(ip, port);
+    }
 
     prompt();
 

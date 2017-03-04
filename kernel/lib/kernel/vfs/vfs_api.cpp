@@ -77,6 +77,21 @@ int vfs_seek(int fd, off_t offset, int whence)
     return fileDes->seek(offset, whence);
 }
 
+int vfs_dup(int old_fd, int new_fd)
+{
+    const auto proc = Scheduler::instance().CurrentProcess();
+    if (nullptr == proc) {
+        return -1;
+    }
+
+    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
+    if (fdc.duplicate(old_fd, new_fd)) {
+        return 0;
+    }
+
+    return -1;
+}
+
 int vfs_stat(int fd, struct stat* stat)
 {
     if (nullptr == stat) {

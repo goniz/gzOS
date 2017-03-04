@@ -185,7 +185,7 @@ void vm_map_dump(vm_map_t *map) {
     }
 }
 
-void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
+int vm_page_fault(vm_map_t* map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     vm_map_entry_t *entry = NULL;
 #if TLBDEBUG == 1
     kprintf("vm_page_fault map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
@@ -231,7 +231,7 @@ void vm_page_fault(vm_map_t *map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     vm_map_dump(map);
 #endif
 
-    return;
+    return 1;
 
 segfault:
 
@@ -239,5 +239,5 @@ segfault:
     vm_map_dump(map);
 #endif
 
-    vm_do_segfault(fault_addr, fault_type, (vm_prot_t) (entry ? entry->prot : (uint32_t) -1));
+    return 0;
 }

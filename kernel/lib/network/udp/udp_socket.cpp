@@ -1,9 +1,7 @@
 #include <sys/param.h>
 #include <platform/cpu.h>
 #include <lib/primitives/hashmap.h>
-#include "udp_socket.h"
-#include "ip.h"
-#include "udp.h"
+#include "lib/network/udp/udp_socket.h"
 
 static HashMap<int, UdpFileDescriptor*> _portSessionsMap;
 

@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <lib/kernel/sched/scheduler.h>
 #include <ctime>
-#include <lib/network/arp.h>
+#include <lib/network/arp/arp.h>
 #include <lib/network/interface.h>
 #include <lib/network/socket.h>
 #include <platform/cpu.h>
@@ -129,7 +129,10 @@ uint8_t* recv_file_over_udp(size_t* size) {
 
     syscall(SYS_NR_CLOSE, sock);
 
-    if (size) *size = bufferSize;
+    if (size) {
+        *size = bufferSize;
+    }
+
     return buffer;
 }
 
@@ -148,7 +151,7 @@ int kernel_main(void* argument) {
     vfs_mkdir("/usr");
     vfs_mount("fat32", "/pflash/userdata", "/usr");
 
-    std::vector<const char*> shellArgs{};
+    std::vector<const char*> shellArgs{"/usr/BIN/SHELL", "1.1.1.2:8888"};
     syscall(SYS_NR_EXEC, "/usr/BIN/SHELL", shellArgs.size(), shellArgs.data());
 
     while (1) {
@@ -160,7 +163,7 @@ int kernel_main(void* argument) {
         }
 
         kprintf("got buffer %p of %d size!\n", buffer, size);
-        kprintf("checksum: %08x\n", ip_compute_csum(buffer, (int) size));
+        kprintf("checksum: %08x\n", checksum(buffer, (int) size, 0));
 
         syscall(SYS_NR_YIELD);
 

@@ -1,7 +1,7 @@
 #ifndef GZOS_INTERFACE_H
 #define GZOS_INTERFACE_H
 
-#include "ip.h"
+#include "lib/network/ip/ip.h"
 
 #ifdef __cplusplus
 extern "C" {

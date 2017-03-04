@@ -8,6 +8,7 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <cassert>
+#include <algorithm>
 #include "elf/ElfLoader.h"
 
 #define debug_log(msg, ...) if (_debugMode) kprintf(msg "\n", ##__VA_ARGS__)
@@ -49,6 +50,7 @@ Scheduler::Scheduler(void)
         : _currentThread(nullptr),
           _readyQueue(SCHED_INITIAL_QUEUE_SIZE),
           _kernelProc(new Process("Kernel", {}, false)),
+          _timerProc(new Process("SystemTimer", {}, false)),
           _idleThread(nullptr),
           _processList(),
           _mutex()
@@ -298,11 +300,23 @@ void Scheduler::handleSignal(Thread *thread) {
     }
 }
 
-bool Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb, void *arg) {
-    InterruptsMutex mutex(true); {
+static uint32_t _id = 1;
+uint32_t Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb, void* arg) {
+    InterruptsMutex mutex(true);
+    {
         uint64_t now = clock_get_ms();
-        _timers.push_back({(uint64_t) timeout_ms, now + timeout_ms, cb, arg});
-        return true;
+        auto id = _id++;
+        _timers.push_back({id, (uint64_t) timeout_ms, now + timeout_ms, cb, arg});
+        return id;
+    }
+}
+
+void Scheduler::unsetTimeout(uint32_t timerId) {
+    InterruptsMutex mutex(true);
+    {
+        std::remove_if(_timers.begin(), _timers.end(), [timerId](const auto& item) -> bool {
+            return item.id == timerId;
+        });
     }
 }
 
@@ -314,7 +328,12 @@ void Scheduler::doTimers(void) {
         uint64_t now = clock_get_ms();
         if (now >= iter->target_ms) {
             if (iter->callbackFunc) {
+                _timerProc->switchProcess(*_timerProc);
                 remove = !iter->callbackFunc(this, iter->arg);
+                if (_currentThread) {
+                    _currentThread->proc().switchProcess(_currentThread->proc());
+                }
+
                 if (!remove) {
                     iter->target_ms = now + iter->timeout_ms;
                 }
@@ -542,9 +561,11 @@ void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) 
         kprintf("Cannot read from address: 0x%08x\n", fault_addr);
     }
 
-    if (-1 == scheduler_current_pid()) {
+    auto pid = scheduler_current_pid();
+    if (-1 == pid) {
         panic("segfault in kernel..");
     } else {
+        kprintf("Killing pid %d\n", pid);
         syscall(SYS_NR_SIGNAL, PID_CURRENT, SIG_KILL);
     }
 }

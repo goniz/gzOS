@@ -3,5 +3,5 @@
 
 int close(int file)
 {
-    syscall(SYS_NR_CLOSE, file);
+    return syscall(SYS_NR_CLOSE, file);
 }

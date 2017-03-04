@@ -1,7 +1,7 @@
 #ifndef GZOS_ETHERNET_LAYER_H
 #define GZOS_ETHERNET_LAYER_H
 
-#include "nbuf.h"
+#include "lib/network/nbuf.h"
 
 #define RX_QUEUE_SIZE       (32)
 #define TX_QUEUE_SIZE       (32)

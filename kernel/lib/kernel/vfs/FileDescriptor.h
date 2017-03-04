@@ -30,8 +30,23 @@ protected:
     int offset = 0;
 };
 
+class DuplicatedFileDescriptor : public FileDescriptor {
+public:
+    DuplicatedFileDescriptor(std::unique_ptr<FileDescriptor>& dupFd);
+    virtual ~DuplicatedFileDescriptor() = default;
+    virtual int read(void *buffer, size_t size) override;
+    virtual int write(const void *buffer, size_t size) override;
+    virtual int seek(int where, int whence) override;
+    virtual int stat(struct stat *stat) override;
+    virtual void close(void) override;
+
+private:
+    std::unique_ptr<FileDescriptor>& _dupFd;
+};
+
 class NullFileDescriptor : public FileDescriptor {
 public:
+    virtual ~NullFileDescriptor() = default;
     virtual int read(void *buffer, size_t size) override;
     virtual int write(const void *buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
@@ -58,6 +73,7 @@ public:
 class MemoryBackedFileDescriptor : public FileDescriptor {
 public:
     MemoryBackedFileDescriptor(uintptr_t start, uintptr_t end);
+    virtual ~MemoryBackedFileDescriptor() = default;
 
     virtual int read(void* buffer, size_t size) override;
     virtual int write(const void* buffer, size_t size) override;

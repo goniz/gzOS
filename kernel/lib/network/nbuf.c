@@ -1,12 +1,11 @@
 #include <lib/malloc/malloc.h>
 #include <assert.h>
 #include <platform/drivers.h>
-#include <stdlib.h>
 #include <platform/interrupts.h>
 #include <lib/mm/vm.h>
 #include <lib/mm/physmem.h>
 #include <platform/kprintf.h>
-#include "nbuf.h"
+#include "lib/network/nbuf.h"
 
 static MALLOC_DEFINE(mp_nbuf, "Network Buffer struct Pool");
 static MALLOC_DEFINE(mp_data, "Network Buffer Data Pool");
@@ -59,11 +58,15 @@ NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
 }
 
 NetworkBuffer* nbuf_alloc(size_t size) {
-    return nbuf_alloc_aligned(size, 0);
+    NetworkBuffer* nbuf = nbuf_alloc_aligned(size, 0);
+
+    kprintf("nbuf: alloc(%d) = %p from %p\n", size, nbuf, __builtin_return_address(0));
+
+    return nbuf;
 }
 
 void nbuf_free(NetworkBuffer* nbuf) {
-//    kprintf("nbuf: free(%p) from %p\n", nbuf, __builtin_return_address(0));
+    kprintf("nbuf: free(%p) from %p\n", nbuf, __builtin_return_address(0));
     unsigned int isrMask = interrupts_disable();
 
     if (nbuf->buffer.buffer) {
@@ -96,6 +99,22 @@ NetworkBuffer* nbuf_clone(const NetworkBuffer *nbuf)
     if (nbuf->l4_offset) {
         nbuf_set_l4(newNbuf, newDataPtr + nbuf_offset(nbuf, nbuf->l4_offset), nbuf->l4_proto);
     }
+
+    return newNbuf;
+}
+
+NetworkBuffer* nbuf_clone_offset_nometadata(const NetworkBuffer* nbuf, size_t startOffset)
+{
+    if (startOffset >= nbuf_size(nbuf)) {
+        return NULL;
+    }
+
+    void* nbuf_offset = (uint8_t*)nbuf_data(nbuf) + startOffset;
+    size_t size_to_clone = nbuf_size_from(nbuf, nbuf_offset);
+    NetworkBuffer* newNbuf = nbuf_alloc(size_to_clone);
+    memcpy(nbuf_data(newNbuf), nbuf_offset, size_to_clone);
+
+    nbuf_set_size(newNbuf, size_to_clone);
 
     return newNbuf;
 }

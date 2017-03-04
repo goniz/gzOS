@@ -205,3 +205,47 @@ int VectorBackedFileDescriptor::stat(struct stat* stat) {
     stat->st_size = _data->size();
     return 0;
 }
+
+DuplicatedFileDescriptor::DuplicatedFileDescriptor(std::unique_ptr<FileDescriptor>& dupFd)
+    : _dupFd(dupFd)
+{
+
+}
+
+int DuplicatedFileDescriptor::read(void* buffer, size_t size) {
+    if (_dupFd) {
+        return _dupFd->read(buffer, size);
+    } else {
+        return -1;
+    }
+}
+
+int DuplicatedFileDescriptor::write(const void* buffer, size_t size) {
+    if (_dupFd) {
+        return _dupFd->write(buffer, size);
+    } else {
+        return -1;
+    }
+}
+
+int DuplicatedFileDescriptor::seek(int where, int whence) {
+    if (_dupFd) {
+        return _dupFd->seek(where, whence);
+    } else {
+        return -1;
+    }
+}
+
+int DuplicatedFileDescriptor::stat(struct stat* stat) {
+    if (_dupFd) {
+        return _dupFd->stat(stat);
+    } else {
+        return -1;
+    }
+}
+
+void DuplicatedFileDescriptor::close(void) {
+    if (_dupFd) {
+        _dupFd->close();
+    }
+}

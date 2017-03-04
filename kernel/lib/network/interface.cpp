@@ -1,8 +1,7 @@
 #include <vector>
-#include <platform/kprintf.h>
-#include "interface.h"
-#include "route.h"
-#include "arp.h"
+#include "lib/network/interface.h"
+#include "lib/network/route.h"
+#include "lib/network/arp/arp.h"
 
 static std::vector<interface_t> gInterfaces;
 

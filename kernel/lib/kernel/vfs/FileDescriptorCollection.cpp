@@ -12,7 +12,7 @@ int FileDescriptorCollection::push_filedescriptor(std::unique_ptr<FileDescriptor
     }
 
     _mutex.lock();
-    _fds[fdnum] = std::move(fd);
+    _fds[fdnum] = std::shared_ptr<FileDescriptor>(std::move(fd));
     _mutex.unlock();
 
     return fdnum;
@@ -71,4 +71,21 @@ void FileDescriptorCollection::close_all(void) {
     }
 
     _fds.clear();
+}
+
+bool FileDescriptorCollection::duplicate(int old_fd, int new_fd) {
+    lock_guard<InterruptsMutex> guard(_mutex);
+
+    auto oldFileDesc = _fds.find(old_fd);
+    if (_fds.end() == oldFileDesc) {
+        return false;
+    }
+
+    auto newFileDesc = _fds.find(new_fd);
+    if (_fds.end() != newFileDesc) {
+        newFileDesc->second->close();
+    }
+
+    _fds[new_fd] = oldFileDesc->second;
+    return true;
 }

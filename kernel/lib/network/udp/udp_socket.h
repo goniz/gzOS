@@ -2,9 +2,9 @@
 #define GZOS_UDP_SOCKET_H
 
 #include <lib/primitives/basic_queue.h>
-#include "nbuf.h"
-#include "socket.h"
-#include "udp.h"
+#include "lib/network/nbuf.h"
+#include "lib/network/socket.h"
+#include "lib/network/udp/udp.h"
 
 #ifdef __cplusplus
 
@@ -34,5 +34,4 @@ private:
 UdpFileDescriptor* getUdpDescriptorByPort(uint16_t port);
 
 #endif //cplusplus
-
 #endif //GZOS_UDP_SOCKET_H

@@ -1,9 +1,9 @@
 #ifndef GZOS_ARP_H
 #define GZOS_ARP_H
 
-#include "ethernet.h"
-#include "ip.h"
-#include "nbuf.h"
+#include "lib/network/ethernet/ethernet.h"
+#include "lib/network/ip/ip.h"
+#include "lib/network/nbuf.h"
 
 #ifdef __cplusplus
 extern "C" {

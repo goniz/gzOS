@@ -5,6 +5,8 @@
 #include <malta.h>
 #include <stdarg.h>
 #include <stdio.h>
+#include <platform/cpu.h>
+#include <platform/interrupts.h>
 
 #define CBUS_UART_R(x) \
   *(volatile uint8_t*)(MIPS_PHYS_TO_KSEG1(MALTA_CBUS_UART) + (x))
@@ -33,7 +35,9 @@ void uart_init() {
 
 int uart_putc(int c) {
   /* Wait for transmitter hold register empty. */
-  while (! (LSR & LSR_THRE));
+  while (! (LSR & LSR_THRE)) {
+      platform_cpu_wait();
+  }
 
 //again:
   /* Send byte. */
@@ -67,7 +71,9 @@ int uart_write(const char *str, size_t n) {
 
 unsigned char uart_getch() {
   /* Wait until receive data available. */
-  while (! uart_has_char());
+  while (! uart_has_char()) {
+      platform_cpu_wait();
+  }
 
   return RBR;
 }
@@ -90,7 +96,9 @@ void vkprintf(const char* fmt, va_list arg)
 {
     char buf[256];
 
+    unsigned int irq = interrupts_disable();
     vsnprintf(buf, sizeof(buf), fmt, arg);
     buf[sizeof(buf) - 1] = '\0';
     uart_puts(buf);
+    interrupts_enable(irq);
 }

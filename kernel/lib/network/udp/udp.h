@@ -1,8 +1,8 @@
 #ifndef GZOS_UDP_H
 #define GZOS_UDP_H
 
-#include "nbuf.h"
-#include "ip.h"
+#include "lib/network/nbuf.h"
+#include "lib/network/ip/ip.h"
 
 #ifdef __cplusplus
 extern "C" {

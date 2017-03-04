@@ -1,7 +1,7 @@
 #ifndef GZOS_SOCKET_H
 #define GZOS_SOCKET_H
 
-#include <lib/network/ip.h>
+#include <lib/network/ip/ip.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -37,6 +37,10 @@ struct SocketAddress {
     IpAddress address;
     uint16_t port;
 };
+
+static inline bool operator==(const SocketAddress& lhs, const SocketAddress& rhs) {
+    return lhs.address == rhs.address && lhs.port == rhs.port;
+}
 
 class SocketFileDescriptor : public FileDescriptor {
 public:

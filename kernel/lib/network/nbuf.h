@@ -34,6 +34,7 @@ typedef struct {
 NetworkBuffer* nbuf_alloc(size_t size);
 NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment);\
 NetworkBuffer* nbuf_clone(const NetworkBuffer *nbuf);
+NetworkBuffer* nbuf_clone_offset_nometadata(const NetworkBuffer* nbuf, size_t startOffset);
 void nbuf_free(NetworkBuffer* nbuf);
 
 static inline int nbuf_is_valid(const NetworkBuffer* nbuf) {

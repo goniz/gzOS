@@ -1,5 +1,5 @@
 #include <lib/syscall/syscall.h>
-#include "socket.h"
+#include "lib/network/socket.h"
 
 DEFINE_SYSCALL(SOCKET, socket, SYS_IRQ_DISABLED) {
     SYSCALL_ARG(int, domain);
