@@ -63,13 +63,6 @@ int FileDescriptorCollection::remove_filedescriptor(int fdnum, bool close) {
 void FileDescriptorCollection::close_all(void) {
     lock_guard<InterruptsMutex> guard(_mutex);
 
-    for (const auto& iter : _fds) {
-        const auto& fd = iter.second;
-        if (nullptr != fd) {
-            fd->close();
-        }
-    }
-
     _fds.clear();
 }
 
@@ -79,11 +72,6 @@ bool FileDescriptorCollection::duplicate(int old_fd, int new_fd) {
     auto oldFileDesc = _fds.find(old_fd);
     if (_fds.end() == oldFileDesc) {
         return false;
-    }
-
-    auto newFileDesc = _fds.find(new_fd);
-    if (_fds.end() != newFileDesc) {
-        newFileDesc->second->close();
     }
 
     _fds[new_fd] = oldFileDesc->second;

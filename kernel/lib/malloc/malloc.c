@@ -113,6 +113,7 @@ static void add_free_memory_block(mem_arena_t *ma, mem_block_t *mb,
 
 void kmalloc_init(malloc_pool_t *mp) {
     assert(NULL != mp);
+    memset(mp, 0, sizeof(*mp));
 
     mp->mp_magic = MB_MAGIC;
     mp->mp_next.sle_next = NULL;
@@ -125,6 +126,8 @@ void kmalloc_set_description(malloc_pool_t *mp, const char *desc) {
 }
 
 void kmalloc_add_arena(malloc_pool_t *mp, void *start, size_t arena_size) {
+//    kprintf("%s->kmalloc_add_arena(%p, %p, %d)\n", mp->mp_desc, mp, start, arena_size);
+
     if (arena_size < sizeof(mem_arena_t))
         return;
 
@@ -179,16 +182,21 @@ try_allocating_in_area(mem_arena_t *ma, size_t requested_size) {
 void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
     size_t size_aligned = align(size, MB_ALIGNMENT);
 
+//    kprintf("%s->kmalloc(%p, %d)\n", mp->mp_desc, mp, size);
+
     /* Search for the first area in the list that has enough space. */
     mem_arena_t *current = NULL;
     TAILQ_FOREACH(current, &mp->mp_arena, ma_list) {
-        assert(current->ma_magic == MB_MAGIC);
+        if (current->ma_magic != MB_MAGIC) {
+            kmalloc_dump(mp);
+            panic("Memory corruption detected!");
+        }
 
         mem_block_t *mb = try_allocating_in_area(current, size_aligned);
-
         if (mb) {
-            if (flags == M_ZERO)
+            if (flags == M_ZERO) {
                 memset(mb->mb_data, 0, size);
+            }
 
             return mb->mb_data;
         }
@@ -215,6 +223,8 @@ void kfree(malloc_pool_t *mp, void *addr) {
         kmalloc_dump(mp);
         panic("Memory corruption detected!");
     }
+
+//    kprintf("%s->kfree(%p, %p)\n", mp->mp_desc, mp, addr);
 
     mem_arena_t *current = NULL;
     TAILQ_FOREACH(current, &mp->mp_arena, ma_list) {

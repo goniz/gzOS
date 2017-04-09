@@ -29,6 +29,7 @@
 #include <lib/primitives/align.h>
 #include <assert.h>
 #include <platform/kprintf.h>
+#include <string.h>
 #include "physmem.h"
 
 static inline int vm_page_cmp(vm_page_t *a, vm_page_t *b) {
@@ -49,7 +50,7 @@ void vm_object_init() {
 }
 
 vm_object_t *vm_object_alloc() {
-    vm_object_t *obj = kmalloc(mpool, sizeof(vm_object_t), 0);
+    vm_object_t *obj = kmalloc(mpool, sizeof(vm_object_t), M_ZERO);
     TAILQ_INIT(&obj->list);
     RB_INIT(&obj->tree);
     return obj;
@@ -61,6 +62,8 @@ void vm_object_free(vm_object_t *obj) {
         TAILQ_REMOVE(&obj->list, pg, obj.list);
         pm_free(pg);
     }
+
+    memset(obj, 0, sizeof(*obj));
     kfree(mpool, obj);
 }
 

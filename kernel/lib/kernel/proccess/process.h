@@ -16,6 +16,7 @@
 #include <reent.h>
 #include <lib/mm/vm_map.h>
 #include <cassert>
+#include <lib/primitives/EventStream.h>
 
 /*
  * Process virtual address space:
@@ -59,6 +60,8 @@ public:
     bool is_kernel_proc(void) const;
     bool traceme(bool state);
     bool traceme(void);
+    bool has_exited(void) const;
+    int wait_for_exit(void);
 
     FileDescriptorCollection& fileDescriptorCollection(void) {
         return _fileDescriptors;
@@ -79,6 +82,7 @@ private:
     const pid_t _pid;
     enum State _state;
     int _exitCode;
+    EventStream<int> _exitEvent;
     Thread::EntryPointFunction _entryPoint;
     std::vector<std::string> _arguments;
     std::atomic<int> _pending_signal_nr;

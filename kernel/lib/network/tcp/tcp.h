@@ -60,6 +60,26 @@ static inline uint16_t tcp_data_length(const iphdr_t* ip, const tcp_t* tcp) {
     return ip_data_length(ip) - tcp_header_length(tcp);
 }
 
+static inline int tcp_is_ack(const tcp_t* tcp) {
+    return tcp->flags & TCP_FLAGS_ACK;
+}
+
+static inline int tcp_is_syn(const tcp_t* tcp) {
+    return tcp->flags & TCP_FLAGS_SYN;
+}
+
+static inline int tcp_is_synack(const tcp_t* tcp) {
+    return tcp_is_syn(tcp) && tcp_is_ack(tcp);
+}
+
+static inline int tcp_is_rst(const tcp_t* tcp) {
+    return tcp->flags & TCP_FLAGS_RESET;
+}
+
+static inline int tcp_is_fin(const tcp_t* tcp) {
+    return tcp->flags & TCP_FLAGS_FIN;
+}
+
 #ifdef __cplusplus
 }
 #endif //extern "C"

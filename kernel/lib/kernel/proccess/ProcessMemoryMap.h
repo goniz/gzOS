@@ -49,7 +49,7 @@ public:
     }
 
 private:
-    vm_map_t * _map;
+    vm_map_t* _map;
     HashMap<const char*, VirtualMemoryRegion> _regions;
 };
 
@@ -71,7 +71,7 @@ private:
     ProcessMemoryMap& _parent;
     const char* _name;
     std::string _poolName;
-    std::unique_ptr<malloc_pool_t> _pool;
+    malloc_pool_t* _pool;
     vm_map_entry_t* _header;
     vm_map_entry_t* _data;
     vm_map_entry_t* _footer;

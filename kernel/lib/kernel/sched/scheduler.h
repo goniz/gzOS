@@ -80,6 +80,7 @@ public:
 
     void suspend(pid_t pid);
     void resume(pid_t pid, uintptr_t value);
+    int waitForPid(pid_t pid);
 
     static Scheduler& instance(void);
     static bool isProcessPid(pid_t pid) {
@@ -92,17 +93,18 @@ public:
 
 private:
     Thread* andTheWinnerIs(void);
+    bool destroyProcess(Process* proc);
 
     bool signalThreadPid(pid_t pid, int signal, uintptr_t value);
-
     bool signalThread(Thread* thread, int signal, uintptr_t value);
-
     bool signalProcessPid(pid_t pid, int signal, uintptr_t value);
     void handleSignal(Thread* thread);
+
     void doTimers(void);
     int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
     int handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
     int handleIRQEnabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
+
     friend int ::scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
     friend int ::sys_ps(struct user_regs **regs, va_list args);
 

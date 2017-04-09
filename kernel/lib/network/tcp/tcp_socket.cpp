@@ -37,11 +37,11 @@ int TcpFileDescriptor::read(void* buffer, size_t size) {
     }
 
     // TODO: return error on the wrong states..
-    if (TcpState::Established != _session->state()) {
+    if (!this->is_connected()) {
         return 0;
     }
 
-    return _session->pop_bytes_in(buffer, size);
+    return _session->pop_input_bytes((uint8_t*) buffer, size, true);
 }
 
 int TcpFileDescriptor::write(const void* buffer, size_t size) {
@@ -50,23 +50,11 @@ int TcpFileDescriptor::write(const void* buffer, size_t size) {
     }
 
     // TODO: return error on the wrong states..
-    if (TcpState::Established != _session->state()) {
+    if (!this->is_connected()) {
         return 0;
     }
 
-    auto* nbuf = nbuf_alloc(size);
-    if (!nbuf) {
-        return -1;
-    }
-
-    memcpy(nbuf_data(nbuf), buffer, size);
-    nbuf_set_size(nbuf, size);
-
-    if (_session->queue_out_bytes(nbuf)) {
-        return size;
-    } else {
-        return -1;
-    }
+    return _session->push_output_bytes((const uint8_t*) buffer, size);
 }
 
 int TcpFileDescriptor::seek(int where, int whence) {
@@ -121,7 +109,7 @@ int TcpFileDescriptor::connect(const SocketAddress& addr) {
     }
 
     auto new_state = _session->wait_state_changed();
-    return TcpState::Established == new_state ? 0 : -1;
+    return TcpStateEnum::Established == new_state ? 0 : -1;
 }
 
 bool TcpFileDescriptor::process_in_segment(NetworkBuffer* nbuf) {
@@ -129,9 +117,9 @@ bool TcpFileDescriptor::process_in_segment(NetworkBuffer* nbuf) {
 }
 
 bool TcpFileDescriptor::is_listening(void) const {
-    return _session && _session->state() == TcpState::Listening;
+    return _session && _session->state() == TcpStateEnum::Listening;
 }
 
 bool TcpFileDescriptor::is_connected() const {
-    return _session && _session->state() == TcpState::Established;
+    return _session && _session->state() == TcpStateEnum::Established;
 }

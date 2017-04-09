@@ -43,7 +43,7 @@ int vfs_close(int fd)
     }
 
     FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
-    fdc.remove_filedescriptor(fd, true);
+    fdc.remove_filedescriptor(fd);
     return 0;
 }
 
@@ -108,7 +108,11 @@ int vfs_stat(int fd, struct stat* stat)
 
 int vfs_mkdir(const char* path)
 {
-    return VirtualFileSystem::instance().mkdir(path);
+    if (VirtualFileSystem::instance().mkdir(path)) {
+        return 0;
+    }
+
+    return -1;
 }
 
 int vfs_mount(const char* fstype, const char* source, const char* destination)

@@ -1,13 +1,14 @@
 #include <sys/param.h>
 #include <checksum.h>
 #include <platform/drivers.h>
-#include <lib/primitives/hexdump.h>
 #include "lib/network/tcp/tcp.h"
+#include <lib/network/tcp/states/TcpStateEnum.h>
 #include "lib/network/tcp/TcpSession.h"
-#include "tcp_sessions.h"
-#include "TcpSession.h"
+#include <lib/network/tcp/states/TcpStateSynSent.h>
+#include <lib/network/tcp/states/TcpStateClosed.h>
+#include <algorithm>
+#include "lib/network/tcp/tcp_sessions.h"
 #include "tcp.h"
-#include "tcp_out_segment.h"
 
 /*
  * NOTES:
@@ -21,20 +22,23 @@
  * current status: completely broken.. ;)
  */
 
-TcpSession::TcpSession(uint16_t localPort, SocketAddress remoteAddr, bool releasePortOnClose)
-        : _state(TcpState::Closed),
-          _localPort(localPort),
-          _remoteAddr(remoteAddr),
-          _seq(),
-          _receive_next_ack(0),
-          _receive_window(29200),
-          _releasePortOnClose(releasePortOnClose),
-          _bytes_in(150),
-          _bytes_out(150),
-          _segment_inflight(nullptr)
+TcpSession::TcpSession(uint16_t localPort,
+                       SocketAddress remoteAddr,
+                       bool releasePortOnClose)
+    : _state(nullptr),
+      _localPort(localPort),
+      _remoteAddr(remoteAddr),
+      _seq(),
+      _receive_next_ack(0),
+      _receive_window(29200),
+      _releasePortOnClose(releasePortOnClose)
 {
     kprintf("TcpSession this %p\n", this);
 
+    _inputBuffer.buffer.reserve(_receive_window);
+    _outputBuffer.buffer.reserve(_receive_window);
+
+    _state = std::make_unique<TcpStateClosed>(*this);
 }
 
 std::unique_ptr<TcpSession> TcpSession::createTcpClient(uint16_t localPort, SocketAddress remoteAddr) {
@@ -43,8 +47,7 @@ std::unique_ptr<TcpSession> TcpSession::createTcpClient(uint16_t localPort, Sock
         return {};
     }
 
-    session->set_state(TcpState::SynSent);
-    session->send_syn();
+    session->set_state<TcpStateSynSent>();
 
     return std::move(session);
 }
@@ -55,19 +58,6 @@ std::unique_ptr<TcpSession> TcpSession::createTcpRejector(uint16_t localPort, So
 
 TcpSession::~TcpSession() {
     this->close();
-}
-
-bool TcpSession::queue_out_bytes(NetworkBuffer* nbuf) {
-    if (_state != TcpState::Established) {
-        return false;
-    }
-
-    if (!_bytes_out.push(nbuf)) {
-        return false;
-    }
-
-    this->pop_bytes_out();
-    return true;
 }
 
 bool TcpSession::send_ack_push(const void* buffer, size_t size) {
@@ -83,16 +73,6 @@ bool TcpSession::send_ack_push(const void* buffer, size_t size) {
     memcpy(hdr->data, buffer, frameSize);
 
     kprintf("[tcp] sending PUSH/ACK\n");
-    return this->tcp_transmit(nbuf);
-}
-
-bool TcpSession::send_syn(void) {
-    auto* nbuf = this->tcp_alloc_nbuf(TCP_FLAGS_SYN, 0);
-    if (!nbuf) {
-        return false;
-    }
-
-    kprintf("[tcp] sending syn\n");
     return this->tcp_transmit(nbuf);
 }
 
@@ -114,6 +94,16 @@ bool TcpSession::send_rst(NetworkBuffer* packetNbuf) {
     return this->tcp_transmit(rstNbuf);
 }
 
+bool TcpSession::send_syn(void) {
+    auto* nbuf = this->tcp_alloc_nbuf(TCP_FLAGS_SYN, 0);
+    if (!nbuf) {
+        return false;
+    }
+
+    kprintf("[tcp] sending syn\n");
+    return this->tcp_transmit(nbuf);
+}
+
 bool TcpSession::send_ack() {
     auto* ackNbuf = this->tcp_alloc_nbuf(TCP_FLAGS_ACK, 0);
     if (!ackNbuf) {
@@ -122,6 +112,17 @@ bool TcpSession::send_ack() {
 
     kprintf("[tcp] sending ACK\n");
     return this->tcp_transmit(ackNbuf);
+}
+
+
+bool TcpSession::send_fin(void) {
+    auto* finNbuf = this->tcp_alloc_nbuf(TCP_FLAGS_FIN | TCP_FLAGS_ACK, 0);
+    if (!finNbuf) {
+        return false;
+    }
+
+    kprintf("[tcp] sending FIN\n");
+    return this->tcp_transmit(finNbuf);
 }
 
 NetworkBuffer* TcpSession::tcp_alloc_nbuf(int flags, size_t data_size) {
@@ -145,7 +146,12 @@ NetworkBuffer* TcpSession::tcp_alloc_nbuf(int flags, size_t data_size) {
     tcp->flags = flags;
 
     _seq.advance(data_size);
-    if (tcp->flags == TCP_FLAGS_SYN) {
+
+    if (tcp->flags & TCP_FLAGS_SYN) {
+        _seq.advance(1);
+    }
+
+    if (tcp->flags & TCP_FLAGS_FIN) {
         _seq.advance(1);
     }
 
@@ -157,25 +163,12 @@ bool TcpSession::tcp_transmit(NetworkBuffer* nbuf) {
         return false;
     }
 
-    return nullptr != (_segment_inflight = tcp_out_queue_packet(nbuf, (TcpOutSegmentErrorFunc)TcpSession::handle_out_segment_error, this));
-}
-
-#define BOOL(x) ((x) ? "true" : "false")
-#define PBOOL(x) kprintf("[tcp] " SX(x) " = %s\n", BOOL((x)))
-
-void TcpSession::reset_inflight_segment() {
-    InterruptsMutex guard(true);
-
-    if (_segment_inflight) {
-
-        _segment_inflight->valid = false;
-
-        if (_segment_inflight->retransmissionTimer) {
-            _segment_inflight->retransmissionTimer->stop();
-        }
-
-        _segment_inflight.reset();
+    tcp_t* tcp = tcp_hdr(nbuf);
+    if (0 == tcp->csum) {
+        tcp->csum = tcp_checksum(nbuf);
     }
+
+    return 0 == ip_output(nbuf);
 }
 
 bool TcpSession::process_in_segment(NetworkBuffer* nbuf) {
@@ -183,11 +176,15 @@ bool TcpSession::process_in_segment(NetworkBuffer* nbuf) {
     iphdr_t* ip = ip_hdr(nbuf);
     tcp_t* tcp = tcp_hdr(nbuf);
 
-    bool is_ack = tcp->flags & TCP_FLAGS_ACK;
-    bool is_syn = tcp->flags & TCP_FLAGS_SYN;
-    bool is_syn_ack = is_ack && is_syn;
-    bool is_rst = tcp->flags & TCP_FLAGS_RESET;
-    bool is_fin = tcp->flags & TCP_FLAGS_FIN;
+#if 0
+    #define BOOL(x) ((x) ? "true" : "false")
+    #define PBOOL(x) kprintf("[tcp] " SX(x) " = %s\n", BOOL((x)))
+
+    bool is_ack = tcp_is_ack(tcp);
+    bool is_syn = tcp_is_syn(tcp);
+    bool is_syn_ack = tcp_is_synack(tcp);
+    bool is_rst = tcp_is_rst(tcp);
+    bool is_fin = tcp_is_fin(tcp);
     bool is_seq_match = ntohl(tcp->ack_seq) == (_seq.seq());
 
     PBOOL(is_ack);
@@ -197,87 +194,17 @@ bool TcpSession::process_in_segment(NetworkBuffer* nbuf) {
     PBOOL(is_fin);
     PBOOL(is_seq_match);
 
-    switch (_state)
-    {
-        case TcpState::SynSent: {
-            if (is_seq_match && is_rst) {
-                this->set_state(TcpState::Closed);
-                break;
-            }
-
-            if (!is_syn_ack || !is_seq_match) {
-                this->send_rst();
-                this->close();
-                break;
-            }
-
-            _receive_next_ack = ntohl(tcp->seq) + 1;
-
-            this->reset_inflight_segment();
-
-            this->send_ack();
-            this->set_state(TcpState::Established);
-
-            this->pop_bytes_out();
-            goto free_nbuf;
-        }
-
-        case TcpState::Established: {
-            if (is_seq_match && is_fin) {
-                this->reset_inflight_segment();
-                this->send_ack();
-                this->set_state(TcpState::CloseWait);
-                _bytes_out.notifyAll(0);
-                _bytes_in.notifyAll(0);
-                goto free_nbuf;
-            }
-
-            if (!is_ack || !is_seq_match) {
-                goto free_nbuf;
-            }
-
-            this->reset_inflight_segment();
-
-            auto data_size = tcp_data_length(ip, tcp);
-            if (data_size != 0) {
-                auto* bytes_in_nbuf = nbuf_clone_offset_nometadata(nbuf, nbuf_offset(nbuf, tcp->data));
-                assert(NULL != bytes_in_nbuf);
-                auto result = _bytes_in.push(bytes_in_nbuf, false);
-                assert(true == result);
-                _receive_next_ack += data_size;
-                this->send_ack();
-            }
-
-            this->pop_bytes_out();
-
-            goto free_nbuf;
-        }
-
-        case TcpState::CloseWait:
-            goto free_nbuf;
-
-        case TcpState::Closed:
-            this->send_rst(nbuf);
-            goto free_nbuf;
-
-        default:
-            goto free_nbuf;
+    if (!is_seq_match) {
+        kprintf("expected sequence %d but got %d\n", ntohl(tcp->ack_seq), _seq.seq());
     }
+#endif
 
-free_nbuf:
+    _state->handle_incoming_segment(nbuf, ip, tcp);
+
     return false;
-
-//keep_nbuf:
-    return true;
 }
 
 void TcpSession::close(void) {
-    // TODO: implement FIN
-    if (TcpState::Closed != _state) {
-        this->send_rst(NULL);
-    }
-
-    this->set_state(TcpState::Closed);
     _receive_next_ack = 0;
     _receive_window = 0;
 
@@ -289,89 +216,112 @@ void TcpSession::close(void) {
     _remoteAddr = {};
 }
 
-void TcpSession::set_state(TcpState newState) {
-    kprintf("[tcp] state %s --> %s\n", tcp_state(_state), tcp_state(newState));
-    _state = newState;
-    _stateChanged.emit(newState);
-}
-
-void TcpSession::pop_bytes_out(void) {
-    kprintf("TcpSession::pop_bytes_out: %p\n", _segment_inflight.get());
-    if (_segment_inflight) {
-        return;
-    }
-
-    NetworkBuffer* bytes_nbuf(nullptr);
-    if (!_bytes_out.pop(bytes_nbuf, false)) {
-        return;
-    }
-
-    if (!nbuf_is_valid(bytes_nbuf)) {
-        return;
-    }
-
-    this->send_ack_push(nbuf_data(bytes_nbuf), nbuf_size(bytes_nbuf));
-
-    nbuf_free(bytes_nbuf);
-}
-
-int TcpSession::pop_bytes_in(void* buffer, size_t size) {
-    if (TcpState::Closed == _state) {
-        return 0;
-    }
-
-    if (TcpState::Established != _state) {
-        return -1;
-    }
-
-    NetworkBuffer* nbuf(nullptr);
-    if (!_bytes_in.pop(nbuf, true)) {
-        // NOTE: should get here only if we got EOF (?)
-        return 0;
-    }
-
-    auto size_to_copy = MIN(size, nbuf_size(nbuf));
-    const uint8_t* nbuf_pos = (const uint8_t*) nbuf_data(nbuf);
-    memcpy(buffer, nbuf_pos, size_to_copy);
-
-    if (size_to_copy != nbuf_size(nbuf)) {
-        auto* newNbuf = nbuf_clone_offset_nometadata(nbuf, size_to_copy - 1);
-        assert(newNbuf != nullptr);
-
-        _bytes_in.push_head(newNbuf);
-    }
-
-    nbuf_free(nbuf);
-
-    return size_to_copy;
-}
-
-void TcpSession::handle_out_segment_error(std::shared_ptr<TcpOutSegment> segment, TcpSession* self) {
+void TcpSession::set_state(std::unique_ptr<TcpState> newState) {
     InterruptsMutex guard(true);
 
-    if (segment != self->_segment_inflight) {
-        return;
+    if (_state && newState) {
+        kprintf("[tcp] state %s --> %s\n", tcp_state(_state->state_enum()), tcp_state(newState->state_enum()));
     }
 
-    self->_segment_inflight.reset();
-    self->close();
+    _state = std::move(newState);
+    _stateChanged.emit(_state->state_enum());
+
+    if (_state->has_second_stage()) {
+        _state->handle_second_stage();
+    }
 }
 
-TcpState TcpSession::wait_state_changed(void) {
+TcpStateEnum TcpSession::wait_state_changed(void) {
     return _stateChanged.get();
 }
 
-TcpState TcpSession::state(void) const {
-    return _state;
+TcpStateEnum TcpSession::state(void) const {
+    return _state->state_enum();
 }
 
-static const char* _states[] = {
-    "Closed",
-    "Syn-Sent",
-    "Established",
-    "Listen",
-    "Close-Wait"
-};
-const char* tcp_state(TcpState state) {
-    return _states[int(state)];
+bool TcpSession::is_seq_match(const tcp_t* tcp) const {
+    return ntohl(tcp->ack_seq) == (_seq.seq());
+}
+
+TcpSequence& TcpSession::seq(void) {
+    return _seq;
+}
+
+uint32_t& TcpSession::receive_next_ack(void) {
+    return _receive_next_ack;
+}
+
+uint16_t& TcpSession::receive_window(void) {
+    return _receive_window;
+}
+
+// TODO: limit push function to window size??
+int TcpSession::push_input_bytes(const uint8_t* buffer, size_t size) {
+    InterruptsMutex guard(true);
+
+    std::copy_n(buffer, size, std::back_inserter(_inputBuffer.buffer));
+
+    _receive_next_ack += size;
+
+    _inputBuffer.eventStream.emit(size);
+
+    return size;
+}
+
+int TcpSession::push_output_bytes(const uint8_t* buffer, size_t size) {
+    {
+        InterruptsMutex guard(true);
+        std::copy_n(buffer, size, std::back_inserter(_outputBuffer.buffer));
+    }
+
+    _outputBuffer.eventStream.emit(size);
+
+    _state->handle_output_trigger();
+    return size;
+}
+
+int TcpSession::pop_output_bytes(uint8_t* buffer, size_t size, bool wait) {
+    InterruptsMutex guard(true);
+
+    while (0 == _outputBuffer.buffer.size() && wait) {
+        guard.unlock();
+        _outputBuffer.eventStream.get();
+        guard.lock();
+    }
+
+    size_t avail_size = MIN(_outputBuffer.buffer.size(), size);
+
+    kprintf("pop_output_bytes(%p, %d, %s): avail_size=%d)\n", buffer, size, wait ? "true" : "false", avail_size);
+
+    std::copy_n(_outputBuffer.buffer.begin(), avail_size, buffer);
+    _outputBuffer.buffer.erase(_outputBuffer.buffer.begin(), _outputBuffer.buffer.begin() + avail_size);
+
+    return avail_size;
+}
+
+int TcpSession::pop_input_bytes(uint8_t* buffer, size_t size, bool wait) {
+    InterruptsMutex guard(true);
+
+    if (TcpStateEnum::Closed == this->state()) {
+        return 0;
+    }
+
+    if (TcpStateEnum::Established != this->state()) {
+        return -1;
+    }
+
+    while (0 == _inputBuffer.buffer.size() && wait) {
+        guard.unlock();
+        _inputBuffer.eventStream.get();
+        guard.lock();
+    }
+
+    size_t avail_size = MIN(_inputBuffer.buffer.size(), size);
+
+    kprintf("pop_input_bytes(%p, %d, %s): avail_size=%d)\n", buffer, size, wait ? "true" : "false", avail_size);
+
+    std::copy_n(_inputBuffer.buffer.begin(), avail_size, buffer);
+    _inputBuffer.buffer.erase(_inputBuffer.buffer.begin(), _inputBuffer.buffer.begin() + avail_size);
+
+    return avail_size;
 }

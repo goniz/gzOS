@@ -9,6 +9,7 @@
 #include <platform/panic.h>
 #include <lib/mm/vm_map.h>
 #include <stdbool.h>
+#include <lib/primitives/hexdump.h>
 #include "tlb.h"
 #include "mips.h"
 #include "interrupts.h"
@@ -51,18 +52,22 @@ static pmap_range_t pmap_range[2] = {
 };
 
 void pmap_setup(pmap_t *pmap, pmap_type_t type, asid_t asid) {
+    memset(pmap, 0, sizeof(*pmap));
+
     pmap->type = type;
     pmap->pte = (pte_t *) PT_BASE;
     pmap->pde_page = pm_alloc(1);
     assert(NULL != pmap->pde_page);
 
     pmap->pde = (pte_t *) PG_VADDR_START(pmap->pde_page);
+    memset(pmap->pde, 0, sizeof(*pmap->pde));
+
     pmap->start = pmap_range[type].start;
     pmap->end = pmap_range[type].end;
     pmap->asid = asid;
     TAILQ_INIT(&pmap->pte_pages);
 
-    kprintf("Page directory table allocated at %08lx\n", (intptr_t) pmap->pde);
+//    kprintf("Page directory table allocated at %08lx\n", (intptr_t) pmap->pde);
 
     for (int i = 0; i < PD_ENTRIES; i++)
         pmap->pde[i] = (pmap->type == PMAP_KERNEL) ? PTE_GLOBAL : 0;
@@ -75,7 +80,11 @@ void pmap_reset(pmap_t *pmap) {
         TAILQ_REMOVE(&pmap->pte_pages, pg, pt.list);
         pm_free(pg);
     }
+
     pm_free(pmap->pde_page);
+
+    tlb_invalidate_all();
+
     memset(pmap, 0, sizeof(pmap_t)); /* Set up for reuse. */
 }
 
@@ -345,6 +354,8 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
         vm_addr_t orig_vaddr = (vaddr - PT_BASE) * PTF_ENTRIES;
         if (0 == orig_vaddr) {
             kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
+            kprintf("epc %p opcode %08x\n", regs->epc, *((uint32_t*)regs->epc));
+            hexDump(NULL, (void*)regs->epc, 16);
             vm_do_segfault(orig_vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE, VM_PROT_NONE);
             return regs;
         }
@@ -396,6 +407,7 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
     uint32_t page_fault_prot = code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE;
     if (!vm_page_fault(map, vaddr, page_fault_prot)) {
         kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
+        vm_map_dump(map);
         vm_do_segfault(vaddr, page_fault_prot, VM_PROT_NONE);
 //        vm_do_segfault(fault_addr, fault_type, (vm_prot_t) (entry ? entry->prot : (uint32_t) -1));
     }

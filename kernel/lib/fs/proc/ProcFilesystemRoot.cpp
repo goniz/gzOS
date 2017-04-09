@@ -20,8 +20,6 @@ static int vfs_proc_init(void)
         return std::static_pointer_cast<VFSNode>(node);
     });
 
-    vfs.mkdir("/proc");
-    vfs.mountFilesystem("procfs", "none", "/proc");
     return 0;
 }
 

@@ -197,7 +197,7 @@ int VectorBackedFileDescriptor::seek(int where, int whence) {
     return this->offset;
 }
 
-void VectorBackedFileDescriptor::close(void) {
+void VectorBackedFileDescriptor::   close(void) {
 
 }
 

@@ -15,7 +15,7 @@ struct _sbrk_struct {
     bool shutdown;
 };
 
-static _sbrk_struct _sbrk{&_end, &_end + 512 * PAGESIZE, {}, false};
+static _sbrk_struct _sbrk{&_end, &_end + roundup(5 * 1024 * 1024, PAGESIZE), {}, false};
 
 extern "C"
 void kernel_brk(void *addr)
@@ -25,15 +25,16 @@ void kernel_brk(void *addr)
     }
 
     _sbrk.lock.lock();
-    void *ptr = _sbrk.ptr;
+//    void *ptr = _sbrk.ptr;
     addr = (void *)((intptr_t)addr & -sizeof(uint64_t));
     assert((intptr_t)&_end <= (intptr_t)addr);
     assert((intptr_t)addr <= (intptr_t)_sbrk.end);
     _sbrk.ptr = addr;
     _sbrk.lock.unlock();
 
-    if (addr > ptr)
-        memset(ptr, 0, (intptr_t)addr - (intptr_t)ptr);
+//    if (addr > ptr) {
+//        memset(ptr, 0, (intptr_t) addr - (intptr_t) ptr);
+//    }
 }
 
 extern "C"
@@ -46,11 +47,11 @@ void* kernel_sbrk(size_t size)
     _sbrk.lock.lock();
     void *ptr = _sbrk.ptr;
     size = roundup(size, sizeof(uint64_t));
-    assert((uintptr_t)ptr + size <= (uintptr_t)_sbrk.end);
+    assert(((uintptr_t)ptr + size) <= (uintptr_t)_sbrk.end);
     _sbrk.ptr = (void*)((uintptr_t)_sbrk.ptr + size);
     _sbrk.lock.unlock();
 
-    memset(ptr, 0, size);
+//    memset(ptr, 0, size);
     return ptr;
 }
 

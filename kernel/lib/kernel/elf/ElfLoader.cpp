@@ -5,7 +5,7 @@
 #include "ElfLoader.h"
 #include "elf.h"
 
-#define ELF32_DEBUG
+#undef ELF32_DEBUG
 
 ElfLoader::ElfLoader(const void *buffer, size_t size)
         : _buffer(buffer),
@@ -113,14 +113,20 @@ bool ElfLoader::loadSections(ProcessMemoryMap& memoryMap) {
             prot |= VM_PROT_EXEC;
         }
 
+#ifdef ELF32_DEBUG
         kprintf("Adding section '%s' @ %08x... ", name, start);
+#endif
         if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot, true)) {
             success = false;
+#ifdef ELF32_DEBUG
             kputs("Failed.\n");
+#endif
             return;
         }
 
+#ifdef ELF32_DEBUG
         kputs("Done.\n");
+#endif
 
         memoryMap.runInScope([&]() {
             if (SHT_PROGBITS == sec->sh_type) {

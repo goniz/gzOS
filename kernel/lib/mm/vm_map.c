@@ -34,6 +34,7 @@
 #include <platform/kprintf.h>
 #include <platform/panic.h>
 #include <platform/malta/tlb.h>
+#include <string.h>
 #include "physmem.h"
 #include "pmap.h"
 
@@ -117,12 +118,17 @@ void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry) {
     vm_map->nentries--;
     vm_object_free(entry->object);
     TAILQ_REMOVE(&vm_map->list, entry, map_list);
+    memset(entry, 0, sizeof(*entry));
     kfree(mpool, entry);
 }
 
 void vm_map_delete(vm_map_t *map) {
     while (map->nentries > 0)
         vm_map_remove_entry(map, TAILQ_FIRST(&map->list));
+
+    pmap_reset(&map->pmap);
+
+    memset(map, 0, sizeof(*map));
     kfree(mpool, map);
 }
 

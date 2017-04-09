@@ -3,6 +3,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 #include <libc/readdir.h>
+#include <libc/traceme.h>
 
 
 static void ls(const char* path)
@@ -25,9 +26,9 @@ static void ls(const char* path)
 }
 
 int main(int argc, char **argv) {
-    puts("Hello World 1!");
+//    traceme(1);
 
-    getopt(argc, argv, "lh");
+    puts("Hello World 1!");
 
     int list_flag = 0;
     int human_flag = 0;
@@ -59,8 +60,5 @@ int main(int argc, char **argv) {
     for (int index = optind; index < argc; index++)
         printf("Non-option argument %s\n", argv[index]);
 
-
-
-
-    return 0;
+    return 1;
 }

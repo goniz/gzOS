@@ -134,21 +134,35 @@ bool VirtualFileSystem::mountFilesystem(const char* fstype, const char* source, 
 }
 
 std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char* path, int flags) {
+    bool createdNode = false;
     auto node = this->lookup(Path(path));
-    if (!node && flags & O_CREAT) {
+    if (node && (flags & O_CREAT)) {
+        return nullptr;
+    }
+
+    if (!node && (flags & O_CREAT)) {
+        flags &= ~O_CREAT;
         node = this->createNode(path, VFSNode::Type::File);
+        createdNode = true;
     }
 
     if (!node) {
+        kprintf("[vfs] open: failed to find %s\n", path);
         return nullptr;
     }
 
     auto fd = node->open();
     if (!fd) {
+        if (createdNode) {
+            // TODO: remove the node we just created??
+            kprintf("[vfs] failed to open fd when using O_CREAT, leaving empty file..\n");
+        }
+
         return nullptr;
     }
 
     if (flags & O_TRUNC) {
+        flags &= ~O_TRUNC;
         // TODO: support truncate on fds
 //        fd->truncate(0);
     }
@@ -157,6 +171,15 @@ std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char* path, int fl
 }
 
 SharedNode VirtualFileSystem::createNode(const char* nodePath, VFSNode::Type type) {
+    // if the node already exists, fail
+    Path existingNode(nodePath);
+    existingNode.trim();
+    existingNode.sanitize();
+
+    if (this->lookup(std::move(existingNode))) {
+        return nullptr;
+    }
+
     Path destinationPath(nodePath);
     auto basename = destinationPath.filename();
     if ("" == basename) {

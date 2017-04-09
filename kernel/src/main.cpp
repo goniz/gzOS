@@ -9,6 +9,7 @@
 #include <platform/malta/mips.h>
 #include <platform/malta/malta.h>
 #include <lib/kernel/vfs/vfs_api.h>
+#include <lib/kernel/initrd/load_initrd.h>
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wmissing-noreturn"
@@ -138,21 +139,16 @@ uint8_t* recv_file_over_udp(size_t* size) {
 
 extern "C"
 int kernel_main(void* argument) {
-    kprintf("Current Stack: %p\n", (void*) _get_stack_pointer());
-    kprintf("Start of heap: %p\n", (void*) &_end);
 
     interface_add("eth0", 0x01010101, 0xffffff00);
 
-    vfs_mkdir("/tmp");
+    initrd_initialize();
 
-    vfs_mkdir("/pflash");
-    vfs_mount("pflashfs", "none", "/pflash");
-
-    vfs_mkdir("/usr");
-    vfs_mount("fat32", "/pflash/userdata", "/usr");
-
-    std::vector<const char*> shellArgs{"/usr/BIN/SHELL", "1.1.1.2:8888"};
-    syscall(SYS_NR_EXEC, "/usr/BIN/SHELL", shellArgs.size(), shellArgs.data());
+    std::vector<const char*> shellArgs{"/bin/init"};
+    pid_t shellpid = syscall(SYS_NR_EXEC, "/bin/init", shellArgs.size(), shellArgs.data());
+    if (-1 != shellpid) {
+        syscall(SYS_NR_WAIT_PID, shellpid);
+    }
 
     while (1) {
         uint32_t size = 0;
@@ -172,6 +168,8 @@ int kernel_main(void* argument) {
         kprintf("new pid: %d\n", pid);
 
         free(buffer);
+
+        kprintf("pid exited with %d", syscall(SYS_NR_WAIT_PID, pid));
     }
 
     return 0;

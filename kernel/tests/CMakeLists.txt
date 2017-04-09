@@ -6,8 +6,9 @@ project(tests C CXX ASM)
 
 add_executable(tests main.cpp)
 
-target_link_libraries(tests -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs mm -Wl,--no-whole-archive c)
-target_link_libraries(tests malloc kernel primitives syscall i8259A)
+target_link_libraries(tests -Wl,--whole-archive ${CMAKE_PLATFORM_NAME} platform stubs -Wl,--no-whole-archive)
+target_link_libraries(tests -Wl,--whole-archive i8259A piix4 pcnet e1000 qemu_shmem pflash fat32 procfs -Wl,--no-whole-archive)
+target_link_libraries(tests -Wl,--whole-archive mm network malloc kernel primitives syscall -Wl,--no-whole-archive)
 target_link_libraries(tests c stdc++ supc++)
 set_target_properties(tests PROPERTIES LINK_FLAGS "-Wl,-Map,${CMAKE_BINARY_DIR}/tests.map")
 

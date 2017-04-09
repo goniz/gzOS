@@ -14,6 +14,7 @@ public:
     virtual const std::string& getPathSegment(void) const override;
     virtual bool mountNode(SharedNode node) override;
     virtual bool isMounted(void) const override;
+    virtual size_t getSize(void) const override;
 
     virtual const std::vector<SharedNode>& childNodes(void) = 0;
     virtual SharedNode createNode(VFSNode::Type type, std::string&& path) = 0;

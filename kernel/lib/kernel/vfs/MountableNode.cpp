@@ -58,3 +58,13 @@ bool MountableNode::isMounted(void) const {
         return _innerNode->isMounted();
     }
 }
+
+size_t MountableNode::getSize(void) const {
+    if (_mountedNode) {
+        return _mountedNode->getSize();
+    } else if (_innerNode) {
+        return _innerNode->getSize();
+    } else {
+        return 0;
+    }
+}

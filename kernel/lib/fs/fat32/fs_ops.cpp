@@ -129,6 +129,18 @@ Path Fat32VFSNode::getCurrentFatPath(void) const {
     return dirPath;
 }
 
+size_t Fat32VFSNode::getSize(void) const {
+    Path dirPath = std::move(this->getCurrentFatPath());
+    auto pathString = dirPath.string();
+
+    FILINFO info;
+    if (FR_OK != f_stat(pathString.c_str(), &info)) {
+        return 0;
+    }
+
+    return info.fsize;
+}
+
 // TODO: check this path thingy
 Fat32FileSystem::Fat32FileSystem(const char* sourceDevice, std::string&& path)
         : Fat32VFSNode(VFSNode::Type::Directory, std::string(""), std::string(path)),

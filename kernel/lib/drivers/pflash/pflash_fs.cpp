@@ -62,3 +62,7 @@ const std::vector<SharedNode>& PFlashVFSNode::childNodes(void) {
 SharedNode PFlashVFSNode::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
+
+size_t PFlashVFSNode::getSize(void) const {
+    return _partition.size;
+}

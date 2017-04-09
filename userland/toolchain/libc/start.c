@@ -29,6 +29,7 @@ static void invoke_constructors(void)
     }
 }
 
+__unused
 void _start(void* argument)
 {
 

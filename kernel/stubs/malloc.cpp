@@ -15,6 +15,8 @@ static bool g_pool_initialized = false;
 extern "C"
 void malloc_init(void* start, size_t size)
 {
+    kprintf("[malloc] initializing kernel malloc pool of size %d at %p\n", size, start);
+
     kmalloc_init(kmalloc_pool);
     kmalloc_add_arena(kmalloc_pool, start, size);
     g_pool_initialized = true;

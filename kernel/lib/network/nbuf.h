@@ -11,6 +11,8 @@
 #define NetworkBufferControlPoolSize    (512 * 1024)        // 500KB
 #define NetworkBufferDataPoolSize       (1 * 1024 * 1024)   // 1MB
 
+#undef NBUF_DEBUG
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -90,7 +92,7 @@ static inline void nbuf_set_size(NetworkBuffer* nbuf, size_t size) {
     nbuf->buffer.buffer_size = size;
 }
 
-static inline ptrdiff_t nbuf_offset(const NetworkBuffer* nbuf, void* buffer) {
+static inline ptrdiff_t nbuf_offset(const NetworkBuffer* nbuf, const void* buffer) {
     assert(pointer_is_in_range(buffer, nbuf->buffer.buffer, nbuf->buffer.buffer_capacity));
     return (uintptr_t)buffer - (uintptr_t)(nbuf->buffer.buffer);
 }

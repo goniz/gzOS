@@ -3,7 +3,7 @@
 #include <platform/kprintf.h>
 #include "hexdump.h"
 
-void hexDump(char *desc, void *addr, int len)
+void hexDump(const char* desc, const void* addr, int len)
 {
     int i;
     unsigned char buff[17];

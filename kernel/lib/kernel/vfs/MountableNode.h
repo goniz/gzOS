@@ -14,6 +14,7 @@ public:
     virtual Type getType(void) const override;
     virtual const std::vector<SharedNode>& childNodes(void) override;
     virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual size_t getSize(void) const override;
 
     virtual bool mountNode(SharedNode node) override;
     virtual bool isMounted(void) const override;

@@ -9,7 +9,7 @@
 class AccessControlledFileDescriptor : public FileDescriptor {
 public:
     AccessControlledFileDescriptor(std::unique_ptr<FileDescriptor> fd, int flags);
-    virtual ~AccessControlledFileDescriptor(void) = default;
+    virtual ~AccessControlledFileDescriptor(void);
 
     virtual int read(void *buffer, size_t size) override;
     virtual int write(const void *buffer, size_t size) override;

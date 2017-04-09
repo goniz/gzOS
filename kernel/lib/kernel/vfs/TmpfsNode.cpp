@@ -44,6 +44,14 @@ SharedNode TmpfsFileNode::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 
+size_t TmpfsFileNode::getSize(void) const {
+    if (_data) {
+        return _data->size();
+    } else {
+        return 0;
+    }
+}
+
 TmpfsDirectoryNode::TmpfsDirectoryNode(VFSNode::Type type, std::string&& path)
         : TmpfsNode(type, std::move(path))
 {

@@ -4,8 +4,15 @@ dir=$(readlink -f $(dirname $0))
 
 elf="${dir}/../kernel/build/gzOS.elf"
 flash="${dir}/../kernel/flash.bin"
+initrd="${dir}/../kernel/initrd.cpio"
 
-make malta compile
+if [[ -f "$1" ]]; then
+	elf="$1"
+	shift 1
+fi
+
+#make malta compile
+
 if ! sudo brctl show | grep -q br0; then
 	sudo brctl addbr br0
 fi
@@ -17,6 +24,7 @@ qemu-system-mips 			-machine malta \
 					-m 128 \
 					-bios none \
 					-kernel $elf \
+					-initrd $initrd \
 					-display none \
 					-serial null \
 					-serial null \

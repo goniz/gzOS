@@ -5,22 +5,46 @@
 #include <lib/mm/vm_pager.h>
 #include <platform/kprintf.h>
 #include <lib/primitives/align.h>
+#include <lib/primitives/interrupts_mutex.h>
+#include <lib/mm/physmem.h>
 #include "ProcessMemoryMap.h"
 
-ProcessMemoryMap::ProcessMemoryMap(asid_t id)
-        : _map(vm_map_new((vm_map_type_t) PMAP_USER, id))
+static MALLOC_DEFINE(mp_memory_map, "ProcessMemoryMap malloc pools");
+
+__attribute__((constructor,unused))
+static void init_memory_pool()
 {
+    kmalloc_init(mp_memory_map);
+
+    vm_page_t* page = pm_alloc(1);
+    assert(page != NULL);
+
+    kmalloc_add_arena(mp_memory_map, (void*)PG_VADDR_START(page), PG_SIZE(page));
+}
+
+ProcessMemoryMap::ProcessMemoryMap(asid_t id)
+        : _map(nullptr)
+{
+    InterruptsMutex guard(true);
+
+    _map = vm_map_new((vm_map_type_t) PMAP_USER, id);
     assert(nullptr != _map);
 }
 
 ProcessMemoryMap::~ProcessMemoryMap(void)
 {
+    InterruptsMutex guard(true);
+
+    _regions.clear();
+
     if (_map) {
         vm_map_delete(_map);
     }
+
 }
 
 void ProcessMemoryMap::activate(void) const {
+    InterruptsMutex guard(true);
     set_active_vm_map(_map);
 }
 
@@ -33,7 +57,8 @@ VirtualMemoryRegion* ProcessMemoryMap::createMemoryRegion(const char *name,
         return nullptr;
     }
 
-    if (!_regions.put(name, VirtualMemoryRegion(*this, name, start, end, prot, plain))) {
+    VirtualMemoryRegion region(*this, name, start, end, prot, plain);
+    if (!_regions.put(name, std::move(region))) {
         return nullptr;
     }
 
@@ -63,20 +88,25 @@ VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent,
                                          bool plain)
     : _parent(parent),
       _name(name),
-      _pool(std::make_unique<malloc_pool_t>()),
+      _pool(nullptr),
       _header(nullptr),
       _data(nullptr),
       _footer(nullptr)
 {
-    char tmp[8];
+    char tmp[16];
     sprintf(tmp, "%d", _parent._map->pmap.asid);
     _poolName.reserve(64);
     _poolName.append(name);
     _poolName.append("#");
     _poolName.append(tmp);
 
-    *_pool = MALLOC_INITIALIZER(_pool, _poolName.c_str());
-    kmalloc_init(_pool.get());
+    InterruptsMutex guard(true);
+
+    if (!plain) {
+        _pool = (malloc_pool_t*) kmalloc(mp_memory_map, sizeof(*_pool), M_ZERO);
+        kmalloc_init(_pool);
+        kmalloc_set_description(_pool, _poolName.c_str());
+    }
 
     if (!plain) {
         _header = vm_map_add_entry(_parent._map, start - PAGESIZE, start, (vm_prot_t)VM_PROT_NONE);
@@ -94,15 +124,22 @@ VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent,
         _footer->object = vm_object_alloc();
     }
 
-    if (!plain) {
+    if (_pool) {
         _parent.runInScope([&]() {
-            kmalloc_add_arena(_pool.get(), (void *) start, end - start);
+            kmalloc_add_arena(_pool, (void *) start, end - start);
         });
     }
 }
 
 VirtualMemoryRegion::~VirtualMemoryRegion(void)
 {
+    InterruptsMutex guard(true);
+
+    if (_pool) {
+        memset(_pool, 0, sizeof(*_pool));
+        kfree(mp_memory_map, _pool);
+    }
+
     if (_header) {
         vm_map_remove_entry(_parent._map, _header);
     }
@@ -125,6 +162,8 @@ VirtualMemoryRegion::VirtualMemoryRegion(VirtualMemoryRegion &&other)
       _data(nullptr),
       _footer(nullptr)
 {
+    InterruptsMutex guard(true);
+
     std::swap(_name, other._name);
     std::swap(_poolName, other._poolName);
     std::swap(_pool, other._pool);
@@ -132,22 +171,27 @@ VirtualMemoryRegion::VirtualMemoryRegion(VirtualMemoryRegion &&other)
     std::swap(_data, other._data);
     std::swap(_footer, other._footer);
 
-    kmalloc_set_description(_pool.get(), _poolName.c_str());
+    if (_pool) {
+        kmalloc_set_description(_pool, _poolName.c_str());
+    }
 }
 
 void *VirtualMemoryRegion::allocate(size_t size) const {
+    InterruptsMutex guard(true);
     void* ptr = nullptr;
 
     _parent.runInScope([&]() {
-        ptr = kmalloc(_pool.get(), size, M_NOWAIT);
+        ptr = kmalloc(_pool, size, M_NOWAIT | M_ZERO);
     });
 
     return ptr;
 }
 
 void VirtualMemoryRegion::free(void *ptr) const {
+    InterruptsMutex guard(true);
+
     _parent.runInScope([&]() {
-        kfree(_pool.get(), ptr);
+        kfree(_pool, ptr);
     });
 }
 
@@ -156,6 +200,7 @@ void VirtualMemoryRegion::mprotect(vm_prot_t prot) {
         return;
     }
 
+    InterruptsMutex guard(true);
     vm_map_protect(_parent._map, _data->start, _data->end, prot);
 }
 
@@ -166,8 +211,17 @@ bool VirtualMemoryRegion::extend(uintptr_t endAddr) {
 
     // already mapped..
     if (endAddr >= _data->start && endAddr <= _data->end) {
+//        kprintf("%s: %08x already mapped??\n", _name, endAddr);
         return true;
     }
 
-    return vm_map_extend_entry(_parent._map, _data, endAddr) != 0;
+//    kprintf("%s: Extending to %08x\n", _name, endAddr);
+
+    InterruptsMutex guard(true);
+
+    if (vm_map_extend_entry(_parent._map, _data, endAddr)) {
+        return true;
+    }
+
+    return false;
 }

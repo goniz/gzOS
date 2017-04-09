@@ -96,6 +96,13 @@ DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
     return newProc->pid();
 }
 
+DEFINE_SYSCALL(WAIT_PID, wait_pid, SYS_IRQ_ENABLED)
+{
+    SYSCALL_ARG(int, pid);
+
+    return Scheduler::instance().waitForPid(pid);
+}
+
 DEFINE_SYSCALL(GET_PID, get_pid, SYS_IRQ_DISABLED)
 {
     return Scheduler::instance().getCurrentPid();
@@ -109,10 +116,14 @@ DEFINE_SYSCALL(GET_TID, get_tid, SYS_IRQ_DISABLED)
 DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(int, exit_code);
+    __unused
+    SYSCALL_ARG(void*, requesting_function);
 
     auto& instance = Scheduler::instance();
     auto proc = instance.CurrentProcess();
     assert(proc);
+
+//    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
 
     if (!instance.signalPid(PID_CURRENT, SIG_KILL, 0)) {
         return -1;
@@ -283,6 +294,16 @@ DEFINE_SYSCALL(MOUNT, mount, SYS_IRQ_DISABLED)
     SYSCALL_ARG(const char*, destination);
 
     return vfs_mount(fstype, source, destination);
+}
+
+DEFINE_SYSCALL(MKDIR, mkdir, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const char*, path);
+    SYSCALL_ARG(mode_t, mode);
+
+    (void)mode;
+
+    return vfs_mkdir(path);
 }
 
 DEFINE_SYSCALL(READDIR, readdir, SYS_IRQ_DISABLED)

@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <vector>
 #include <memory>
+#include <platform/kprintf.h>
 
 class FileDescriptor;
 class InvalidFileDescriptor;
@@ -13,13 +14,15 @@ class NullFileDescriptor;
 
 class FileDescriptor {
 public:
-    virtual ~FileDescriptor(void) = default;
+    virtual ~FileDescriptor(void) {
+        this->close();
+    }
 
     virtual int read(void* buffer, size_t size) = 0;
     virtual int write(const void* buffer, size_t size) = 0;
     virtual int seek(int where, int whence) = 0;
     virtual int stat(struct stat *stat) = 0;
-    virtual void close(void) = 0;
+    virtual void close(void) { }
 
     virtual int ioctl(int cmd, void* buffer, size_t size);
 

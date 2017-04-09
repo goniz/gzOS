@@ -3,9 +3,9 @@
 
 enum Signal
 {
-    SIG_KILL,
-    SIG_STOP,
-    SIG_CONT,
+    SIG_KILL = 9,
+    SIG_STOP = 17,
+    SIG_CONT = 19,
     SIG_ABORT = 6,
     SIG_NONE = -1
 };

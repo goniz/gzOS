@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void hexDump(char *desc, void *addr, int len);
+void hexDump(const char* desc, const void* addr, int len);
 
 #ifdef __cplusplus
 }

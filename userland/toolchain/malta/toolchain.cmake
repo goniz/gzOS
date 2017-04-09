@@ -12,7 +12,7 @@ set( CMAKE_SYSTEM_PROCESSOR     MIPS    )
 set( CMAKE_PLATFORM_NAME		malta CACHE STRING "" )
 
 # The toolchain prefix for all toolchain executables
-set( CROSS_COMPILE mips-mti-elf-)
+set( CROSS_COMPILE /data/toolchains/imgtec/Toolchains/mips-mti-elf/2016.05-03/bin/mips-mti-elf-)
 
 # specify the cross compiler. We force the compiler so that CMake doesn't
 # attempt to build a simple test program as this will fail without us using

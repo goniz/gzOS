@@ -22,6 +22,7 @@ public:
     virtual std::unique_ptr<FileDescriptor> open(void) override;
     virtual const std::vector<SharedNode>& childNodes(void) override;
     virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual size_t getSize(void) const override;
 
 private:
     const uintptr_t _flash_base = MIPS_PHYS_TO_KSEG1(MALTA_FLASH_BASE);

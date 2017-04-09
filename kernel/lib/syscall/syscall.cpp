@@ -43,7 +43,7 @@ int syscall_handle(struct user_regs **regs, uint32_t syscallNumber, va_list args
 
 #if SYSCALL_DEBUG == 1
     if (SYS_NR_YIELD != syscallNumber) {
-        kprintf("{ .number = %d, .handler = %p, .irq = %d }\n", (*syscall)->number, (*syscall)->handler, (*syscall)->irq);
+        kprintf("%s\n", (*syscall)->name);
     }
 #endif
     return scheduler_syscall_handler(regs, *syscall, args);

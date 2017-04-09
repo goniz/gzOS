@@ -3,6 +3,7 @@
 #include <cassert>
 #include <platform/panic.h>
 #include <vfs/VirtualFileSystem.h>
+#include <lib/primitives/align.h>
 #include "sched/scheduler.h"
 #include "IdAllocator.h"
 #include "vfs/ConsoleFileDescriptor.h"
@@ -22,6 +23,8 @@ Process::Process(const char* name,
     if (0 == endAddr) {
         panic("%s (%d): failed to obtain end address", _name, _pid);
     }
+
+//    kprintf("%s: creating heap area from %08x to %08x\n", _name, endAddr, endAddr + PAGESIZE);
 
     if (!_memoryMap.createMemoryRegion("heap",
                                        endAddr, endAddr + PAGESIZE,
@@ -64,7 +67,7 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
 Process::~Process(void)
 {
     try {
-        this->_fileDescriptors.close_all();
+        _fileDescriptors.close_all();
     } catch (std::exception& ex) {
 
     }
@@ -108,13 +111,14 @@ void Process::switchProcess(Process& newProc)
 }
 
 bool Process::is_kernel_proc(void) const {
-    return 0 == strcmp("Kernel", _name);
+    return 0 == strcmp("kernel", _name);
 }
 
 void Process::terminate(int exit_code) {
     InterruptsMutex mutex(true);
     _exitCode = exit_code;
     _state = Process::State::TERMINATED;
+    _exitEvent.emit(exit_code);
 }
 
 bool Process::extendHeap(uintptr_t endAddr){
@@ -182,4 +186,12 @@ void Process::createArgsRegion() {
     });
 
     this->_userArgv = user_argv;
+}
+
+bool Process::has_exited(void) const {
+    return _state == State::TERMINATED;
+}
+
+int Process::wait_for_exit(void) {
+    return _exitEvent.get();
 }

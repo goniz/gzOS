@@ -22,6 +22,7 @@ public:
 
     virtual VFSNode::Type getType(void) const = 0;
     virtual const std::string& getPathSegment(void) const = 0;
+    virtual size_t getSize(void) const = 0;
 
     virtual const std::vector<SharedNode>& childNodes(void) = 0;
     virtual bool mountNode(SharedNode node) = 0;

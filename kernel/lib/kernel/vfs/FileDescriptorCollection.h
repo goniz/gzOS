@@ -13,7 +13,7 @@ class FileDescriptorCollection {
 public:
     int push_filedescriptor(std::unique_ptr<FileDescriptor> fd);
     FileDescriptor* get_filedescriptor(int fdnum);
-    int remove_filedescriptor(int fdnum, bool close = true);
+    int remove_filedescriptor(int fdnum, bool close = false);
     bool duplicate(int old_fd, int new_fd);
     void close_all(void);
 

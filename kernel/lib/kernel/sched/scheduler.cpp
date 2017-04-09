@@ -49,8 +49,8 @@ static int idleProcMain(void *argument) {
 Scheduler::Scheduler(void)
         : _currentThread(nullptr),
           _readyQueue(SCHED_INITIAL_QUEUE_SIZE),
-          _kernelProc(new Process("Kernel", {}, false)),
-          _timerProc(new Process("SystemTimer", {}, false)),
+          _kernelProc(new Process("kernel", {}, false)),
+          _timerProc(new Process("timer", {}, false)),
           _idleThread(nullptr),
           _processList(),
           _mutex()
@@ -115,7 +115,7 @@ struct user_regs *Scheduler::schedule(struct user_regs *regs) {
     }
 
 
-    switch_to_proc:
+switch_to_proc:
     Process::switchProcess(_currentThread->proc());
     platform_set_active_thread(&_currentThread->_platformThreadCb);
     // return the context user_regs of the new/existing current proc entry
@@ -146,14 +146,14 @@ Process *Scheduler::createProcess(const char* name,
         return nullptr;
     }
 
+    kprintf("spawned a new proc with pid %d named %s\n", process->pid(), process->name());
+
+    InterruptsMutex mutex(true);
     auto mainThread = this->createThread(*process, "main", process->_entryPoint, process->_userArgv, stackSize);
     if (!mainThread) {
         return nullptr;
     }
 
-    kprintf("spawn new proc with pid %d named %s\n", process->pid(), process->name());
-
-    InterruptsMutex mutex(true);
     auto processPtr = process.get();
     _processList.push_back(std::move(process));
     return processPtr;
@@ -166,7 +166,7 @@ Thread *Scheduler::createThread(Process &process,
     auto thread = std::make_unique<Thread>(process, name, entryPoint, argument, stackSize, DefaultQuantum);
     auto threadPtr = thread.get();
 
-    kprintf("spawn new thread with tid %d named %s\n", thread->tid(), thread->name());
+    kprintf("[%s] spawned a new thread with tid %d named %s\n", process.name(), thread->tid(), thread->name());
 
     InterruptsMutex mutex(true);
     process.threads().push_back(std::move(thread));
@@ -314,9 +314,11 @@ uint32_t Scheduler::setTimeout(int timeout_ms, Scheduler::TimeoutCallbackFunc cb
 void Scheduler::unsetTimeout(uint32_t timerId) {
     InterruptsMutex mutex(true);
     {
-        std::remove_if(_timers.begin(), _timers.end(), [timerId](const auto& item) -> bool {
+        auto remove_iter = std::remove_if(_timers.begin(), _timers.end(), [timerId](const auto& item) -> bool {
             return item.id == timerId;
         });
+
+        _timers.erase(remove_iter, _timers.end());
     }
 }
 
@@ -549,6 +551,50 @@ bool Scheduler::signalProcessPid(pid_t pid, int signal, uintptr_t value) {
     return true;
 }
 
+int Scheduler::waitForPid(pid_t pid)
+{
+    InterruptsMutex mutex(true);
+    auto* proc = this->getProcessByPid(pid);
+    if (!proc) {
+        return -1;
+    }
+
+    if (proc->has_exited()) {
+        int exit_code = proc->exit_code();
+        this->destroyProcess(proc);
+        return exit_code;
+    }
+
+    int exit_code = proc->wait_for_exit();
+    this->destroyProcess(proc);
+    return exit_code;
+}
+
+bool Scheduler::destroyProcess(Process* proc) {
+    kprintf("[%s] pid %d exited with exit code %d\n", proc->name(), proc->pid(), proc->exit_code());
+
+    if (_kernelProc == proc || _timerProc == proc) {
+        return false;
+    }
+
+    if (!proc->has_exited()) {
+        kprintf("proc is still running!\n");
+        return false;
+    }
+
+    if (&_currentThread->proc() == proc) {
+        kprintf("proc is still current proc!\n");
+        _currentThread = nullptr;
+    }
+
+    auto remove_iter = std::remove_if(_processList.begin(), _processList.end(), [proc](const auto& item) -> bool {
+        return item.get() == proc;
+    });
+
+    _processList.erase(remove_iter, _processList.end());
+    return true;
+}
+
 extern "C"
 void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) {
     if ((vm_prot_t) -1 == prot) {
@@ -566,7 +612,7 @@ void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot) 
         panic("segfault in kernel..");
     } else {
         kprintf("Killing pid %d\n", pid);
-        syscall(SYS_NR_SIGNAL, PID_CURRENT, SIG_KILL);
+        syscall(SYS_NR_SIGNAL, pid, SIG_KILL);
     }
 }
 

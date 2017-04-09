@@ -81,9 +81,9 @@ SECTIONS
     *(.sbss .sbss.* .scommon)
     *(.bss .bss.*)
     *(COMMON)
-    . = ALIGN (4);
+    . = ALIGN (64k);
     __ebss = ABSOLUTE(.);
-  }
+  } : data
 
   _end = .;
 

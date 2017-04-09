@@ -20,19 +20,36 @@ clean:
 rootfs:
 	./scripts/create_rootfs.sh
 	./scripts/create_flash.sh build/rootfs/ kernel/flash.bin
+	./scripts/create_initrd.sh build/rootfs/ kernel/initrd.cpio
 
 qemu: compile
 qemu: rootfs
 qemu:
 	sudo ./scripts/run_qemu_gzos.sh
 
+tests: compile
+tests: rootfs
+tests:
+	sudo ./scripts/run_qemu_gzos.sh kernel/build/tests.elf
+
 debug: compile
 debug: rootfs
 debug:
 	sudo ./scripts/run_qemu_gzos.sh -S
 
+debug-tests: compile
+debug-tests: rootfs
+debug-tests:
+	sudo ./scripts/run_qemu_gzos.sh kernel/build/tests.elf -S
+
 gdb:
-	TERM=xterm mips-mti-elf-gdb kernel/build/gzOS.elf
+	source /data/.imgtec.sh && TERM=xterm mips-mti-elf-gdb kernel/build/gzOS.elf
+
+gdb-tests:
+	source /data/.imgtec.sh && TERM=xterm mips-mti-elf-gdb kernel/build/tests.elf
 
 objdump:
-	mips-mti-elf-objdump -Cd kernel/build/gzOS.elf | less
+	source /data/.imgtec.sh && mips-mti-elf-objdump -Cd kernel/build/gzOS.elf | less
+
+shell:
+	nc -v -l -p 8888

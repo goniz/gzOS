@@ -3,7 +3,6 @@
 #include "lib/network/tcp/tcp_socket.h"
 
 int tcp_in_main(void* argument);
-int tcp_out_main(void* argument);
 
 static int tcp_proto_init(void)
 {
@@ -12,8 +11,6 @@ static int tcp_proto_init(void)
     });
 
     Scheduler::instance().createKernelThread("TcpInput", tcp_in_main, nullptr, 8192);
-    Scheduler::instance().createKernelThread("TcpOutput", tcp_out_main, nullptr, 8192);
-
     return 0;
 }
 

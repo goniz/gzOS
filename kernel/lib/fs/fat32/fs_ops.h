@@ -15,6 +15,7 @@ public:
     virtual std::unique_ptr<FileDescriptor> open(void) override;
     virtual const std::vector<SharedNode>& childNodes(void) override;
     virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual size_t getSize(void) const override;
 
 protected:
     Path getCurrentFatPath(void) const;

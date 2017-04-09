@@ -2,7 +2,6 @@
 #include <lib/kernel/sched/scheduler.h>
 #include <platform/pci/pci.h>
 #include <platform/drivers.h>
-#include "interrupts.h"
 #include "kprintf.h"
 
 static void initialize_stdio(void);
@@ -19,11 +18,10 @@ void system_init(int argc, const char **argv, const char **envp)
 
     drivers_init();
     platform_pci_driver_probe();
+
     scheduler_run_main(kernel_main, NULL);
     interrupts_enable_all();
 
-    /* ... but if we do, safely trap here */
-	kprintf("main function exited. hanging.\n");
     while(1);
 }
 

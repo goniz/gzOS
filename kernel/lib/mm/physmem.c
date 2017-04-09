@@ -271,6 +271,7 @@ vm_page_t *pm_alloc(size_t npages) {
         vm_page_t *page;
         if ((page = pm_alloc_from_seg(seg_it, npages))) {
             // kprintf("[pmem] pm_alloc {paddr:%lx vaddr:%lx size:%ld}\n", page->paddr, page->vaddr, page->size);
+            memset((void*)PG_VADDR_START(page), 0, PG_SIZE(page));
             return page;
         }
     }
@@ -284,6 +285,8 @@ static void pm_free_from_seg(pm_seg_t *seg, vm_page_t *page) {
 
     if (!(page->pm_flags & PM_ALLOCATED))
         panic("page is already free: %p", (void *)page->paddr);
+
+    memset((void*)PG_VADDR_START(page), 0, PG_SIZE(page));
 
     while (1) {
         vm_page_t *buddy = pm_find_buddy(seg, page);
@@ -309,7 +312,7 @@ static void pm_free_from_seg(pm_seg_t *seg, vm_page_t *page) {
 void pm_free(vm_page_t *page) {
     pm_seg_t *seg_it = NULL;
 
-    // kprintf("[pmem] pm_free {paddr:%lx vaddr:%lx size:%ld}\n", page->paddr, page->vaddr, page->size);
+//     kprintf("[pmem] pm_free {paddr:%lx vaddr:%lx size:%ld}\n", page->paddr, page->vaddr, page->size);
 
     TAILQ_FOREACH(seg_it, &seglist, segq) {
         if (PG_START(page) >= seg_it->start && PG_END(page) <= seg_it->end) {

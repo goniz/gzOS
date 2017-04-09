@@ -59,12 +59,14 @@ Thread::Thread(Process& process,
             (void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
             is_kernel_proc ? nullptr : (char*)_stackHead + _stackSize,
             (void*) _entryPoint, _argument,
-            (void *) 0x1337,
+            (void *) 0x0,
             is_kernel_proc
     );
 }
 
 Thread::~Thread(void) {
+    InterruptsMutex guard(true);
+
     auto* stackRegion = _proc._memoryMap.get("stack");
     assert(NULL != stackRegion);
 

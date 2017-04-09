@@ -22,3 +22,7 @@ bool BasicVFSNode::mountNode(SharedNode node) {
 bool BasicVFSNode::isMounted(void) const {
     return false;
 }
+
+size_t BasicVFSNode::getSize(void) const {
+    return 0;
+}

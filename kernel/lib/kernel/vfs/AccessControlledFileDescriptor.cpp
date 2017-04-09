@@ -69,3 +69,7 @@ int AccessControlledFileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
 
     return _fd->ioctl(cmd, buffer, size);
 }
+
+AccessControlledFileDescriptor::~AccessControlledFileDescriptor(void) {
+    this->close();
+}

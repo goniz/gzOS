@@ -3,6 +3,7 @@
 #include <syscall.h>
 #include <errno.h>
 #include <unistd.h>
+#include <stdio.h>
 
 extern char _end;
 

@@ -12,6 +12,7 @@ enum DirEntryType {
 struct DirEntry {
     char name[128];
     enum DirEntryType type;
+    size_t size;
 };
 
 int readdir_create(const char* path);

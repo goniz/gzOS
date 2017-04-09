@@ -91,7 +91,9 @@ extern int hashmap_length(map_t in);
 #include <cstdint>
 #include <cstdio>
 #include <new>
+#include <string>
 #include <utility>
+#include <vector>
 
 template<typename T>
 struct StringKeyConverter;
@@ -111,6 +113,23 @@ public:
 
     bool put(const TKey& key, TValue&& value) noexcept {
         TValue* data = new (std::nothrow) TValue(std::move(value));
+        if (nullptr == data) {
+            return false;
+        }
+
+        char* stringKey = new (std::nothrow) char[MAX_KEY_SIZE];
+        if (nullptr == stringKey) {
+            delete(data);
+            return false;
+        }
+
+        StringKeyConverter<TKey>::generate_key(key, stringKey, MAX_KEY_SIZE);
+        hashmap_put(_map, stringKey, data);
+        return true;
+    }
+
+    bool put(const TKey& key, const TValue& value) noexcept {
+        TValue* data = new (std::nothrow) TValue(value);
         if (nullptr == data) {
             return false;
         }
@@ -158,6 +177,21 @@ public:
         return true;
     }
 
+    void clear(void) {
+        std::vector<std::string> keys;
+        keys.reserve(this->size());
+
+        this->iterate([](any_t arg, char * key, any_t data) -> int {
+            std::vector<std::string>* keys = (std::vector<std::string>*)arg;
+            keys->push_back(std::string(key));
+            return MAP_OK;
+        }, &keys);
+
+        for (const auto& key : keys) {
+            this->remove(key.c_str());
+        }
+    }
+
 //    template<typename TFunc>
     void iterate(PFany f, any_t item) const {
         hashmap_iterate(_map, f, item);
@@ -175,6 +209,13 @@ template<>
 struct StringKeyConverter<const char*> {
     static void generate_key(const char* key, char* output_key, size_t size) {
         strncpy(output_key, key, size - 1);
+    }
+};
+
+template<>
+struct StringKeyConverter<std::string> {
+    static void generate_key(const std::string& key, char* output_key, size_t size) {
+        strncpy(output_key, key.c_str(), size - 1);
     }
 };
 

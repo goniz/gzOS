@@ -60,13 +60,18 @@ NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
 NetworkBuffer* nbuf_alloc(size_t size) {
     NetworkBuffer* nbuf = nbuf_alloc_aligned(size, 0);
 
+#ifdef NBUF_DEBUG
     kprintf("nbuf: alloc(%d) = %p from %p\n", size, nbuf, __builtin_return_address(0));
+#endif
 
     return nbuf;
 }
 
 void nbuf_free(NetworkBuffer* nbuf) {
+#ifdef NBUF_DEBUG
     kprintf("nbuf: free(%p) from %p\n", nbuf, __builtin_return_address(0));
+#endif
+
     unsigned int isrMask = interrupts_disable();
 
     if (nbuf->buffer.buffer) {

@@ -1,13 +1,16 @@
+#include <getopt.h>
 #include <stdio.h>
 #include <unistd.h>
-#include <ctype.h>
-#include <stdlib.h>
 #include <libc/readdir.h>
 #include <libc/traceme.h>
 #include <string.h>
 #include <stdint.h>
 #include <libc/socket.h>
 #include <libc/endian.h>
+#include <libc/waitpid.h>
+#include <fcntl.h>
+#include <alloca.h>
+#include <ctype.h>
 
 static int handle_line(char* line);
 
@@ -19,8 +22,16 @@ static int ls_main(int argc, char* argv[]) {
     int human_flag = 0;
     int c;
 
+    for (int i = 0; i < argc; i++) {
+        printf("argv[%d] = %s\n", i, argv[i]);
+    }
+
+    getopt(argc, argv, "lh");
+
+    return 0;
+
     opterr = 0;
-    while ((c = getopt(argc, argv, "lh")) != -1) {
+    while ((c = getopt(argc, argv, "lh:")) != -1) {
         switch (c) {
             case 'l':
                 list_flag = 1;
@@ -42,7 +53,7 @@ static int ls_main(int argc, char* argv[]) {
         }
     }
 
-    for (int index = optind; index < argc; index++) {
+    for (int index = 1; index < argc; index++) {
         printf("Non-option argument %s\n", argv[index]);
 
         int readdirfd = readdir_create(argv[index]);
@@ -52,7 +63,7 @@ static int ls_main(int argc, char* argv[]) {
         }
 
         while (0 < readdir_read(readdirfd, &dirent)) {
-            printf("* %s%s\n", dirent.name, dirent.type == DIRENT_DIR ? "/" : "");
+            printf("* %s%s - %d bytes\n", dirent.name, dirent.type == DIRENT_DIR ? "/" : "", dirent.size);
         }
 
         readdir_close(readdirfd);
@@ -61,12 +72,38 @@ static int ls_main(int argc, char* argv[]) {
     return 0;
 }
 
+/* sample: exec /usr/BIN/LS /proc
+ * argc => 3
+ * argv[0] = exec
+ * argv[1] = /usr/BIN/LS
+ * argv[2] = /proc
+ * */
 static int exec_main(int argc, char* argv[]) {
     if (argc <= 1) {
         return -1;
     }
 
-    return execv(argv[1], argv + 1);
+    char** cmd_argv = argv + 1;
+    int cmd_argc = argc - 1;
+
+    char** exec_argv = alloca(sizeof(char*) * (cmd_argc + 1)); // +1 for the null at the end
+    for (int i = 0; i < cmd_argc; i++) {
+        exec_argv[i] = cmd_argv[i];
+    }
+    exec_argv[cmd_argc] = NULL;
+
+    pid_t newpid = execv(*exec_argv, exec_argv);
+    if (-1 == newpid) {
+        return -1;
+    }
+
+    printf("new pid: %d\n", newpid);
+
+    int exit_code = waitpid(newpid);
+
+    printf("exit code: %d\n", exit_code);
+
+    return 0;
 }
 
 static int trace_main(int argc, char* argv[]) {
@@ -89,6 +126,27 @@ static int connect_main(int argc, char* argv[]) {
     return handle_line("exec /usr/BIN/NC 1.1.1.2:8888");
 }
 
+static int cat_main(int argc, char* argv[]) {
+    if (2 != argc) {
+        return -1;
+    }
+
+    FILE* fp = fopen(argv[1], "rb");
+    if (!fp) {
+        return -1;
+    }
+
+    do {
+        char buffer[1024];
+        int bytes = fread(buffer, 1, sizeof(buffer), fp);
+        fwrite(buffer, 1, bytes, stdout);
+
+    } while (!feof(fp) && !ferror(fp));
+
+    fclose(fp);
+    return 0;
+}
+
 static int exit_main(int argc, char* argv[]) {
     return 1;
 }
@@ -103,6 +161,7 @@ static struct cmdline _commands[] = {
         {"trace", trace_main},
         {"exec", exec_main},
         {"connect", connect_main},
+        {"cat", cat_main},
         {"exit", exit_main},
         {"q", exit_main}
 };
@@ -132,10 +191,10 @@ static int handle_line(char* line) {
         index++;
     }
 
-    printf("argc: %d\n", argc);
-    for (int i = 0; i < argc; i++) {
-        printf("argv[%d] = %p\n", i, (void *) argv[i]);
-    }
+//    printf("argc: %d\n", argc);
+//    for (int i = 0; i < argc; i++) {
+//        printf("argv[%d] = %p\n", i, (void *) argv[i]);
+//    }
 
     for (int i = 0; i < (sizeof(_commands) / sizeof(_commands[0])); i++) {
         struct cmdline* cmd = &_commands[i];
@@ -199,9 +258,11 @@ static int connect_and_dup(uint32_t ip, uint16_t port) {
         return 0;
     }
 
-    dup2(sock, 0);
-    dup2(sock, 1);
-    dup2(sock, 2);
+    dup2(sock, STDIN_FILENO);
+    dup2(sock, STDOUT_FILENO);
+    dup2(sock, STDERR_FILENO);
+
+    close(sock);
 
     return 1;
 }
@@ -212,19 +273,23 @@ int main(int argc, char **argv) {
     int c = 0;
     memset(linebuf, 0, sizeof(linebuf));
 
-    traceme(1);
+//    traceme(1);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    int stdin_echo = 1;
 
     uint32_t ip = 0;
     uint16_t port = 0;
-    if (parse_ip_port(argc, argv, &ip, &port)) {
-        connect_and_dup(ip, port);
+    if (parse_ip_port(argc, argv, &ip, &port) && connect_and_dup(ip, port)) {
+        stdin_echo = 0;
     }
 
     prompt();
 
     while (EOF != (c = fgetc(stdin))) {
         if ('\n' == c) {
-            output_char(c);
+            if (stdin_echo) {
+                output_char(c);
+            }
 
             if (0 == index) {
                 prompt();
@@ -265,7 +330,9 @@ int main(int argc, char **argv) {
             continue;
         }
 
-        output_char(c);
+        if (stdin_echo) {
+            output_char(c);
+        }
 
         linebuf[index] = (char) c;
         index++;

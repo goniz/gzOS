@@ -13,6 +13,7 @@ enum DirEntryType {
 struct DirEntry {
     char name[128];
     enum DirEntryType type;
+    size_t size;
 };
 
 class ReaddirFileDescriptor : public FileDescriptor {

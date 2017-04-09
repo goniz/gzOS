@@ -6,10 +6,22 @@
 #include <lib/kernel/sched/scheduler.h>
 #include <platform/malta/interrupts.h>
 #include <platform/panic.h>
+#include <lib/kernel/initrd/load_initrd.h>
+#include <lib/network/interface.h>
 
 int test_main(void* argument)
 {
     while (1);
+}
+
+int spawn_and_wait(const char* binary) {
+    std::vector<const char*> shellArgs{binary};
+    pid_t shellpid = syscall(SYS_NR_EXEC, binary, shellArgs.size(), shellArgs.data());
+    if (-1 != shellpid) {
+        syscall(SYS_NR_WAIT_PID, shellpid);
+    }
+
+    return shellpid;
 }
 
 extern "C"
@@ -17,20 +29,14 @@ int kernel_main(void* argument)
 {
     printf("Hello!\n");
 
-    Scheduler scheduler;
-    scheduler.setDebugMode();
+    interface_add("eth0", 0x01010101, 0xffffff00);
 
-    printf("thread: %p\n", scheduler.createKernelThread("Test1", test_main, nullptr, 1024));
+    initrd_initialize();
 
-    printf("thread: %p\n", scheduler.createKernelThread("Test2", test_main, nullptr, 1024));
-
-    struct user_regs regs;
-    struct user_regs* new_regs = &regs;
-
-    for (int i = 0; i < 30; i++) {
-        new_regs = scheduler.onTickTimer(&scheduler, new_regs);
-        print_user_regs(new_regs);
-    }
+//    spawn_and_wait("/bin/ls");
+//    spawn_and_wait("/bin/ls");
+//    spawn_and_wait("/bin/ls");
+    spawn_and_wait("/bin/exec_test");
 
     while (1);
 }

@@ -31,8 +31,9 @@ clear_bss:
         la      $t1, __ebss
 
 1:      sw      $zero, ($t0)
-        bne     $t0, $t1, 1b
         addiu   $t0, 4
+        bne     $t0, $t1, 1b
+        nop
 
 kernel_go:
         /*
