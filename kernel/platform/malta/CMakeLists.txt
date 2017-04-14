@@ -13,7 +13,6 @@ add_library(malta STATIC
         interrupts.h
         cpu.c
         process.c
-        physmem.c
         pmap.c
         tlb.c
         syscall.c

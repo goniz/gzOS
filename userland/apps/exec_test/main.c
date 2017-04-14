@@ -5,7 +5,7 @@
 #include <libc/waitpid.h>
 #include <alloca.h>
 
-static int exec_main(int argc, char* argv[]) {
+static int exec_main(int argc, char** argv) {
     char** cmd_argv = argv;
     int cmd_argc = argc;
 
@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     puts("Running exec tests..");
 
 
-    const char* ls_argv[] = {
+    char* ls_argv[] = {
             "/bin/ls"
     };
 

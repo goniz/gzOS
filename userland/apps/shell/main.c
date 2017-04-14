@@ -16,29 +16,24 @@ static int handle_line(char* line);
 
 static int ls_main(int argc, char* argv[]) {
     struct DirEntry dirent;
-    int ret;
-
     int list_flag = 0;
     int human_flag = 0;
     int c;
 
-    for (int i = 0; i < argc; i++) {
-        printf("argv[%d] = %s\n", i, argv[i]);
-    }
-
-    getopt(argc, argv, "lh");
-
-    return 0;
-
+    optind = 0;
     opterr = 0;
-    while ((c = getopt(argc, argv, "lh:")) != -1) {
+    optarg = NULL;
+    optopt = 0;
+    while ((c = getopt(argc, argv, "+lh")) != -1) {
         switch (c) {
             case 'l':
                 list_flag = 1;
                 break;
+
             case 'h':
                 human_flag = 1;
                 break;
+
             case '?':
                 if (isprint (optopt))
                     fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -46,14 +41,14 @@ static int ls_main(int argc, char* argv[]) {
                     fprintf(stderr,
                             "Unknown option character `\\x%x'.\n",
                             optopt);
-                return 1;
+                return -1;
 
             default:
-                return 1;
+                return -1;
         }
     }
 
-    for (int index = 1; index < argc; index++) {
+    for (int index = optind; index < argc; index++) {
         printf("Non-option argument %s\n", argv[index]);
 
         int readdirfd = readdir_create(argv[index]);

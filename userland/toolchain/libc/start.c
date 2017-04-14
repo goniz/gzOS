@@ -41,6 +41,9 @@ void _start(void* argument)
     }
 
     clear_bss();
+
+    _REENT_INIT_PTR(_REENT);
+
     invoke_constructors();
 
     int exitcode = main(argc, argv);
