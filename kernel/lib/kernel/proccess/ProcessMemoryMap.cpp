@@ -22,12 +22,10 @@ static void init_memory_pool()
     kmalloc_add_arena(mp_memory_map, (void*)PG_VADDR_START(page), PG_SIZE(page));
 }
 
-ProcessMemoryMap::ProcessMemoryMap(asid_t id)
+ProcessMemoryMap::ProcessMemoryMap()
         : _map(nullptr)
 {
-    InterruptsMutex guard(true);
-
-    _map = vm_map_new((vm_map_type_t) PMAP_USER, id);
+    _map = vm_map_new();
     assert(nullptr != _map);
 }
 
@@ -44,8 +42,7 @@ ProcessMemoryMap::~ProcessMemoryMap(void)
 }
 
 void ProcessMemoryMap::activate(void) const {
-    InterruptsMutex guard(true);
-    set_active_vm_map(_map);
+    vm_map_activate(_map);
 }
 
 VirtualMemoryRegion* ProcessMemoryMap::createMemoryRegion(const char *name,
@@ -73,14 +70,6 @@ VirtualMemoryRegion *ProcessMemoryMap::get(const char *name) const {
     return _regions.get(name);
 }
 
-bool ProcessMemoryMap::is_kernel_space(void) const {
-    return _map->pmap.type == PMAP_KERNEL;
-}
-
-bool ProcessMemoryMap::is_user_space(void) const {
-    return _map->pmap.type == PMAP_USER;
-}
-
 VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent,
                                          const char *name,
                                          vm_addr_t start, vm_addr_t end,
@@ -94,7 +83,7 @@ VirtualMemoryRegion::VirtualMemoryRegion(ProcessMemoryMap& parent,
       _footer(nullptr)
 {
     char tmp[16];
-    sprintf(tmp, "%d", _parent._map->pmap.asid);
+    sprintf(tmp, "%d", _parent._map->pmap->asid);
     _poolName.reserve(64);
     _poolName.append(name);
     _poolName.append("#");
@@ -219,7 +208,7 @@ bool VirtualMemoryRegion::extend(uintptr_t endAddr) {
 
     InterruptsMutex guard(true);
 
-    if (vm_map_extend_entry(_parent._map, _data, endAddr)) {
+    if (vm_map_resize(_parent._map, _data, endAddr)) {
         return true;
     }
 

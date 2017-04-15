@@ -51,6 +51,9 @@ extern "C" {
 
 typedef uintptr_t vm_addr_t;
 typedef uintptr_t pm_addr_t;
+typedef intptr_t vm_paddr_t;
+typedef intptr_t vm_offset_t;
+typedef uintptr_t vm_size_t;
 
 typedef enum {
     VM_PROT_NONE = 0,

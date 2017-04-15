@@ -34,12 +34,6 @@
 extern "C" {
 #endif
 
-/* There has to be distinction between kernel and user vm_map,
- * That's because in current implementation page table is always located in
- * KSEG2, while user vm_map address range contains no KSEG2 */
-
-typedef enum { KERNEL_VM_MAP = 1, USER_VM_MAP = 2 } vm_map_type_t;
-
 typedef struct vm_map_entry vm_map_entry_t;
 
 struct vm_map_entry {
@@ -53,10 +47,10 @@ struct vm_map_entry {
 };
 
 typedef struct vm_map {
-    TAILQ_HEAD(, vm_map_entry) list;
-    SPLAY_HEAD(vm_map_tree, vm_map_entry) tree;
-    size_t nentries;
-    pmap_t pmap;
+  TAILQ_HEAD(vm_map_list, vm_map_entry) list;
+  SPLAY_HEAD(vm_map_tree, vm_map_entry) tree;
+  size_t nentries;
+  pmap_t *const pmap;
 } vm_map_t;
 
 /* TODO we will need some functions to allocate address ranges,
@@ -66,26 +60,38 @@ typedef struct vm_map {
  *
  * vm_map_entry_t* vm_map_allocate_space(vm_map_t* map, size_t length) */
 
-void set_active_vm_map(vm_map_t *map);
-void unset_active_vm_map(pmap_type_t type);
-vm_map_t *get_active_vm_map(pmap_type_t type);
+vm_map_t *vm_map_activate(vm_map_t *map);
+vm_map_t *get_user_vm_map();
+vm_map_t *get_kernel_vm_map();
 vm_map_t *get_active_vm_map_by_addr(vm_addr_t addr);
 
 void vm_map_init();
-vm_map_t *vm_map_new(vm_map_type_t t, asid_t asid);
+vm_map_t *vm_map_new();
 void vm_map_delete(vm_map_t *vm_map);
 
 vm_map_entry_t *vm_map_find_entry(vm_map_t *vm_map, vm_addr_t vaddr);
 
 void vm_map_protect(vm_map_t *map, vm_addr_t start, vm_addr_t end,
                     vm_prot_t prot);
-vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start,
-                                 vm_addr_t end, vm_prot_t prot);
-int vm_map_extend_entry(vm_map_t* map, vm_map_entry_t* entry, vm_addr_t end);
-void vm_map_remove_entry(vm_map_t *vm_map, vm_map_entry_t *entry);
+vm_map_entry_t *vm_map_add_entry(vm_map_t *map, vm_addr_t start, vm_addr_t end,
+                                 vm_prot_t prot);
+void vm_map_remove_entry(vm_map_t* vm_map, vm_map_entry_t* entry);
+
+/* Looks up a gap of @length size in @map. The search starts at @start address.
+ * On success, returns 0 and sets *addr. @start and @length arguments must be
+ * page-aligned. */
+int vm_map_findspace(vm_map_t *map, vm_addr_t start, size_t length,
+                     vm_addr_t /*out*/ *addr);
+int vm_map_findspace_nolock(vm_map_t *map, vm_addr_t start, size_t length,
+                            vm_addr_t /*out*/ *addr);
+
+/* Tries to resize an entry, by moving its end if there
+   are no other mappings in the way. On success, returns 0. */
+int vm_map_resize(vm_map_t *map, vm_map_entry_t *entry, vm_addr_t new_end);
 
 void vm_map_dump(vm_map_t *vm_map);
 
+vm_map_t *vm_map_clone(vm_map_t *map);
 void vm_do_segfault(vm_addr_t fault_addr, vm_prot_t fault_type, vm_prot_t prot);
 int vm_page_fault(vm_map_t* map, vm_addr_t fault_addr, vm_prot_t fault_type);
 

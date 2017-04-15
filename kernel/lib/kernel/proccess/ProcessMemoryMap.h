@@ -18,7 +18,7 @@ class ProcessMemoryMap
     friend class VirtualMemoryRegion;
 
 public:
-    ProcessMemoryMap(asid_t id);
+    ProcessMemoryMap(void);
     ~ProcessMemoryMap(void);
 
     ProcessMemoryMap(ProcessMemoryMap&&) = delete;
@@ -31,21 +31,14 @@ public:
 
     void activate(void) const;
 
-    bool is_kernel_space(void) const;
-    bool is_user_space(void) const;
-
     template<typename TFunc>
     void runInScope(TFunc&& func) const {
-        auto* old = get_active_vm_map(PMAP_USER);
-        this->activate();
+        auto* old = get_user_vm_map();
+        vm_map_activate(_map);
 
         try { func(); } catch (...) { }
 
-        if (old) {
-            set_active_vm_map(old);
-        } else {
-            unset_active_vm_map(PMAP_USER);
-        }
+        vm_map_activate(old);
     }
 
 private:

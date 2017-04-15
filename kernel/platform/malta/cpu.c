@@ -154,6 +154,11 @@ uintptr_t platform_virt_to_phy(uintptr_t virt)
     return MIPS_KSEG0_TO_PHYS(virt);
 }
 
+uintptr_t platform_phy_to_virt(uintptr_t phy)
+{
+    return MIPS_PHYS_TO_KSEG0(phy);
+}
+
 uintptr_t platform_buffered_virt_to_unbuffered_virt(uintptr_t virt)
 {
     return platform_iomem_phy_to_virt(platform_virt_to_phy(virt));

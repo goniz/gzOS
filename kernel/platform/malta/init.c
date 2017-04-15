@@ -34,7 +34,6 @@ void platform_init(int argc, const char **argv, const char **envp)
 
     pm_init();
 
-
     uintptr_t rd_start = (uintptr_t)initrd_get_address();
     size_t rd_size = align(initrd_get_size(), PAGESIZE);
 
@@ -61,6 +60,7 @@ void platform_init(int argc, const char **argv, const char **envp)
     pm_add_segment(seg);
 
     tlb_init();
+    pmap_init();
     vm_object_init();
     vm_map_init();
 

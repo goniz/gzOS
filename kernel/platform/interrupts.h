@@ -27,6 +27,8 @@ int platform_enable_irq(int irq);
 void platform_disable_irq(int irq);
 void platform_print_irqs(void);
 
+extern const char* exceptions[32];
+
 #ifdef __cplusplus
 }
 #endif

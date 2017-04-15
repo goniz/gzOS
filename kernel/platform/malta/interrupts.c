@@ -70,8 +70,7 @@ void interrupts_init() {
     interrupts_enable_all();
 }
 
-__attribute__((used))
-static const char *exceptions[32] = {
+const char *exceptions[32] = {
         [EXC_INTR] = "Interrupt",
         [EXC_MOD]    = "TLB modification exception",
         [EXC_TLBL] = "TLB exception (load or instruction fetch)",

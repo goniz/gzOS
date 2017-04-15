@@ -44,7 +44,7 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
           _entryPoint(nullptr),
           _arguments(std::move(arguments)),
           _pending_signal_nr((int)SIG_NONE),
-          _memoryMap((asid_t) this->pid()),
+          _memoryMap(),
           _traceme(false),
           _userArgv(nullptr)
 {

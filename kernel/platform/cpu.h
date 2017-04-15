@@ -22,6 +22,7 @@ void flush_dcache_range(uintptr_t start_addr, uintptr_t stop);
 void invalidate_dcache_range(uintptr_t start_addr, uintptr_t stop);
 
 uintptr_t platform_virt_to_phy(uintptr_t virt);
+uintptr_t platform_phy_to_virt(uintptr_t phy);
 uintptr_t platform_iomem_phy_to_virt(uintptr_t iomem);
 uintptr_t platform_iomem_virt_to_phy(uintptr_t iomem);
 uintptr_t platform_ioport_to_phy(uintptr_t ioport);
