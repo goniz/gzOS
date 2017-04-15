@@ -38,25 +38,26 @@ void TcpStateEstablished::handle_incoming_segment(NetworkBuffer* nbuf, const iph
     }
 
     _session.push_input_bytes(tcp->data, data_size);
-    _session.send_ack();
 
-    this->handle_output_trigger();
+    // if there is some data to send, use it to save the need to send an individual ack
+    if (!this->handle_output_trigger()) {
+        _session.send_ack();
+    }
 }
 
-void TcpStateEstablished::handle_output_trigger(void)
+bool TcpStateEstablished::handle_output_trigger(void)
 {
-    InterruptsMutex guard(true);
-
     if (_waiting_for_ack) {
-        return;
+        return false;
     }
 
     uint8_t buffer[1400];
     size_t output_bytes = _session.pop_output_bytes(buffer, sizeof(buffer), false);
     if (0 == output_bytes) {
-        return;
+        return false;
     }
 
     _waiting_for_ack = true;
     _session.send_ack_push(buffer, output_bytes);
+    return true;
 }

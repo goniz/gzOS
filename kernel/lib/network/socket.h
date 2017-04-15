@@ -50,6 +50,14 @@ public:
         return -1;
     }
 
+    virtual int listen(int backlog) {
+        return -1;
+    }
+
+    virtual int accept(SocketAddress* clientAddress, size_t* clientAddressLen) {
+        return -1;
+    }
+
     virtual int connect(const SocketAddress& addr) {
         return -1;
     }

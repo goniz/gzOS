@@ -53,7 +53,7 @@ public:
                                Thread::EntryPointFunction entryPoint, void* argument,
                                size_t stackSize);
 
-    Process *CurrentProcess(void) const;
+    Process* CurrentProcess(void) const;
     Process* getProcessByPid(pid_t pid) const;
     Thread* CurrentThread(void) const;
     Thread* getThreadByTid(pid_t tid) const;
@@ -159,6 +159,8 @@ void scheduler_suspend(void);
 void scheduler_resume(pid_t pid, uintptr_t value);
 
 pid_t scheduler_current_pid(void);
+pid_t scheduler_current_tid(void);
+
 int scheduler_signal_process(pid_t pid, int signal, uintptr_t value);
 
 pid_t gettid(void);

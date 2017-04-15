@@ -11,17 +11,25 @@
 #include "lib/network/checksum.h"
 
 TcpFileDescriptor::TcpFileDescriptor(void)
-        : _localPort(0),
-          _remoteAddr{0, 0},
-          _session(nullptr)
+    : _localPort(0),
+      _remoteAddr{0, 0},
+      _session(nullptr)
 {
     registerTcpDescriptor(this);
 }
 
 TcpFileDescriptor::TcpFileDescriptor(uint16_t localPort, SocketAddress remoteAddr)
-        : _localPort(localPort),
-          _remoteAddr(remoteAddr),
-          _session(TcpSession::createTcpRejector(_localPort, _remoteAddr))
+    : _localPort(localPort),
+      _remoteAddr(remoteAddr),
+      _session(TcpSession::createTcpRejector(_localPort, _remoteAddr))
+{
+    registerTcpDescriptor(this);
+}
+
+TcpFileDescriptor::TcpFileDescriptor(uint16_t localPort, SocketAddress remoteAddr, uint32_t seq)
+    : _localPort(localPort),
+      _remoteAddr(remoteAddr),
+      _session(TcpSession::createTcpClientAcceptor(_localPort, _remoteAddr, seq))
 {
     registerTcpDescriptor(this);
 }
@@ -33,15 +41,27 @@ TcpFileDescriptor::~TcpFileDescriptor(void) {
 
 int TcpFileDescriptor::read(void* buffer, size_t size) {
     if (!_session) {
+        kprintf("[tcp] read(%p, %d): called without session\n", buffer, size);
         return 0;
     }
 
     // TODO: return error on the wrong states..
     if (!this->is_connected()) {
+        kprintf("[tcp] read(%p, %d): called on a non-established socket\n", buffer, size);
         return 0;
     }
 
     return _session->pop_input_bytes((uint8_t*) buffer, size, true);
+}
+
+int TcpFileDescriptor::recvfrom(void* buffer, size_t size, SocketAddress* address) {
+    int result = this->read(buffer, size);
+
+    if (-1 != result && address) {
+        *address = _remoteAddr;
+    }
+
+    return result;
 }
 
 int TcpFileDescriptor::write(const void* buffer, size_t size) {
@@ -55,6 +75,14 @@ int TcpFileDescriptor::write(const void* buffer, size_t size) {
     }
 
     return _session->push_output_bytes((const uint8_t*) buffer, size);
+}
+
+int TcpFileDescriptor::sendto(const void* buffer, size_t size, const SocketAddress& address) {
+    if (address.address != _remoteAddr.address || address.port != _remoteAddr.port) {
+        return -1;
+    }
+
+    return this->write(buffer, size);
 }
 
 int TcpFileDescriptor::seek(int where, int whence) {
@@ -84,6 +112,42 @@ int TcpFileDescriptor::bind(const SocketAddress& addr) {
 
     this->_localPort = port;
     return 0;
+}
+
+int TcpFileDescriptor::listen(int backlog) {
+    if (_session) {
+        return -1;
+    }
+
+    if (0 == _localPort &&
+        0 != this->bind({IPADDR_ANY, 0})) {
+        kprintf("listen: failed to bind local port\n");
+        return -1;
+    }
+
+    _session = TcpSession::createTcpServer(_localPort, backlog);
+    if (!_session) {
+        return -1;
+    }
+
+    return 0;
+}
+
+int TcpFileDescriptor::accept(SocketAddress* clientAddress, size_t* clientAddressLen) {
+    if (!_session) {
+        return -1;
+    }
+
+    if (!this->is_listening()) {
+        return -1;
+    }
+
+    int newfd = _session->acceptNewClient();
+    if (-1 == newfd) {
+        return -1;
+    }
+
+    return newfd;
 }
 
 int TcpFileDescriptor::connect(const SocketAddress& addr) {
@@ -122,4 +186,21 @@ bool TcpFileDescriptor::is_listening(void) const {
 
 bool TcpFileDescriptor::is_connected() const {
     return _session && _session->state() == TcpStateEnum::Established;
+}
+
+std::unique_ptr<TcpFileDescriptor> TcpFileDescriptor::createPlainDescriptor(void) {
+    return std::unique_ptr<TcpFileDescriptor>(new TcpFileDescriptor());
+}
+
+std::unique_ptr<TcpFileDescriptor> TcpFileDescriptor::createRejectingDescriptor(uint16_t localPort,
+                                                                                SocketAddress remoteAddr)
+{
+    return std::unique_ptr<TcpFileDescriptor>(new TcpFileDescriptor(localPort, remoteAddr));
+}
+
+std::unique_ptr<TcpFileDescriptor> TcpFileDescriptor::createListeningDescriptor(uint16_t localPort,
+                                                                                SocketAddress remoteAddr,
+                                                                                uint32_t seq)
+{
+    return std::unique_ptr<TcpFileDescriptor>(new TcpFileDescriptor(localPort, remoteAddr, seq));
 }

@@ -12,15 +12,22 @@
 class TcpFileDescriptor : public SocketFileDescriptor
 {
 public:
-    TcpFileDescriptor(void);
-    TcpFileDescriptor(uint16_t localPort, SocketAddress remoteAddr);
+    static std::unique_ptr<TcpFileDescriptor> createPlainDescriptor(void);
+    static std::unique_ptr<TcpFileDescriptor> createRejectingDescriptor(uint16_t localPort, SocketAddress remoteAddr);
+    static std::unique_ptr<TcpFileDescriptor> createListeningDescriptor(uint16_t localPort, SocketAddress remoteAddr,
+                                                                        uint32_t seq);
     virtual ~TcpFileDescriptor(void);
 
     virtual int bind(const SocketAddress& addr) override;
+    virtual int listen(int backlog) override;
+    virtual int accept(SocketAddress* clientAddress, size_t* clientAddressLen) override;
     virtual int connect(const SocketAddress& addr) override;
-
     virtual int read(void* buffer, size_t size) override;
+    virtual int recvfrom(void* buffer, size_t size, SocketAddress* address) override;
     virtual int write(const void* buffer, size_t size) override;
+
+    int sendto(const void* buffer, size_t size, const SocketAddress& address) override;
+
     virtual int seek(int where, int whence) override;
     virtual void close(void) override;
 
@@ -37,6 +44,10 @@ public:
     }
 
 private:
+    TcpFileDescriptor(void);
+    TcpFileDescriptor(uint16_t localPort, SocketAddress remoteAddr);
+    TcpFileDescriptor(uint16_t localPort, SocketAddress remoteAddr, uint32_t seq);
+
     uint16_t                    _localPort;
     SocketAddress               _remoteAddr;
     std::unique_ptr<TcpSession> _session;

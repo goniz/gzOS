@@ -22,8 +22,6 @@ int tcp_in_main(void* argument) {
             continue;
         }
 
-//        kprintf("[tcpin] got tcp packet\n");
-
         TcpFileDescriptor* session = nullptr;
         std::unique_ptr<TcpFileDescriptor> rstFd(nullptr);
 
@@ -35,7 +33,7 @@ int tcp_in_main(void* argument) {
 
         session = getTcpDescriptorByFourTuple(localEndpoint, remoteEndpoint);
         if (nullptr == session) {
-            rstFd = std::make_unique<TcpFileDescriptor>(localEndpoint.port, remoteEndpoint);
+            rstFd = TcpFileDescriptor::createRejectingDescriptor(localEndpoint.port, remoteEndpoint);
             session = rstFd.get();
         }
 
@@ -52,8 +50,6 @@ int tcp_input(NetworkBuffer* packet) {
     if (!tcp_validate_packet(packet, tcp)) {
         goto error;
     }
-
-//    kprintf("[tcp_input] got packet\n");
 
     if (!gInSegments.push(packet, false)) {
         goto error;

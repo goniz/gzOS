@@ -21,6 +21,31 @@ DEFINE_SYSCALL(BIND, bind, SYS_IRQ_DISABLED) {
     return sockFd->bind(*address);
 }
 
+DEFINE_SYSCALL(LISTEN, listen, SYS_IRQ_DISABLED) {
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(int, backlog);
+
+    SocketFileDescriptor *sockFd = socket_num_to_fd(fd);
+    if (nullptr == sockFd) {
+        return -1;
+    }
+
+    return sockFd->listen(backlog);
+}
+
+DEFINE_SYSCALL(ACCEPT, accept, SYS_IRQ_DISABLED) {
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(SocketAddress*, address);
+    SYSCALL_ARG(size_t*, addr_len);
+
+    SocketFileDescriptor *sockFd = socket_num_to_fd(fd);
+    if (nullptr == sockFd) {
+        return -1;
+    }
+
+    return sockFd->accept(address, addr_len);
+}
+
 DEFINE_SYSCALL(CONNECT, connect, SYS_IRQ_ENABLED) {
     SYSCALL_ARG(int, fd);
     SYSCALL_ARG(const SocketAddress*, address);

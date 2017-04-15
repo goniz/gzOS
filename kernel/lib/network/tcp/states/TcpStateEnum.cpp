@@ -3,6 +3,7 @@
 static const char* _states[] = {
         "Closed",
         "Syn-Sent",
+        "Syn-Received",
         "Established",
         "Listen",
         "Close-Wait",

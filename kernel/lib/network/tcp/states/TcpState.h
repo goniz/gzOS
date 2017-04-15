@@ -17,7 +17,7 @@ public:
     virtual ~TcpState(void) = default;
 
     virtual void handle_incoming_segment(NetworkBuffer* nbuf, const iphdr_t* ip, const tcp_t* tcp) = 0;
-    virtual void handle_output_trigger(void);
+    virtual bool handle_output_trigger(void);
 
     virtual bool has_second_stage(void) const;
     virtual void handle_second_stage(void);

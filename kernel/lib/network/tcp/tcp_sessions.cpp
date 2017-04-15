@@ -33,18 +33,18 @@ void removeTcpDescriptor(TcpFileDescriptor* fileDescriptor) {
     _tcpSessions.erase(iter);
 }
 
-TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& src, const SocketAddress& dst) {
+TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& localEP, const SocketAddress& remoteEP) {
 //    kprintf("[tcp] Searching for socket for %08x:%d --> %08x:%d\n", src.address, src.port, dst.address, dst.port);
 
     lock_guard<spinlock_mutex> guard(_tcpLock);
 
-    auto activeSessionComparator = [&src, &dst](const TcpFileDescriptor* session) -> bool {
+    auto activeSessionComparator = [&localEP, &remoteEP](const TcpFileDescriptor* session) -> bool {
         const auto& remote = session->remote_address();
 
 //        kprintf("[tcp] Comparing against socket %d --> %08x:%d\n",
 //                session->local_port(),
 //                remote.address, remote.port);
-        return session->local_port() == src.port && remote == dst;
+        return session->local_port() == localEP.port && remote == remoteEP;
     };
 
     auto session = std::find_if(_tcpSessions.begin(), _tcpSessions.end(), activeSessionComparator);
@@ -53,8 +53,12 @@ TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& src, const S
         return *session;
     }
 
-    auto listeningSessionComparator = [&src, &dst](const TcpFileDescriptor* session) -> bool {
-        return session->is_listening() && session->local_port() == dst.port;
+    auto listeningSessionComparator = [&localEP](const TcpFileDescriptor* session) -> bool {
+//        kprintf("[tcp] Comparing against socket %d --> %08x:%d\n",
+//                session->local_port(),
+//                localEP.address, localEP.port);
+//        kprintf("[tcp] is listening? %s\n", session->is_listening() ? "yes" : "no");
+        return session->is_listening() && session->local_port() == localEP.port;
     };
 
     auto listeningSession = std::find_if(_tcpSessions.begin(), _tcpSessions.end(), listeningSessionComparator);

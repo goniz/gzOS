@@ -13,7 +13,7 @@ public:
 
     virtual void handle_incoming_segment(NetworkBuffer* nbuf, const iphdr_t* ip, const tcp_t* tcp) override;
 
-    void handle_output_trigger(void) override;
+    bool handle_output_trigger(void) override;
 
 private:
     bool _waiting_for_ack;

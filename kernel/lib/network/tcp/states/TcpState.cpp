@@ -11,8 +11,8 @@ TcpStateEnum TcpState::state_enum(void) const {
     return _stateEnum;
 }
 
-void TcpState::handle_output_trigger(void) {
-
+bool TcpState::handle_output_trigger(void) {
+    return false;
 }
 
 bool TcpState::has_second_stage(void) const {

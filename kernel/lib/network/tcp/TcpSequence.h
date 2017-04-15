@@ -12,6 +12,8 @@ public:
     TcpSequence(void);
     ~TcpSequence(void) = default;
 
+    TcpSequence& operator=(uint32_t seq);
+
     uint32_t seq(void) const;
     uint32_t prev(void) const;
 

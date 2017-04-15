@@ -102,7 +102,7 @@ public:
         }
 
         lock_guard<InterruptsMutex> guard(_mutex);
-        out = _data.front();
+        out = std::move(_data.front());
         _data.erase(_data.begin());
         return true;
     }

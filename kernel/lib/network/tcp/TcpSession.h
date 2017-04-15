@@ -15,15 +15,17 @@
 class TcpSession
 {
 public:
-    static std::unique_ptr<TcpSession> createTcpServer(uint16_t localPort);
+    static std::unique_ptr<TcpSession> createTcpServer(uint16_t localPort, int backlog);
     static std::unique_ptr<TcpSession> createTcpClient(uint16_t localPort, SocketAddress remoteAddr);
     static std::unique_ptr<TcpSession> createTcpRejector(uint16_t localPort, SocketAddress remoteAddr);
+    static std::unique_ptr<TcpSession> createTcpClientAcceptor(uint16_t localPort, SocketAddress remoteAddr, uint32_t seq);
     ~TcpSession();
 
     bool process_in_segment(NetworkBuffer* nbuf);
 
     bool send_syn(void);
     bool send_ack(void);
+    bool send_syn_ack(void);
     bool send_ack_push(const void* buffer, size_t size);
     bool send_rst(NetworkBuffer* nbuf = nullptr);
     bool send_fin(void);
@@ -40,10 +42,13 @@ public:
     TcpStateEnum state(void) const;
 
     bool is_seq_match(const tcp_t* tcp) const;
-
     TcpSequence& seq(void);
     uint32_t& receive_next_ack(void);
     uint16_t& receive_window(void);
+    uint16_t localPort(void) const;
+    SocketAddress remoteAddr(void) const;
+
+    int acceptNewClient(void);
 
     int push_input_bytes(const uint8_t* buffer, size_t size);
     int push_output_bytes(const uint8_t* buffer, size_t size);
@@ -54,6 +59,7 @@ private:
     TcpSession(uint16_t localPort,
                SocketAddress remoteAddr,
                bool releasePortOnClose);
+    TcpSession(uint16_t localPort);
 
     NetworkBuffer* tcp_alloc_nbuf(int flags, size_t data_size);
     bool tcp_transmit(NetworkBuffer* nbuf);

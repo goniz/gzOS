@@ -15,7 +15,14 @@ TcpSequence& TcpSequence::advance(unsigned long bytes) {
 }
 
 TcpSequence::TcpSequence()
-        : _sequence(0)
+        : _sequence(0),
+          _prev(0)
 {
 
+}
+
+TcpSequence& TcpSequence::operator=(uint32_t seq) {
+    _sequence = seq;
+    _prev = 0;
+    return *this;
 }

@@ -7,7 +7,7 @@ int tcp_in_main(void* argument);
 static int tcp_proto_init(void)
 {
     socket_register_triple({AF_INET, SOCK_STREAM, IPPROTO_TCP}, []() {
-        return std::unique_ptr<SocketFileDescriptor>(std::make_unique<TcpFileDescriptor>());
+        return std::unique_ptr<SocketFileDescriptor>(TcpFileDescriptor::createPlainDescriptor());
     });
 
     Scheduler::instance().createKernelThread("TcpInput", tcp_in_main, nullptr, 8192);

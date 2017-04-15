@@ -25,7 +25,7 @@ Suspendable::~Suspendable(void)
 
 uintptr_t Suspendable::wait(void)
 {
-    pid_t currentTid = gettid();
+    pid_t currentTid = scheduler_current_tid();
 
     {
         lock_guard<InterruptsMutex> guard(m_mutex);

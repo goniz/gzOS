@@ -13,7 +13,7 @@ FileDescriptor* vfs_num_to_fd(int fdnum)
     return fdc.get_filedescriptor(fdnum);
 }
 
-static int vfs_pushfd(std::unique_ptr<FileDescriptor> fd)
+int vfs_pushfd(std::unique_ptr<FileDescriptor> fd)
 {
     const auto proc = Scheduler::instance().CurrentProcess();
     if (nullptr == proc) {

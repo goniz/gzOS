@@ -38,9 +38,12 @@ void scheduler_resume(pid_t pid, uintptr_t value) {
     Scheduler::instance().resume(pid, value);
 }
 
-pid_t scheduler_current_pid(void)
-{
+pid_t scheduler_current_pid(void) {
     return Scheduler::instance().getCurrentPid();
+}
+
+pid_t scheduler_current_tid(void) {
+    return Scheduler::instance().getCurrentTid();
 }
 
 }

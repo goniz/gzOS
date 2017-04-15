@@ -1,4 +1,3 @@
-#include <platform/kprintf.h>
 #include <lib/network/tcp/tcp.h>
 #include "lib/network/tcp/states/TcpStateSynSent.h"
 #include "lib/network/tcp/states/TcpStateClosed.h"

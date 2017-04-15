@@ -30,4 +30,16 @@ add_library(cstubs STATIC
         libc/mount.c
         libc/mount.h
         libc/connect.c
-        libc/readdir.c libc/readdir.h libc/traceme.c libc/traceme.h libc/exec.c libc/dup2.c libc/waitpid.c libc/waitpid.h libc/mkdir.c libc/kill.h)
+        libc/readdir.c
+        libc/readdir.h
+        libc/traceme.c
+        libc/traceme.h
+        libc/exec.c
+        libc/dup2.c
+        libc/waitpid.c
+        libc/waitpid.h
+        libc/mkdir.c
+        libc/kill.h
+        libc/listen.c
+        libc/accept.c
+        libc/pause.c)

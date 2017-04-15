@@ -64,6 +64,12 @@ int socket(int __domain, int __type, int __protocol);
 /* Give the socket FD the local address ADDR (which is LEN bytes long).  */
 int bind(int __fd, const sockaddr_t*__addr, size_t __len);
 
+/* enters the socket to a LISTENING state */
+int listen(int __fd, int __backlog);
+
+/* returns a new client socket fd on a listening socket */
+int accept(int __fd, sockaddr_t* __addr, size_t* __len);
+
 /* connect to remote endpoint */
 int connect(int fd, const sockaddr_t* addr);
 

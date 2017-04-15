@@ -6,6 +6,7 @@
 enum class TcpStateEnum {
     Closed,
     SynSent,
+    SynReceived,
     Established,
     Listening,
     CloseWait,

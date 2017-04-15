@@ -58,6 +58,14 @@ static inline uint16_t ip_data_length(const iphdr_t* hdr) {
     return (uint16_t)(ntohs(hdr->len) - (hdr->ihl * sizeof(uint32_t)));
 }
 
+static inline IpAddress ip_src(const iphdr_t* ip) {
+    return ntohl(ip->saddr);
+}
+
+static inline IpAddress ip_dst(const iphdr_t* ip) {
+    return ntohl(ip->daddr);
+}
+
 #ifdef __cplusplus
 }
 #endif

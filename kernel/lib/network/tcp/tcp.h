@@ -80,6 +80,18 @@ static inline int tcp_is_fin(const tcp_t* tcp) {
     return tcp->flags & TCP_FLAGS_FIN;
 }
 
+static inline uint16_t tcp_src_port(const tcp_t* tcp) {
+    return ntohs(tcp->sport);
+}
+
+static inline uint16_t tcp_dst_port(const tcp_t* tcp) {
+    return ntohs(tcp->dport);
+}
+
+static inline uint32_t tcp_seq(const tcp_t* tcp) {
+    return ntohl(tcp->seq);
+}
+
 #ifdef __cplusplus
 }
 #endif //extern "C"

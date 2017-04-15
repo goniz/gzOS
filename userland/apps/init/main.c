@@ -31,9 +31,10 @@ int main(int argc, char **argv)
         printf("failed to mount /usr\n");
     }
 
-    execl("/bin/shell", "/bin/shell", NULL);
+    execl("/bin/shell", "shell", NULL);
+    execl("/bin/telnetd", "telnetd", NULL);
 
-    kill(getpid(), SIGSTOP);
+    pause();
 //    interface_add("eth0", 0x01010101, 0xffffff00);
 
     return 1;

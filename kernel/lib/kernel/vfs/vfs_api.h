@@ -1,11 +1,14 @@
 #ifndef GZOS_VFS_API_H
 #define GZOS_VFS_API_H
 
-#include <lib/primitives/hashmap.h>
-#include "FileDescriptor.h"
-
 #ifdef __cplusplus
+
+#include <memory>
+#include "lib/kernel/vfs/FileDescriptor.h"
+
 FileDescriptor* vfs_num_to_fd(int fdnum);
+int vfs_pushfd(std::unique_ptr<FileDescriptor> fd);
+
 #endif
 
 #ifdef __cplusplus

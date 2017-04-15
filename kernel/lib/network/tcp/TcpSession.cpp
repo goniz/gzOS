@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <sys/param.h>
 #include <checksum.h>
 #include <platform/drivers.h>
@@ -6,9 +7,9 @@
 #include "lib/network/tcp/TcpSession.h"
 #include <lib/network/tcp/states/TcpStateSynSent.h>
 #include <lib/network/tcp/states/TcpStateClosed.h>
-#include <algorithm>
+#include <lib/network/tcp/states/TcpStateListening.h>
+#include <tcp/states/TcpStateSynReceived.h>
 #include "lib/network/tcp/tcp_sessions.h"
-#include "tcp.h"
 
 /*
  * NOTES:
@@ -33,12 +34,16 @@ TcpSession::TcpSession(uint16_t localPort,
       _receive_window(29200),
       _releasePortOnClose(releasePortOnClose)
 {
-    kprintf("TcpSession this %p\n", this);
-
     _inputBuffer.buffer.reserve(_receive_window);
     _outputBuffer.buffer.reserve(_receive_window);
 
     _state = std::make_unique<TcpStateClosed>(*this);
+}
+
+TcpSession::TcpSession(uint16_t localPort)
+    : TcpSession(localPort, {0, 0}, true)
+{
+
 }
 
 std::unique_ptr<TcpSession> TcpSession::createTcpClient(uint16_t localPort, SocketAddress remoteAddr) {
@@ -54,6 +59,31 @@ std::unique_ptr<TcpSession> TcpSession::createTcpClient(uint16_t localPort, Sock
 
 std::unique_ptr<TcpSession> TcpSession::createTcpRejector(uint16_t localPort, SocketAddress remoteAddr) {
     return std::unique_ptr<TcpSession>(new (std::nothrow) TcpSession(localPort, remoteAddr, false));
+}
+
+std::unique_ptr<TcpSession> TcpSession::createTcpServer(uint16_t localPort, int backlog) {
+    auto session = std::unique_ptr<TcpSession>(new (std::nothrow) TcpSession(localPort));
+    if (!session) {
+        return {};
+    }
+
+    session->set_state<TcpStateListening>(backlog);
+
+    return std::move(session);
+}
+
+std::unique_ptr<TcpSession> TcpSession::createTcpClientAcceptor(uint16_t localPort,
+                                                                SocketAddress remoteAddr,
+                                                                uint32_t seq)
+{
+    auto session = std::unique_ptr<TcpSession>(new (std::nothrow) TcpSession(localPort, remoteAddr, false));
+    if (!session) {
+        return {};
+    }
+
+    session->set_state<TcpStateSynReceived>(seq);
+
+    return std::move(session);
 }
 
 TcpSession::~TcpSession() {
@@ -114,6 +144,15 @@ bool TcpSession::send_ack() {
     return this->tcp_transmit(ackNbuf);
 }
 
+bool TcpSession::send_syn_ack(void) {
+    auto* synackNbuf = this->tcp_alloc_nbuf(TCP_FLAGS_SYN | TCP_FLAGS_ACK, 0);
+    if (!synackNbuf) {
+        return false;
+    }
+
+    kprintf("[tcp] sending SYN/ACK\n");
+    return this->tcp_transmit(synackNbuf);
+}
 
 bool TcpSession::send_fin(void) {
     auto* finNbuf = this->tcp_alloc_nbuf(TCP_FLAGS_FIN | TCP_FLAGS_ACK, 0);
@@ -205,6 +244,8 @@ bool TcpSession::process_in_segment(NetworkBuffer* nbuf) {
 }
 
 void TcpSession::close(void) {
+    // TODO: implement properly..
+
     _receive_next_ack = 0;
     _receive_window = 0;
 
@@ -217,10 +258,14 @@ void TcpSession::close(void) {
 }
 
 void TcpSession::set_state(std::unique_ptr<TcpState> newState) {
-    InterruptsMutex guard(true);
+    bool notifyWaitingThreads = false;
 
     if (_state && newState) {
         kprintf("[tcp] state %s --> %s\n", tcp_state(_state->state_enum()), tcp_state(newState->state_enum()));
+    }
+
+    if (_state && _state->state_enum() == TcpStateEnum::Established) {
+        notifyWaitingThreads = true;
     }
 
     _state = std::move(newState);
@@ -228,6 +273,11 @@ void TcpSession::set_state(std::unique_ptr<TcpState> newState) {
 
     if (_state->has_second_stage()) {
         _state->handle_second_stage();
+    }
+
+    if (notifyWaitingThreads) {
+        _inputBuffer.eventStream.emit(0);
+        _outputBuffer.eventStream.emit(0);
     }
 }
 
@@ -290,6 +340,9 @@ int TcpSession::pop_output_bytes(uint8_t* buffer, size_t size, bool wait) {
     }
 
     size_t avail_size = MIN(_outputBuffer.buffer.size(), size);
+    if (0 == avail_size) {
+        return 0;
+    }
 
     kprintf("pop_output_bytes(%p, %d, %s): avail_size=%d)\n", buffer, size, wait ? "true" : "false", avail_size);
 
@@ -300,8 +353,6 @@ int TcpSession::pop_output_bytes(uint8_t* buffer, size_t size, bool wait) {
 }
 
 int TcpSession::pop_input_bytes(uint8_t* buffer, size_t size, bool wait) {
-    InterruptsMutex guard(true);
-
     if (TcpStateEnum::Closed == this->state()) {
         return 0;
     }
@@ -310,7 +361,16 @@ int TcpSession::pop_input_bytes(uint8_t* buffer, size_t size, bool wait) {
         return -1;
     }
 
+    InterruptsMutex guard(true);
     while (0 == _inputBuffer.buffer.size() && wait) {
+        if (TcpStateEnum::Closed == this->state()) {
+            return 0;
+        }
+
+        if (TcpStateEnum::Established != this->state()) {
+            return -1;
+        }
+
         guard.unlock();
         _inputBuffer.eventStream.get();
         guard.lock();
@@ -324,4 +384,21 @@ int TcpSession::pop_input_bytes(uint8_t* buffer, size_t size, bool wait) {
     _inputBuffer.buffer.erase(_inputBuffer.buffer.begin(), _inputBuffer.buffer.begin() + avail_size);
 
     return avail_size;
+}
+
+uint16_t TcpSession::localPort(void) const {
+    return _localPort;
+}
+
+SocketAddress TcpSession::remoteAddr(void) const {
+    return _remoteAddr;
+}
+
+int TcpSession::acceptNewClient(void) {
+    if (this->state() != TcpStateEnum::Listening) {
+        return -1;
+    }
+
+    TcpStateListening* tcpStateListening = (TcpStateListening*)_state.get();
+    return tcpStateListening->getNewClientFd();
 }
