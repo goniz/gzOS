@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <ctime>
 #include <lib/network/arp/arp.h>
 #include <lib/network/interface.h>
@@ -31,18 +31,17 @@ std::vector<struct ps_ent> getProcessList(int expected_entries) {
 void printProcessList(void) {
     std::vector<struct ps_ent> proclist = std::move(getProcessList(10));
 
-    InterruptsMutex mutex;
-    mutex.lock();
+    InterruptsMutex mutex(true);
+
     kprintf("%-7s %-20s %-10s %-10s %s\n",
             "PID", "Name", "State", "CPU Time", "ExitCode");
     for (const auto& proc : proclist) {
-        kprintf("pid: %d\n", proc.pid);
-        kprintf("name: %p\n", proc.name);
-        kprintf("state: %p\n", proc.state);
+//        kprintf("pid: %d\n", proc.pid);
+//        kprintf("name: %p\n", proc.name);
+//        kprintf("state: %p\n", proc.state);
         kprintf("%-7d %-20s %-10s %-10lu %d\n",
                 proc.pid, proc.name, proc.state, proc.cpu_time, proc.exit_code);
     }
-    mutex.unlock();
 }
 
 void printArpCache(void) {
@@ -54,7 +53,8 @@ void printArpCache(void) {
 
 int ps_main(void* argument) {
     while (1) {
-        printProcessList();
+//        printProcessList();
+        ProcessProvider::instance().dumpProcesses();
         syscall(SYS_NR_SLEEP, 5000);
     }
 }
@@ -84,7 +84,9 @@ static uint32_t read_size(int sock) {
 }
 
 uint8_t* recv_file_over_udp(size_t* size) {
-    if (size) *size = 0;
+    if (size) {
+        *size = 0;
+    }
 
     int sock = syscall(SYS_NR_SOCKET, AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     printf("sock: %d\n", sock);
@@ -144,10 +146,14 @@ int kernel_main(void* argument) {
 
     initrd_initialize();
 
-    std::vector<const char*> shellArgs{"/bin/init"};
-    pid_t shellpid = syscall(SYS_NR_EXEC, "/bin/init", shellArgs.size(), shellArgs.data());
-    if (-1 != shellpid) {
-        syscall(SYS_NR_WAIT_PID, shellpid);
+    ProcessProvider::instance().createKernelThread("ps_main", ps_main, NULL, 4096);
+
+    std::vector<const char*> initArgs{"/bin/init"};
+    pid_t init_pid = syscall(SYS_NR_EXEC, "/bin/init", initArgs.size(), initArgs.data());
+    kprintf("init pid: %d\n", init_pid);
+
+    if (-1 != init_pid) {
+        syscall(SYS_NR_WAIT_PID, init_pid);
     }
 
     while (1) {

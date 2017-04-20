@@ -3,7 +3,7 @@
 //
 
 #include <stdio.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <platform/malta/interrupts.h>
 #include <platform/panic.h>
 #include <lib/kernel/initrd/load_initrd.h>

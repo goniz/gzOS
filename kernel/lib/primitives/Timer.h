@@ -2,7 +2,9 @@
 #define GZOS_TIMER_H
 #ifdef __cplusplus
 
-#include <lib/kernel/sched/scheduler.h>
+#include <cstdint>
+#include <atomic>
+#include <memory>
 
 class BasicTimer
 {

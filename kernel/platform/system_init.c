@@ -1,5 +1,5 @@
 #include <stdio.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <platform/pci/pci.h>
 #include <platform/drivers.h>
 #include "kprintf.h"

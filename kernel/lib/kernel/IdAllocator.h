@@ -8,9 +8,9 @@ class IdAllocator {
 public:
     IdAllocator(const size_t start, const size_t end);
 
-    int allocate(void);
-    void deallocate(const int id);
-    bool isAllocated(const int id);
+    unsigned int allocate(void);
+    void deallocate(const unsigned int id);
+    bool isAllocated(const unsigned int id);
 
 private:
     size_t _start;

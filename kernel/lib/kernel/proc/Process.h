@@ -10,9 +10,9 @@
 #include <sys/types.h>
 #include <atomic>
 #include "lib/kernel/vfs/FileDescriptorCollection.h"
-#include "lib/kernel/proccess/ProcessMemoryMap.h"
+#include "lib/kernel/proc/ProcessMemoryMap.h"
 #include "lib/kernel/elf/ElfLoader.h"
-#include "lib/kernel/sched/thread.h"
+#include "Thread.h"
 #include <reent.h>
 #include <lib/mm/vm_map.h>
 #include <cassert>
@@ -36,10 +36,19 @@ class Process
 
 public:
     Process(const char* name,
+            std::vector<std::string>&& arguments,
+            bool initializeFds = true);
+
+    Process(const char* name,
             ElfLoader& elfLoader,
             std::vector<std::string>&& arguments);
 
     ~Process(void);
+
+    Thread* createThread(const char *name,
+                         Thread::EntryPointFunction entryPoint, void *argument,
+                         size_t stackSize,
+                         bool schedule = true);
 
     bool signal(int sig_nr);
 
@@ -63,6 +72,16 @@ public:
     bool has_exited(void) const;
     int wait_for_exit(void);
 
+    void activateProcess(void);
+
+    Thread::EntryPointFunction entryPoint() const {
+        return _entryPoint;
+    }
+
+    void* userArgv() const {
+        return _userArgv;
+    }
+
     FileDescriptorCollection& fileDescriptorCollection(void) {
         return _fileDescriptors;
     }
@@ -72,9 +91,6 @@ public:
     }
 
 private:
-    static void switchProcess(Process& newProc);
-
-    Process(const char* name, std::vector<std::string>&& arguments, bool initializeFds = true);
     void createStackRegion();
     void createArgsRegion();
 

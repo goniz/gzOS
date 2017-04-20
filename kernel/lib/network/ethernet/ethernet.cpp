@@ -6,7 +6,8 @@
 #include <lib/primitives/basic_queue.h>
 #include <platform/drivers.h>
 #include <lib/syscall/syscall.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
+#include <platform/clock.h>
 #include "lib/network/nbuf.h"
 #include "lib/network/ethernet/ethernet.h"
 
@@ -50,9 +51,12 @@ static int ethernet_rx_main(void* argument) {
 
     while (1) {
         NetworkBuffer *nbuf = NULL;
-        if (!gRxQueue.pop(nbuf, true)) {
+        bool result = gRxQueue.pop(nbuf, true);
+        if (!result) {
             continue;
         }
+
+
         const ethernet_t *header = ethernet_hdr(nbuf);
         const EthernetHandler *handler = find_handler(header->type);
         if (nullptr == handler) {
@@ -220,7 +224,7 @@ static const EthernetDevice *find_device_by_phy(const char *name) {
 }
 
 static int ethernet_layer_init(void) {
-    Scheduler::instance().createKernelThread("EthernetRx", ethernet_rx_main, nullptr, 8192);
-    Scheduler::instance().createKernelThread("EthernetTx", ethernet_tx_main, nullptr, 8192);
+    ProcessProvider::instance().createKernelThread("EthernetRx", ethernet_rx_main, nullptr, 8192);
+    ProcessProvider::instance().createKernelThread("EthernetTx", ethernet_tx_main, nullptr, 8192);
     return 0;
 }

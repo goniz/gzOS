@@ -1,4 +1,4 @@
-#include "sched/scheduler.h"
+#include "proc/Scheduler.h"
 #include <vfs/VirtualFileSystem.h>
 #include "vfs_api.h"
 

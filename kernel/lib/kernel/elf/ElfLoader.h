@@ -3,7 +3,7 @@
 
 #ifdef __cplusplus
 #include <cstddef>
-#include "lib/kernel/proccess/ProcessMemoryMap.h"
+#include "lib/kernel/proc/ProcessMemoryMap.h"
 #include "lib/kernel/elf/elf.h"
 
 class ElfLoader

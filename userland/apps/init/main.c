@@ -36,6 +36,7 @@ int main(int argc, char **argv)
 
     pause();
 //    interface_add("eth0", 0x01010101, 0xffffff00);
-
+    
+    printf("gzOS init exiting..!\n");
     return 1;
 }

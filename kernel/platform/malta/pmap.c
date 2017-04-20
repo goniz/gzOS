@@ -73,7 +73,9 @@ static void pmap_setup(pmap_t *pmap, vm_addr_t start, vm_addr_t end) {
   pmap->start = start;
   pmap->end = end;
   pmap->asid = get_new_asid();
-  kprintf("Page directory table allocated at %08lx\n", (vm_addr_t)pmap->pde);
+
+//  kprintf("Page directory table allocated at %08lx\n", (vm_addr_t)pmap->pde);
+
   TAILQ_INIT(&pmap->pte_pages);
 
   for (int i = 0; i < PD_ENTRIES; i++)

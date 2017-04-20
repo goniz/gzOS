@@ -4,8 +4,10 @@
 #include <lib/network/socket.h>
 #include <vfs/vfs_api.h>
 #include <fcntl.h>
-#include "proccess/process.h"
-#include "sched/scheduler.h"
+#include <vfs/Path.h>
+#include <proc/SignalProvider.h>
+#include "proc/Process.h"
+#include "proc/Scheduler.h"
 #include "signals.h"
 
 DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
@@ -27,7 +29,7 @@ DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
         arguments.emplace_back(argv[i]);
     }
 
-    Process* newProc = Scheduler::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 8192);
+    Process* newProc = ProcessProvider::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 8192);
     if (NULL == newProc) {
         return -1;
     }
@@ -48,7 +50,7 @@ DEFINE_SYSCALL(CREATE_THREAD, create_thread, SYS_IRQ_DISABLED)
         return -1;
     }
 
-    Thread* newThread = Scheduler::instance().createThread(*currentProc, name, entryPoint, argument, stackSize);
+    Thread* newThread = currentProc->createThread(name, entryPoint, argument, stackSize);
     if (NULL == newThread) {
         return -1;
     }
@@ -88,7 +90,8 @@ DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
         arguments.emplace_back(argv[i]);
     }
 
-    Process* newProc = Scheduler::instance().createProcess(filename, buffer.get(), size, std::move(arguments), 8192);
+    auto filenameOnly = Path(filename).filename();
+    Process* newProc = ProcessProvider::instance().createProcess(filenameOnly.c_str(), buffer.get(), size, std::move(arguments), 8192);
     if (!newProc) {
         return -1;
     }
@@ -120,12 +123,12 @@ DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
     SYSCALL_ARG(void*, requesting_function);
 
     auto& instance = Scheduler::instance();
-    auto proc = instance.CurrentProcess();
-    assert(proc);
+    auto* proc = instance.CurrentProcess();
+    assert(NULL != proc);
 
-//    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
+    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
 
-    if (!instance.signalPid(PID_CURRENT, SIG_KILL, 0)) {
+    if (!instance.kill(proc, false)) {
         return -1;
     }
 
@@ -140,18 +143,20 @@ DEFINE_SYSCALL(IS_THREAD_RESPONSIVE, is_thread_responsive, SYS_IRQ_DISABLED)
     auto thread = Scheduler::instance().CurrentThread();
     assert(thread);
 
-    return thread->isResponsive();
+//    return thread->isResponsive();
+    return 1;
 }
 
 DEFINE_SYSCALL(SET_THREAD_RESPONSIVE, set_thread_responsive, SYS_IRQ_DISABLED)
 {
+    __unused
     SYSCALL_ARG(int, isResponsive);
 
     auto thread = Scheduler::instance().CurrentThread();
     assert(thread);
 
-    thread->setResponsive((bool)isResponsive);
-    return 0;
+//    thread->setResponsive((bool)isResponsive);
+    return 1;
 }
 
 DEFINE_SYSCALL(YIELD, yield, SYS_IRQ_DISABLED)
@@ -170,8 +175,15 @@ DEFINE_SYSCALL(SLEEP, sleep, SYS_IRQ_ENABLED)
 {
     SYSCALL_ARG(int, ms);
 
-    Scheduler::instance().sleep(PID_CURRENT, ms);
-    return 0;
+    auto& instance = Scheduler::instance();
+    auto* thread = instance.CurrentThread();
+    assert(NULL != thread);
+
+    if (thread->sleep(ms)) {
+        return 0;
+    }
+
+    return -1;
 }
 
 DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
@@ -180,7 +192,7 @@ DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
     SYSCALL_ARG(int, signal_nr);
     SYSCALL_ARG(uintptr_t, value);
 
-    if (!Scheduler::instance().signalPid(pid, signal_nr, value)) {
+    if (!SignalProvider::instance().signalPid(pid, signal_nr, value)) {
         return -1;
     }
 
@@ -218,9 +230,9 @@ DEFINE_SYSCALL(PS, ps, SYS_IRQ_DISABLED)
         return -1;
     }
 
-    size_t buf_pos = sizeof(struct ps_ent);
+    size_t buf_pos = 0;
     int entries = 0;
-    const auto& procList = Scheduler::instance().processList();
+    const auto& procList = ProcessProvider::instance().processList();
     auto list_pos = procList.cbegin();
     while ((buf_pos < size) && (list_pos != procList.cend())) {
         const auto proc = list_pos->get();

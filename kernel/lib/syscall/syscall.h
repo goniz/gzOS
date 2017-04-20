@@ -39,6 +39,14 @@ struct kernel_syscall {
     char name[64];
 };
 
+#define DECLARE_SYSCALL(name) \
+            extern "C" \
+            __attribute__((used)) \
+            int sys_ ##name(struct user_regs** regs, va_list args)
+
+#define DECLARE_FRIEND_SYSCALL(name) \
+            friend int ::sys_ ##name(struct user_regs** regs, va_list args)
+
 #define DEFINE_SYSCALL(number, name, irq) \
             extern "C" \
             __attribute__((used)) int sys_ ##name(struct user_regs** regs, va_list args); \

@@ -1,6 +1,7 @@
 #include <lib/network/tcp/TcpSession.h>
 #include <tcp/tcp_socket.h>
 #include <lib/kernel/vfs/vfs_api.h>
+#include <lib/syscall/syscall.h>
 #include "lib/network/tcp/states/TcpStateListening.h"
 
 TcpStateListening::TcpStateListening(TcpSession& session, int backlog)
@@ -39,6 +40,8 @@ int TcpStateListening::getNewClientFd(void)
         }
 
         if (!newClientFd->is_connected()) {
+            _acceptQueue.push(std::move(newClientFd));
+            syscall(SYS_NR_YIELD);
             continue;
         }
 

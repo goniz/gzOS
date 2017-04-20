@@ -9,7 +9,7 @@ IdAllocator::IdAllocator(const size_t start, const size_t end)
 
 }
 
-int IdAllocator::allocate(void)
+unsigned int IdAllocator::allocate(void)
 {
     InterruptsMutex mutex(true);
 
@@ -20,23 +20,23 @@ int IdAllocator::allocate(void)
         }
 
         _allocated[i] = true;
-        return (int) (_start + i);
+        return (_start + i);
     }
 
     return -1;
 }
 
-void IdAllocator::deallocate(const int id)
+void IdAllocator::deallocate(const unsigned int id)
 {
     InterruptsMutex mutex(true);
-    if (!isAllocated(id)) {
+    if (!this->isAllocated(id)) {
         return;;
     }
 
     _allocated[id - _start] = false;
 }
 
-bool IdAllocator::isAllocated(const int id) {
+bool IdAllocator::isAllocated(const unsigned int id) {
     InterruptsMutex mutex(true);
     return ((size_t)id >= _start && (size_t)id <= _end) && _allocated[id - _start];
 }

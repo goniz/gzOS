@@ -1,9 +1,8 @@
 #include <platform/kprintf.h>
 #include <unistd.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
+#include <lib/kernel/proc/proc.h>
 #include "interrupts.h"
-
-extern void* scheduler(void);
 
 static int is_panicing = 0;
 
@@ -26,7 +25,7 @@ void panic(const char* fmt, ...)
     va_end(arg);
 
     pid_t pid = -1;
-    if (scheduler()) {
+    if (scheduler_get()) {
         pid = scheduler_current_pid();
     }
 

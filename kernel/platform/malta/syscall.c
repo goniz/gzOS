@@ -2,7 +2,7 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <lib/syscall/syscall.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <sys/cdefs.h>
 #include <platform/kprintf.h>
 #include "interrupts.h"

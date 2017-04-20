@@ -4,25 +4,24 @@
 #include <cassert>
 #include <platform/panic.h>
 #include <lib/primitives/align.h>
-#include "thread.h"
+#include "Thread.h"
 #include "signals.h"
-#include "scheduler.h"
+#include "Scheduler.h"
 #include "IdAllocator.h"
+#include "SystemTimer.h"
 
 static IdAllocator gTidAllocator(PID_THREAD_START, PID_THREAD_END);
 
 Thread::Thread(Process& process,
                const char *name,
                EntryPointFunction entryPoint, void *argument,
-               size_t stackSize, int initialQuantum)
+               size_t stackSize)
 
     :  _kernelStackPage(nullptr),
        _platformThreadCb(),
        _preemptionContext(Thread::ContextType::UserSpace, false),
-       _quantum(initialQuantum),
-       _resetQuantum(initialQuantum),
+       _schedulingPolicyData(),
        _state(Thread::READY),
-       _responsive(false),
        _tid(gTidAllocator.allocate()),
        _exitCode(0),
        _cpuTime(0),
@@ -82,5 +81,17 @@ Thread::~Thread(void) {
 bool Thread::signal(int sig_nr) {
     int oldValue = SIG_NONE;
     return _pending_signal_nr.compare_exchange_weak(oldValue, sig_nr);
+}
 
+bool Thread::sleep(int ms) {
+    InterruptsMutex mutex(true);
+
+    SystemTimer::instance().addTimer(ms, [](void* arg) {
+        Thread* self = (Thread*)arg;
+        Scheduler::instance().resume(self, 0);
+        return false;
+    }, this);
+
+    // now, stop the proc
+    return Scheduler::instance().suspend(this);
 }

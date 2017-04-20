@@ -2,7 +2,7 @@
 #include <lib/primitives/hashmap.h>
 #include <lib/primitives/spinlock_mutex.h>
 #include <platform/kprintf.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <lib/primitives/Timer.h>
 #include <sys/param.h>
 #include "lib/network/tcp/tcp_socket.h"

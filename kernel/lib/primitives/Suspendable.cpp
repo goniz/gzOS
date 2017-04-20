@@ -2,7 +2,8 @@
 #include <algorithm>
 #include <lib/kernel/signals.h>
 #include <lib/syscall/syscall.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
+#include <lib/kernel/proc/SignalProvider.h>
 #include "Suspendable.h"
 #include "lock_guard.h"
 
@@ -34,7 +35,7 @@ uintptr_t Suspendable::wait(void)
         }
     }
 
-    return kill(currentTid, SIG_STOP);
+    return syscall(SYS_NR_SIGNAL, currentTid, SIG_STOP);
 }
 
 void Suspendable::notifyOne(uintptr_t value)
@@ -52,7 +53,7 @@ void Suspendable::notifyOne(uintptr_t value)
         m_waitingPids.pop_back();
     }
 
-    Scheduler::instance().resume(pid, value);
+    syscall(SYS_NR_SIGNAL, pid, SIG_CONT, value);
 }
 
 void Suspendable::notifyAll(uintptr_t value)
@@ -60,7 +61,7 @@ void Suspendable::notifyAll(uintptr_t value)
     lock_guard<InterruptsMutex> guard(m_mutex);
 
     for (pid_t pid : m_waitingPids) {
-        Scheduler::instance().resume(pid, value);
+        syscall(SYS_NR_SIGNAL, pid, SIG_CONT, value);
     }
 
     m_waitingPids.clear();

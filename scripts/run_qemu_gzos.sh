@@ -17,7 +17,7 @@ if ! sudo brctl show | grep -q br0; then
 	sudo brctl addbr br0
 fi
 
-sudo ifconfig br0 1.1.1.2/24
+sudo ifconfig br0 1.1.1.2 netmask 255.255.255.0
 
 qemu-system-mips 			-machine malta \
 					-cpu 4KEc \

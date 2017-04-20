@@ -1,7 +1,7 @@
 #include <cstring>
 #include <platform/drivers.h>
 #include <platform/cpu.h>
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include "lib/network/nbuf.h"
 #include "lib/network/ethernet/ethernet.h"
 #include "lib/network/arp/arp.h"

@@ -1,4 +1,4 @@
-#include <lib/kernel/sched/scheduler.h>
+#include <lib/kernel/proc/Scheduler.h>
 #include <lib/primitives/hashmap.h>
 #include <lib/kernel/vfs/vfs_api.h>
 #include "lib/network/socket.h"

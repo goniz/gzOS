@@ -1,10 +1,10 @@
-#include <proccess/process.h>
+#include <proc/Process.h>
 #include <lib/kernel/signals.h>
 #include <cassert>
 #include <platform/panic.h>
 #include <vfs/VirtualFileSystem.h>
 #include <lib/primitives/align.h>
-#include "sched/scheduler.h"
+#include "Scheduler.h"
 #include "IdAllocator.h"
 #include "vfs/ConsoleFileDescriptor.h"
 
@@ -62,6 +62,8 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
         _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
         _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
     }
+
+    _threads.reserve(5);
 }
 
 Process::~Process(void)
@@ -98,16 +100,22 @@ int Process::state(void) const
     return (int)_state;
 }
 
-uint64_t  Process::cpu_time() const
+uint64_t Process::cpu_time() const
 {
-    // TODO: implement
-    return 0;
+    InterruptsMutex mutex(true);
+
+    uint64_t time = 0;
+    for (const auto& thread : _threads) {
+        time += thread->cpuTime();
+    }
+
+    return time;
 }
 
-void Process::switchProcess(Process& newProc)
+void Process::activateProcess(void)
 {
-    _REENT = &newProc._reent;
-    newProc._memoryMap.activate();
+    _REENT = &_reent;
+    _memoryMap.activate();
 }
 
 bool Process::is_kernel_proc(void) const {
@@ -194,4 +202,28 @@ bool Process::has_exited(void) const {
 
 int Process::wait_for_exit(void) {
     return _exitEvent.get();
+}
+
+Thread* Process::createThread(const char* name,
+                              Thread::EntryPointFunction entryPoint, void* argument,
+                              size_t stackSize,
+                              bool schedule)
+{
+    auto thread = std::make_unique<Thread>(*this, name, entryPoint, argument, stackSize);
+    auto* thread_ptr = thread.get();
+
+    assert(NULL != thread_ptr);
+
+    kprintf("[%s] spawned a new thread with tid %d named %s\n", this->name(), thread->tid(), thread->name());
+
+    {
+        InterruptsMutex mutex(true);
+        _threads.push_back(std::move(thread));
+    }
+
+    if (schedule && !Scheduler::instance().addThread(thread_ptr)) {
+        panic("failed to add thread to scheduler");
+    }
+
+    return thread_ptr;
 }

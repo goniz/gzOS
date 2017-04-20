@@ -1,4 +1,5 @@
 #include <platform/drivers.h>
+#include <lib/kernel/proc/ProcessProvider.h>
 #include "lib/network/socket.h"
 #include "lib/network/tcp/tcp_socket.h"
 
@@ -10,7 +11,7 @@ static int tcp_proto_init(void)
         return std::unique_ptr<SocketFileDescriptor>(TcpFileDescriptor::createPlainDescriptor());
     });
 
-    Scheduler::instance().createKernelThread("TcpInput", tcp_in_main, nullptr, 8192);
+    ProcessProvider::instance().createKernelThread("TcpInput", tcp_in_main, nullptr, 8192);
     return 0;
 }
 

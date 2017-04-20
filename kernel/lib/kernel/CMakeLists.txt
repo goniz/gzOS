@@ -2,4 +2,70 @@ cmake_minimum_required(VERSION 2.8)
 
 project(gzOS_libkernel C CXX ASM)
 
-add_library(kernel STATIC sched/scheduler.cpp proccess/process.h proccess/process.cpp signals.h syscalls.cpp c_api.cpp vfs/FileDescriptorCollection.cpp vfs/FileDescriptorCollection.h vfs/FileDescriptor.cpp vfs/FileDescriptor.h elf/elf.h sched/thread.cpp sched/thread.h IdAllocator.cpp IdAllocator.h proccess/ProcessMemoryMap.cpp proccess/ProcessMemoryMap.h elf/ElfLoader.cpp elf/ElfLoader.h vfs/ConsoleFileDescriptor.cpp vfs/ConsoleFileDescriptor.h vfs/DevFileSystem.cpp vfs/DevFileSystem.h vfs/AccessControlledFileDescriptor.cpp vfs/AccessControlledFileDescriptor.h vfs/Path.h vfs/ReaddirFileDescriptor.h vfs/ReaddirFileDescriptor.cpp vfs/VirtualFileSystem.cpp vfs/VirtualFileSystem.h vfs/VFSNode.cpp vfs/VFSNode.h vfs/TmpfsNode.cpp vfs/TmpfsNode.h vfs/MountableNode.cpp vfs/MountableNode.h vfs/BasicVFSNode.cpp vfs/BasicVFSNode.h vfs/VFSNodeFactory.h vfs/VFSReaddirFileDescriptor.cpp vfs/VFSReaddirFileDescriptor.h vfs/vfs_api.cpp vfs/vfs_api.h initrd/load_initrd.cpp initrd/load_initrd.h cmdline.h cmdline.cpp initrd/CpioExtractor.cpp initrd/CpioExtractor.h)
+add_library(
+        kernel
+        STATIC
+        proc/Scheduler.cpp
+        proc/Process.h
+        proc/Process.cpp
+        proc/Thread.cpp
+        proc/Thread.h
+        proc/ProcessMemoryMap.cpp
+        proc/ProcessMemoryMap.h
+        proc/SchedulingPolicy.cpp
+        proc/SchedulingPolicy.h
+        proc/PriorityScheduling.cpp
+        proc/PriorityScheduling.h
+        proc/ProcessProvider.cpp
+        proc/ProcessProvider.h
+        proc/SystemTimer.cpp
+        proc/SystemTimer.h
+        proc/SimpleRoundRobinSchedulingPolicy.cpp
+        proc/SimpleRoundRobinSchedulingPolicy.h
+        proc/SchedulingPolicyData.h
+        proc/SchedulingPolicyData.cpp
+        proc/init.cpp
+        vfs/FileDescriptorCollection.cpp
+        vfs/FileDescriptorCollection.h
+        vfs/FileDescriptor.cpp
+        vfs/FileDescriptor.h
+        vfs/ConsoleFileDescriptor.cpp
+        vfs/ConsoleFileDescriptor.h
+        vfs/DevFileSystem.cpp
+        vfs/DevFileSystem.h
+        vfs/AccessControlledFileDescriptor.cpp
+        vfs/AccessControlledFileDescriptor.h
+        vfs/Path.h
+        vfs/ReaddirFileDescriptor.h
+        vfs/ReaddirFileDescriptor.cpp
+        vfs/VirtualFileSystem.cpp
+        vfs/VirtualFileSystem.h
+        vfs/VFSNode.cpp
+        vfs/VFSNode.h
+        vfs/TmpfsNode.cpp
+        vfs/TmpfsNode.h
+        vfs/MountableNode.cpp
+        vfs/MountableNode.h
+        vfs/BasicVFSNode.cpp
+        vfs/BasicVFSNode.h
+        vfs/VFSNodeFactory.h
+        vfs/VFSReaddirFileDescriptor.cpp
+        vfs/VFSReaddirFileDescriptor.h
+        vfs/vfs_api.cpp
+        vfs/vfs_api.h
+        initrd/load_initrd.h
+        initrd/load_initrd.cpp
+        initrd/CpioExtractor.cpp
+        initrd/CpioExtractor.h
+        elf/elf.h
+        elf/ElfLoader.cpp
+        elf/ElfLoader.h
+        signals.h
+        syscalls.cpp
+        c_api.cpp
+        IdAllocator.cpp
+        IdAllocator.h
+        cmdline.h
+        cmdline.cpp
+        proc/proc.h
+        proc/active_scheduling_policy.h proc/SignalProvider.cpp proc/SignalProvider.h)

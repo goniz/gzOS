@@ -1,13 +1,13 @@
 #ifndef GZOS_THREAD_H
 #define GZOS_THREAD_H
 
-#include <sched.h>
-
 #ifdef __cplusplus
 #include <cstdint>
 #include <atomic>
 #include <lib/mm/vm.h>
 #include <platform/process.h>
+#include <bits/unique_ptr.h>
+#include <lib/kernel/proc/active_scheduling_policy.h>
 
 class Scheduler;
 class Process;
@@ -15,7 +15,7 @@ class Thread
 {
     friend class Scheduler;
     friend class Process;
-    enum State { READY, RUNNING, SUSPENDED, TERMINATED };
+
     enum ContextType { UserSpace, KernelSpace };
     static constexpr int KernelStackSize = PAGESIZE * 2;
 
@@ -31,15 +31,17 @@ class Thread
     };
 
 public:
+    enum State { READY, RUNNING, SUSPENDED, TERMINATED };
     using EntryPointFunction = int (*)(void*);
 
     Thread(Process& process,
            const char *name,
            EntryPointFunction entryPoint, void *argument,
-           size_t stackSize, int initialQuantum);
+           size_t stackSize);
 
     ~Thread(void);
 
+    bool sleep(int ms);
     bool signal(int sig_nr);
 
     inline const char*  name(void) const        { return _name; }
@@ -47,17 +49,18 @@ public:
     inline pid_t        tid(void)               { return _tid; }
     inline uint64_t     cpuTime(void)           { return _cpuTime; }
     inline Process&     proc(void)              { return _proc; }
-    inline bool         isResponsive(void)      { return _responsive; }
-    inline void         setResponsive(bool r)   { _responsive = r; }
+    inline enum State&  state(void)             { return _state; }
+
+    ActiveSchedulingPolicyType::PolicyDataType& schedulingPolicyData(void) {
+        return _schedulingPolicyData;
+    }
 
 private:
     vm_page_t* _kernelStackPage;
     platform_thread_cb _platformThreadCb;
     PreemptionContext _preemptionContext;
-    int _quantum;
-    const int _resetQuantum;
+    ActiveSchedulingPolicyType::PolicyDataType _schedulingPolicyData;
     enum State _state;
-    std::atomic_bool _responsive;
     char _name[64];
     pid_t _tid;
     int _exitCode;

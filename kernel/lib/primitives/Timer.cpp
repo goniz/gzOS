@@ -1,4 +1,5 @@
 #include "Timer.h"
+#include <lib/kernel/proc/proc.h>
 
 BasicTimer::BasicTimer(int intervalInMs, void* userdata)
         : _timerId(0),

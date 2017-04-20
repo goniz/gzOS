@@ -34,7 +34,7 @@ void removeTcpDescriptor(TcpFileDescriptor* fileDescriptor) {
 }
 
 TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& localEP, const SocketAddress& remoteEP) {
-//    kprintf("[tcp] Searching for socket for %08x:%d --> %08x:%d\n", src.address, src.port, dst.address, dst.port);
+//    kprintf("[tcp] Searching for socket for %08x:%d --> %08x:%d\n", remoteEP.address, remoteEP.port, localEP.address, localEP.port);
 
     lock_guard<spinlock_mutex> guard(_tcpLock);
 

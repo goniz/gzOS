@@ -25,22 +25,22 @@ rootfs:
 qemu: compile
 qemu: rootfs
 qemu:
-	sudo ./scripts/run_qemu_gzos.sh
+	source /data/.imgtec.sh && sudo -E ./scripts/run_qemu_gzos.sh
 
 tests: compile
 tests: rootfs
 tests:
-	sudo ./scripts/run_qemu_gzos.sh kernel/build/tests.elf
+	source /data/.imgtec.sh && sudo ./scripts/run_qemu_gzos.sh kernel/build/tests.elf
 
 debug: compile
 debug: rootfs
 debug:
-	sudo ./scripts/run_qemu_gzos.sh -S
+	source /data/.imgtec.sh && sudo -E ./scripts/run_qemu_gzos.sh -S
 
 debug-tests: compile
 debug-tests: rootfs
 debug-tests:
-	sudo ./scripts/run_qemu_gzos.sh kernel/build/tests.elf -S
+	sudo -E ./scripts/run_qemu_gzos.sh kernel/build/tests.elf -S
 
 gdb:
 	source /data/.imgtec.sh && TERM=xterm mips-mti-elf-gdb kernel/build/gzOS.elf

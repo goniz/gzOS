@@ -5,7 +5,7 @@
 #include <vector>
 #include <memory>
 #include <lib/primitives/spinlock_mutex.h>
-#include <lib/kernel/proccess/process.h>
+#include <lib/kernel/proc/Process.h>
 #include <lib/primitives/basic_queue.h>
 #include <platform/interrupts.h>
 #endif
@@ -13,11 +13,10 @@
 #include <lib/syscall/syscall.h>
 #include <stdarg.h>
 #include <sys/types.h>
-#include "lib/kernel/sched/thread.h"
+#include <lib/kernel/proc/ProcessProvider.h>
+#include "Thread.h"
+#include "SchedulingPolicy.h"
 
-#define DefaultQuantum              (100)
-#define SCHED_INITIAL_PROC_SIZE     (20)
-#define SCHED_INITIAL_QUEUE_SIZE    (10)
 #define SCHED_INITIAL_TIMERS_SIZE   (200)
 #define PID_CURRENT                 (-512)
 #define PID_PROCESS_START           (1)
@@ -28,49 +27,29 @@
 #ifdef __cplusplus
 
 extern "C" {
-int sys_ps(struct user_regs **regs, va_list args);
-int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
+    int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
 }
 
 class Scheduler
 {
 public:
-    using TimeoutCallbackFunc = bool (*)(Scheduler* self, void* arg);
+    using TickCallbackFunc = bool (*)(void* argument, struct user_regs** regs);
 
-    Scheduler(void);
+    Scheduler(ProcessProvider& processProvider,
+              std::unique_ptr<SchedulingPolicy> policy);
 
-    Process* createProcess(const char* name,
-                           const void* buffer, size_t size,
-                           std::vector<std::string>&& arguments,
-                           size_t stackSize);
+    void initialize(void);
 
-    Thread* createThread(Process& process,
-                       const char* name,
-                       Thread::EntryPointFunction entryPoint, void* argument,
-                       size_t stackSize);
-
-    Thread* createKernelThread(const char* name,
-                               Thread::EntryPointFunction entryPoint, void* argument,
-                               size_t stackSize);
+    bool addThread(Thread* thread);
+    bool removeThread(Thread* thread);
+    bool addTickHandler(TickCallbackFunc func, void* argument);
+    bool removeTickHandler(TickCallbackFunc func);
 
     Process* CurrentProcess(void) const;
-    Process* getProcessByPid(pid_t pid) const;
     Thread* CurrentThread(void) const;
-    Thread* getThreadByTid(pid_t tid) const;
+
     pid_t getCurrentPid(void) const;
     pid_t getCurrentTid(void) const;
-
-    bool signalPid(pid_t pid, int signal, uintptr_t value);
-
-    uint32_t setTimeout(int timeout_ms, TimeoutCallbackFunc cb, void* arg);
-
-    void unsetTimeout(uint32_t timerId);
-
-    void sleep(pid_t pid, int ms);
-
-    const std::vector<std::unique_ptr<Process>>& processList(void) const {
-        return _processList;
-    }
 
     void setDebugMode(void);
 
@@ -78,8 +57,13 @@ public:
     struct user_regs* schedule(struct user_regs* regs);
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
-    void suspend(pid_t pid);
-    void resume(pid_t pid, uintptr_t value);
+    bool suspend(Thread* thread);
+    bool suspend(Process* process);
+    bool resume(Thread* thread, uintptr_t value);
+    bool resume(Process* process, uintptr_t value);
+    bool kill(Thread* thread, bool yield = true);
+    bool kill(Process* process, bool yield = true);
+
     int waitForPid(pid_t pid);
 
     static Scheduler& instance(void);
@@ -92,37 +76,24 @@ public:
     }
 
 private:
-    Thread* andTheWinnerIs(void);
     bool destroyProcess(Process* proc);
 
-    bool signalThreadPid(pid_t pid, int signal, uintptr_t value);
-    bool signalThread(Thread* thread, int signal, uintptr_t value);
-    bool signalProcessPid(pid_t pid, int signal, uintptr_t value);
-    void handleSignal(Thread* thread);
-
-    void doTimers(void);
     int syscall_entry_point(struct user_regs **regs, const struct kernel_syscall *syscall, va_list args);
     int handleIRQDisabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
     int handleIRQEnabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args);
 
     friend int ::scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
-    friend int ::sys_ps(struct user_regs **regs, va_list args);
 
-    struct TimerControlBlock {
-        uint32_t id;
-        uint64_t timeout_ms;
-        uint64_t target_ms;
-        TimeoutCallbackFunc callbackFunc;
-        void* arg;
+    struct TickControlBlock {
+        TickCallbackFunc function;
+        void* argument;
     };
 
     Thread*                                 _currentThread;
-    basic_queue<Thread*>                    _readyQueue;
-    Process*                                _kernelProc;
-    Process*                                _timerProc;
+    ProcessProvider&                        _processProvider;
+    std::unique_ptr<SchedulingPolicy>      _policy;
+    std::vector<TickControlBlock>           _tickHandlers;
     Thread*                                 _idleThread;
-    std::vector<std::unique_ptr<Process>>   _processList;
-    std::vector<struct TimerControlBlock>   _timers;
     spinlock_mutex                          _mutex;
     std::atomic_bool                        _debugMode;
 };
@@ -154,16 +125,8 @@ typedef timeout_callback_ret (*timeout_callback_t)(void* scheduler, void* arg);
 uint32_t scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg);
 void scheduler_unset_timeout(uint32_t timeoutId);
 
-void scheduler_sleep(int timeout_ms);
-void scheduler_suspend(void);
-void scheduler_resume(pid_t pid, uintptr_t value);
-
 pid_t scheduler_current_pid(void);
 pid_t scheduler_current_tid(void);
-
-int scheduler_signal_process(pid_t pid, int signal, uintptr_t value);
-
-pid_t gettid(void);
 
 #ifdef __cplusplus
 };
