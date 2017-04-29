@@ -3,8 +3,10 @@
 #ifdef __cplusplus
 
 #include "lib/kernel/proc/SimpleRoundRobinSchedulingPolicy.h"
+#include "lib/kernel/proc/MultiLevelFeedbackQueuePolicy.h"
 
-using ActiveSchedulingPolicyType = SimpleRoundRobinSchedulingPolicy;
+using ActiveSchedulingPolicyType = MultiLevelFeedbackQueuePolicy;
+//using ActiveSchedulingPolicyType = SimpleRoundRobinSchedulingPolicy;
 
 #endif //extern "C"
 #endif //GZOS_ACTIVE_SCHEDULING_POLICY_H

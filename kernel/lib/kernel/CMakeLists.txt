@@ -14,8 +14,6 @@ add_library(
         proc/ProcessMemoryMap.h
         proc/SchedulingPolicy.cpp
         proc/SchedulingPolicy.h
-        proc/PriorityScheduling.cpp
-        proc/PriorityScheduling.h
         proc/ProcessProvider.cpp
         proc/ProcessProvider.h
         proc/SystemTimer.cpp
@@ -68,4 +66,4 @@ add_library(
         cmdline.h
         cmdline.cpp
         proc/proc.h
-        proc/active_scheduling_policy.h proc/SignalProvider.cpp proc/SignalProvider.h)
+        proc/active_scheduling_policy.h proc/SignalProvider.cpp proc/SignalProvider.h proc/MultiLevelFeedbackQueuePolicy.cpp proc/MultiLevelFeedbackQueuePolicy.h)

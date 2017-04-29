@@ -20,6 +20,7 @@ extern "C" int basic_queue_full(basic_queue_t queue);
 #include <vector>
 #include <platform/kprintf.h>
 #include <lib/primitives/Suspendable.h>
+#include <algorithm>
 #include "lock_guard.h"
 
 template<typename T>
@@ -112,6 +113,7 @@ public:
         if (this->empty() && wait) {
             _mutex.unlock();
             this->wait();
+            _mutex.lock();
         }
 
         if (this->empty()) {
@@ -121,6 +123,16 @@ public:
         out = _data.front();
         _mutex.unlock();
         return true;
+    }
+
+    template<typename TFunc>
+    void remove(TFunc comparatorFunc) {
+        _mutex.lock();
+
+        auto results = std::remove_if(_data.begin(), _data.end(), comparatorFunc);
+        _data.erase(results, _data.end());
+
+        _mutex.unlock();
     }
 
     void reserve(size_t size) {

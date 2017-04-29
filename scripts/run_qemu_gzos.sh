@@ -19,6 +19,8 @@ fi
 
 sudo ifconfig br0 1.1.1.2 netmask 255.255.255.0
 
+source /data/.imgtec.sh
+
 qemu-system-mips 			-machine malta \
 					-cpu 4KEc \
 					-m 128 \

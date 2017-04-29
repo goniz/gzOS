@@ -53,7 +53,6 @@ public:
 
     void setDebugMode(void);
 
-    struct user_regs* yield(struct user_regs* regs);
     struct user_regs* schedule(struct user_regs* regs);
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 

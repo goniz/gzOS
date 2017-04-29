@@ -3,7 +3,11 @@
 
 #ifdef __cplusplus
 
-class Thread;
+#include <cassert>
+#include <lib/kernel/proc/SchedulingPolicyData.h>
+#include <lib/kernel/proc/Thread.h>
+#include <platform/panic.h>
+
 class SchedulingPolicy
 {
 public:
@@ -15,9 +19,24 @@ public:
 
     virtual Thread* choose(void) = 0;
     virtual Thread* evaluate_and_choose(Thread* thread) = 0;
-    virtual bool can_choose(void) const = 0;
+    virtual Thread* yield(Thread* thread) = 0;
     virtual void suspend(Thread* thread) = 0;
     virtual void resume(Thread* thread) = 0;
+};
+
+template<class TData>
+class BaseSchedulingPolicy : public SchedulingPolicy
+{
+protected:
+    TData& dataFromThread(Thread* thread) const {
+        TData* data = static_cast<TData*>(thread->schedulerData());
+
+        if (!data) {
+            panic("thread %s found with nulled scheduler data!", thread->name());
+        }
+
+        return *data;
+    }
 };
 
 #endif //cplusplus

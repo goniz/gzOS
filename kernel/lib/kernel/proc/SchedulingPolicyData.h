@@ -7,14 +7,13 @@
 
 struct SchedulingPolicyData
 {
-
+    bool yieldRequested = false;
 };
 
-struct QuantumSchedulingPolicyData
+struct QuantumSchedulingPolicyData : public SchedulingPolicyData
 {
     int quantum = DefaultQuantum;
     int resetQuantum = DefaultQuantum;
-    bool responsive = false;
 };
 
 #endif //cplusplus

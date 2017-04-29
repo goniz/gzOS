@@ -126,7 +126,7 @@ DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
     auto* proc = instance.CurrentProcess();
     assert(NULL != proc);
 
-    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
+//    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
 
     if (!instance.kill(proc, false)) {
         return -1;
@@ -161,7 +161,13 @@ DEFINE_SYSCALL(SET_THREAD_RESPONSIVE, set_thread_responsive, SYS_IRQ_DISABLED)
 
 DEFINE_SYSCALL(YIELD, yield, SYS_IRQ_DISABLED)
 {
-    *regs = Scheduler::instance().yield(*regs);
+    auto& instance = Scheduler::instance();
+    auto* thread = instance.CurrentThread();
+    assert(NULL != thread);
+
+    thread->yield();
+
+    *regs = Scheduler::instance().schedule(*regs);
     return 0;
 }
 

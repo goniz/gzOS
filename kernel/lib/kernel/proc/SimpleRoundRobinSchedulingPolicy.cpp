@@ -20,27 +20,19 @@ Thread* SimpleRoundRobinSchedulingPolicy::choose(void) {
 }
 
 Thread* SimpleRoundRobinSchedulingPolicy::evaluate_and_choose(Thread* thread) {
-    QuantumSchedulingPolicyData& data = thread->schedulingPolicyData();
+    auto& data = this->dataFromThread(thread);
 
     // play the quantum card
-    if (--data.quantum <= 0) {
+    if (data.yieldRequested || --data.quantum <= 0) {
         // check if we're out of quantum
-        thread->state() = Thread::State::READY;
-        data.quantum = data.resetQuantum;
-        _readyQueue.push(thread);
-
-        return this->choose();
+        return this->yield(thread);
     }
 
     return thread;
 }
 
-bool SimpleRoundRobinSchedulingPolicy::can_choose(void) const {
-    return _readyQueue.size() > 0;
-}
-
 void SimpleRoundRobinSchedulingPolicy::suspend(Thread* thread) {
-    QuantumSchedulingPolicyData& data = thread->schedulingPolicyData();
+    auto& data = this->dataFromThread(thread);
 
     data.quantum = data.resetQuantum;
 
@@ -48,7 +40,7 @@ void SimpleRoundRobinSchedulingPolicy::suspend(Thread* thread) {
 }
 
 void SimpleRoundRobinSchedulingPolicy::resume(Thread* thread) {
-    QuantumSchedulingPolicyData& data = thread->schedulingPolicyData();
+    auto& data = this->dataFromThread(thread);
 
     data.quantum = data.resetQuantum;
 
@@ -57,7 +49,7 @@ void SimpleRoundRobinSchedulingPolicy::resume(Thread* thread) {
     // NOTE: take a shortcut to make the system responsive by "cutting the line" when resuming a thread
     Thread* current = Scheduler::instance().CurrentThread();
     if (current) {
-        current->schedulingPolicyData().quantum = 0;
+        this->dataFromThread(thread).quantum = 0;
     }
 
     _readyQueue.push_head(thread);
@@ -69,11 +61,14 @@ bool SimpleRoundRobinSchedulingPolicy::add(Thread* thread) {
         return false;
     }
 
+    auto data = std::make_unique<QuantumSchedulingPolicyData>();
+
+    data->quantum = DefaultQuantum;
+    data->resetQuantum = DefaultQuantum;
+
     InterruptsMutex mutex(true);
 
-    QuantumSchedulingPolicyData& data = thread->schedulingPolicyData();
-
-    data.quantum = data.resetQuantum;
+    thread->setSchedulerData(std::move(data));
 
     thread->state() = Thread::State::READY;
 
@@ -82,4 +77,15 @@ bool SimpleRoundRobinSchedulingPolicy::add(Thread* thread) {
 
 bool SimpleRoundRobinSchedulingPolicy::remove(Thread* thread) {
     return false;
+}
+
+Thread* SimpleRoundRobinSchedulingPolicy::yield(Thread* thread) {
+    auto& data = this->dataFromThread(thread);
+
+    thread->state() = Thread::State::READY;
+    data.quantum = data.resetQuantum;
+    data.yieldRequested = false;
+    _readyQueue.push(thread);
+
+    return this->choose();
 }

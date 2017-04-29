@@ -31,6 +31,7 @@ public:
     void destroyProcess(Process* proc);
 
     void dumpProcesses(void);
+    int cpuPercentageOf(Process* proc) const;
 
     Thread* getThreadByTid(pid_t tid) const;
     Process* getProcessByPid(pid_t pid) const;

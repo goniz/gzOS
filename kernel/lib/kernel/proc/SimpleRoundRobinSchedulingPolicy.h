@@ -8,11 +8,9 @@
 #include "lib/kernel/proc/SchedulingPolicyData.h"
 
 class Thread;
-class SimpleRoundRobinSchedulingPolicy : public SchedulingPolicy
+class SimpleRoundRobinSchedulingPolicy : public BaseSchedulingPolicy<QuantumSchedulingPolicyData>
 {
 public:
-    using PolicyDataType = QuantumSchedulingPolicyData;
-
     SimpleRoundRobinSchedulingPolicy(void);
     virtual ~SimpleRoundRobinSchedulingPolicy(void) = default;
 
@@ -21,7 +19,7 @@ public:
 
     virtual Thread* choose(void) override;
     virtual Thread* evaluate_and_choose(Thread* thread) override;
-    virtual bool can_choose(void) const override;
+    virtual Thread* yield(Thread* thread) override;
     virtual void suspend(Thread* thread) override;
     virtual void resume(Thread* thread) override;
 

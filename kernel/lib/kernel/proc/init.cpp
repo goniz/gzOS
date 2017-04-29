@@ -2,11 +2,7 @@
 #include <platform/drivers.h>
 #include "lib/kernel/proc/ProcessProvider.h"
 #include "lib/kernel/proc/proc.h"
-#include "lib/kernel/proc/Scheduler.h"
-#include "lib/kernel/proc/PriorityScheduling.h"
-#include "SystemTimer.h"
-#include "SimpleRoundRobinSchedulingPolicy.h"
-#include <lib/kernel/proc/active_scheduling_policy.h>
+#include "active_scheduling_policy.h"
 
 ProcessProvider* gProcessProviderInstance(nullptr);
 Scheduler* gSchedulerInstance(nullptr);

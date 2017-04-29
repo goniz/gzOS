@@ -4,10 +4,10 @@
 #ifdef __cplusplus
 #include <cstdint>
 #include <atomic>
+#include <memory>
 #include <lib/mm/vm.h>
 #include <platform/process.h>
-#include <bits/unique_ptr.h>
-#include <lib/kernel/proc/active_scheduling_policy.h>
+#include "lib/kernel/proc/SchedulingPolicyData.h"
 
 class Scheduler;
 class Process;
@@ -43,6 +43,7 @@ public:
 
     bool sleep(int ms);
     bool signal(int sig_nr);
+    void yield(void);
 
     inline const char*  name(void) const        { return _name; }
     inline int          exit_code(void) const   { return _exitCode; }
@@ -51,15 +52,19 @@ public:
     inline Process&     proc(void)              { return _proc; }
     inline enum State&  state(void)             { return _state; }
 
-    ActiveSchedulingPolicyType::PolicyDataType& schedulingPolicyData(void) {
-        return _schedulingPolicyData;
+    void setSchedulerData(std::unique_ptr<SchedulingPolicyData> data) {
+        _schedulingPolicyData = std::move(data);
+    }
+
+    SchedulingPolicyData* schedulerData(void) {
+        return _schedulingPolicyData.get();
     }
 
 private:
     vm_page_t* _kernelStackPage;
     platform_thread_cb _platformThreadCb;
     PreemptionContext _preemptionContext;
-    ActiveSchedulingPolicyType::PolicyDataType _schedulingPolicyData;
+    std::unique_ptr<SchedulingPolicyData> _schedulingPolicyData;
     enum State _state;
     char _name[64];
     pid_t _tid;

@@ -1,14 +1,14 @@
 #include <cstring>
+#include <cassert>
 #include <platform/process.h>
 #include <lib/mm/physmem.h>
-#include <cassert>
 #include <platform/panic.h>
 #include <lib/primitives/align.h>
-#include "Thread.h"
+#include "lib/kernel/proc/Thread.h"
+#include "lib/kernel/IdAllocator.h"
+#include "lib/kernel/proc/Scheduler.h"
+#include "lib/kernel/proc/SystemTimer.h"
 #include "signals.h"
-#include "Scheduler.h"
-#include "IdAllocator.h"
-#include "SystemTimer.h"
 
 static IdAllocator gTidAllocator(PID_THREAD_START, PID_THREAD_END);
 
@@ -20,7 +20,7 @@ Thread::Thread(Process& process,
     :  _kernelStackPage(nullptr),
        _platformThreadCb(),
        _preemptionContext(Thread::ContextType::UserSpace, false),
-       _schedulingPolicyData(),
+       _schedulingPolicyData(nullptr),
        _state(Thread::READY),
        _tid(gTidAllocator.allocate()),
        _exitCode(0),
@@ -94,4 +94,10 @@ bool Thread::sleep(int ms) {
 
     // now, stop the proc
     return Scheduler::instance().suspend(this);
+}
+
+void Thread::yield(void) {
+    if (_schedulingPolicyData) {
+        _schedulingPolicyData->yieldRequested = true;
+    }
 }

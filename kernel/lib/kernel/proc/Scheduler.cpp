@@ -41,17 +41,11 @@ Scheduler::Scheduler(ProcessProvider& processProvider, std::unique_ptr<Schedulin
 void Scheduler::initialize(void)
 {
     _idleThread = _processProvider.createKernelThread("idle", idleProcMain, nullptr, PAGESIZE, false);
+    _currentThread = _idleThread;
 }
 
 struct user_regs* Scheduler::schedule(struct user_regs* regs) {
-    lock_guard<spinlock_mutex> guard(_mutex);
-    // a normal schedule starts here..
-    // we've got an existing proc and a potential new one
-    if (NULL == _currentThread) {
-        // first run, _currentProc is NULL and will be chosen for the first time! YAY!
-        _currentThread = _policy->choose();
-        goto switch_to_proc;
-    }
+    assert(NULL != _currentThread);
 
     // save current context
     _currentThread->_platformThreadCb.stack_pointer = regs;
@@ -62,8 +56,10 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs) {
         goto switch_to_proc;
     }
 
-    // advance cpu time counter
-    _currentThread->_cpuTime++;
+    if (_currentThread == _idleThread) {
+        _currentThread = _policy->choose();
+        goto switch_to_proc;
+    }
 
     _currentThread = _policy->evaluate_and_choose(_currentThread);
 
@@ -72,8 +68,9 @@ switch_to_proc:
         _currentThread = _idleThread;
     }
 
-    assert(Thread::State::READY == _currentThread->_state ||
-           Thread::State::RUNNING == _currentThread->_state);
+    if (Thread::State::READY != _currentThread->_state && Thread::State::RUNNING != _currentThread->_state) {
+        panic("scheduler: chosen thread is in an invalid state: %s %d", _currentThread->name(), _currentThread->state());
+    }
 
     _currentThread->proc().activateProcess();
     platform_set_active_thread(&_currentThread->_platformThreadCb);
@@ -83,8 +80,12 @@ switch_to_proc:
 }
 
 // assumes argument is non-null
-struct user_regs *Scheduler::onTickTimer(void *argument, struct user_regs *regs) {
-    Scheduler *self = (Scheduler *) argument;
+struct user_regs* Scheduler::onTickTimer(void* argument, struct user_regs* regs) {
+    Scheduler* self = (Scheduler *) argument;
+
+    if (self->_currentThread) {
+        self->_currentThread->_cpuTime++;
+    }
 
     for (const auto& item : self->_tickHandlers) {
         if (item.function(item.argument, &regs)) {
@@ -97,18 +98,6 @@ struct user_regs *Scheduler::onTickTimer(void *argument, struct user_regs *regs)
 
 void Scheduler::setDebugMode(void) {
     _debugMode = true;
-}
-
-struct user_regs *Scheduler::yield(struct user_regs *regs) {
-    if (!_currentThread) {
-        panic("wtf.. yielding with no current proc...");
-    }
-
-    if (!_policy->can_choose()) {
-        return regs;
-    }
-
-    return this->schedule(regs);
 }
 
 Thread *Scheduler::CurrentThread(void) const {
@@ -256,14 +245,12 @@ bool Scheduler::kill(Thread* thread, bool yield) {
 
 bool Scheduler::kill(Process* process, bool yield) {
     if (!process) {
-        kprintf("kill: no proc\n");
         return false;
     }
 
     InterruptsMutex mutex(true);
 
     if (process->has_exited()) {
-        kprintf("kill: has exited\n");
         return false;
     }
 
@@ -281,7 +268,6 @@ bool Scheduler::kill(Process* process, bool yield) {
         syscall(SYS_NR_SCHEDULE);
     }
 
-    kprintf("kill: success\n");
     return true;
 }
 

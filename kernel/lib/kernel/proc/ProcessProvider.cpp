@@ -142,10 +142,30 @@ void ProcessProvider::dumpProcesses(void) {
     kprintf("total %d procs:\n", _processList.size());
 
     for (const auto& proc : _processList) {
-        kprintf("* proc %s (%d) with %d threads:\n", proc->name(), proc->pid(), proc->threads().size());
+
+        kprintf("* proc %s (%d) with %d threads (%d%% cpu):\n",
+                proc->name(),
+                proc->pid(),
+                proc->threads().size(),
+                this->cpuPercentageOf(proc.get()));
 
         for (const auto& thread : proc->threads()) {
             kprintf("\t- %d thread %s cpu_time %d\n", thread->tid(), thread->name(), (uint32_t)thread->cpuTime());
         }
     }
+}
+
+int ProcessProvider::cpuPercentageOf(Process* proc) const {
+    if (!proc) {
+        return -1;
+    }
+
+    InterruptsMutex mutex(true);
+
+    double total_time = 0;
+    for (const auto& item : _processList) {
+        total_time += item->cpu_time();
+    }
+
+    return ((unsigned int)proc->cpu_time() / total_time) * 100.0;
 }
