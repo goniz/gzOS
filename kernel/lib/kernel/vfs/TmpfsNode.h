@@ -16,13 +16,13 @@ public:
     TmpfsDirectoryNode(VFSNode::Type type, std::string&& path);
     virtual ~TmpfsDirectoryNode() = default;
 
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
 
     std::unique_ptr<FileDescriptor> open(void) override;
 
 private:
-    std::vector<SharedNode> _nodes;
+    std::vector<SharedVFSNode> _nodes;
 };
 
 class TmpfsFileNode : public TmpfsNode
@@ -32,8 +32,8 @@ public:
     virtual ~TmpfsFileNode(void) = default;
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
     virtual size_t getSize(void) const override;
 
 private:

@@ -10,11 +10,12 @@ public:
     ProcFilesystemRoot(std::string&& path);
     virtual ~ProcFilesystemRoot(void) = default;
 
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
     virtual std::unique_ptr<FileDescriptor> open(void) override;
 
-    static std::shared_ptr<ProcFilesystemRoot> instance();
+private:
+    std::vector<SharedVFSNode> _nodes;
 };
 
 #endif //cplusplus

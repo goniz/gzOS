@@ -13,8 +13,8 @@ public:
     virtual ~Fat32VFSNode(void) = default;
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
     virtual size_t getSize(void) const override;
 
 protected:
@@ -22,7 +22,7 @@ protected:
     virtual bool isRootNode(void) const;
 
 private:
-    std::vector<SharedNode> _nodes;
+    std::vector<SharedVFSNode> _nodes;
     std::string _parentFullPath;
 };
 

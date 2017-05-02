@@ -8,6 +8,7 @@
 #include <lib/mm/vm.h>
 #include <platform/process.h>
 #include "lib/kernel/proc/SchedulingPolicyData.h"
+#include "ProcessMemoryMap.h"
 
 class Scheduler;
 class Process;
@@ -38,6 +39,8 @@ public:
            const char *name,
            EntryPointFunction entryPoint, void *argument,
            size_t stackSize);
+
+    Thread(const Thread& other, Process& father);
 
     ~Thread(void);
 
@@ -74,8 +77,7 @@ private:
     void* _argument;
     Process& _proc;
     std::atomic_int _pending_signal_nr;
-    void* _stackHead;
-    size_t _stackSize;
+    VirtualMemoryRegion* _userStackRegion;
 };
 
 #endif //cplusplus

@@ -20,8 +20,8 @@ public:
     virtual ~PFlashVFSNode(void) = default;
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
     virtual size_t getSize(void) const override;
 
 private:
@@ -36,8 +36,8 @@ public:
     PFlashFileSystem(std::string&& path);
     virtual ~PFlashFileSystem(void) = default;
 
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
     virtual std::unique_ptr<FileDescriptor> open(void) override;
 
 private:
@@ -54,7 +54,7 @@ private:
             }
     };
 
-    std::vector<SharedNode> _nodes;
+    std::vector<SharedVFSNode> _nodes;
 };
 
 #endif //cplusplus

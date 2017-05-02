@@ -14,8 +14,6 @@ static basic_queue<NetworkBuffer*> gInSegments(150);
 
 __attribute__((noreturn))
 int tcp_in_main(void* argument) {
-    syscall(SYS_NR_SET_THREAD_RESPONSIVE, 1);
-
     while (1) {
         NetworkBuffer* packet = NULL;
         if (!gInSegments.pop(packet, true)) {

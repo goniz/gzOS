@@ -116,7 +116,7 @@ bool ElfLoader::loadSections(ProcessMemoryMap& memoryMap) {
 #ifdef ELF32_DEBUG
         kprintf("Adding section '%s' @ %08x... ", name, start);
 #endif
-        if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot, true)) {
+        if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot)) {
             success = false;
 #ifdef ELF32_DEBUG
             kputs("Failed.\n");

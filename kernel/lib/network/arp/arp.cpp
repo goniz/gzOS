@@ -2,6 +2,7 @@
 #include <platform/drivers.h>
 #include <platform/cpu.h>
 #include <lib/kernel/proc/Scheduler.h>
+#include <lib/kernel/proc/proc.h>
 #include "lib/network/nbuf.h"
 #include "lib/network/ethernet/ethernet.h"
 #include "lib/network/arp/arp.h"

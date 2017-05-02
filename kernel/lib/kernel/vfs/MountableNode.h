@@ -7,23 +7,23 @@
 class MountableNode : public VFSNode
 {
 public:
-    MountableNode(SharedNode innerNode);
+    MountableNode(SharedVFSNode innerNode);
     virtual ~MountableNode(void) = default;
 
     virtual const std::string& getPathSegment(void) const override;
     virtual Type getType(void) const override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
     virtual size_t getSize(void) const override;
 
-    virtual bool mountNode(SharedNode node) override;
+    virtual bool mountNode(SharedVFSNode node) override;
     virtual bool isMounted(void) const override;
 
     std::unique_ptr<FileDescriptor> open(void) override;
 
 private:
-    SharedNode _innerNode;
-    SharedNode _mountedNode;
+    SharedVFSNode _innerNode;
+    SharedVFSNode _mountedNode;
 };
 
 #endif //cplusplus

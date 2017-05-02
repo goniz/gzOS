@@ -34,6 +34,15 @@ struct user_regs* platform_initialize_stack(void* stack, size_t stack_size,
     return context;
 }
 
+struct user_regs* platform_copy_stack(void* dstStack, size_t dstSize, const struct user_regs* srcStack)
+{
+    struct user_regs* context = (struct user_regs*)(dstStack + dstSize - sizeof(struct user_regs) - sizeof(int));
+
+    memcpy(context, srcStack, sizeof(struct user_regs));
+
+    return context;
+}
+
 extern platform_thread_cb* _thread_cb_pointer;
 void platform_set_active_thread(platform_thread_cb* cb) {
     assert(NULL != cb);
@@ -45,6 +54,13 @@ void platform_thread_set_return_value(platform_thread_cb* cb, uintptr_t return_v
     assert(NULL != cb->stack_pointer);
 
     cb->stack_pointer->v0 = return_value;
+}
+
+void platform_thread_advance_pc(platform_thread_cb* cb, uintptr_t opcodes) {
+    assert(NULL != cb);
+    assert(NULL != cb->stack_pointer);
+
+    cb->stack_pointer->epc += (opcodes * sizeof(uint32_t));
 }
 
 int platform_is_in_userspace_range(uintptr_t start, uintptr_t end) {

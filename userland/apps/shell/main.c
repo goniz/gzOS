@@ -8,14 +8,48 @@
 #include <libc/socket.h>
 #include <libc/endian.h>
 #include <libc/waitpid.h>
-#include <fcntl.h>
 #include <alloca.h>
 #include <ctype.h>
 
 static int handle_line(char* line);
 
-static int ls_main(int argc, char* argv[]) {
+static int cd_main(int argc, char* argv[]) {
+    if (argc != 2) {
+        return -1;
+    }
+
+    return chdir(argv[1]);
+}
+
+static int pwd_main(int argc, char* argv[]) {
+    char buf[128];
+
+    if (0 != getcwd(buf, sizeof(buf))) {
+        printf("getcwd failed\n");
+        return -1;
+    }
+
+    puts(buf);
+    return 0;
+}
+
+static void ls_dir(const char* path) {
     struct DirEntry dirent;
+
+    int readdirfd = readdir_create(path);
+    if (-1 == readdirfd) {
+        printf("failed to create readdir handle\n");
+        return;
+    }
+
+    while (0 < readdir_read(readdirfd, &dirent)) {
+        printf("* %s%s - %d bytes\n", dirent.name, dirent.type == DIRENT_DIR ? "/" : "", dirent.size);
+    }
+
+    readdir_close(readdirfd);
+}
+
+static int ls_main(int argc, char* argv[]) {
     int list_flag = 0;
     int human_flag = 0;
     int c;
@@ -48,20 +82,14 @@ static int ls_main(int argc, char* argv[]) {
         }
     }
 
+    if (optind >= argc) {
+        ls_dir(".");
+    }
+
     for (int index = optind; index < argc; index++) {
         printf("Non-option argument %s\n", argv[index]);
 
-        int readdirfd = readdir_create(argv[index]);
-        if (-1 == readdirfd) {
-            printf("failed to create readdir handle\n");
-            return 0;
-        }
-
-        while (0 < readdir_read(readdirfd, &dirent)) {
-            printf("* %s%s - %d bytes\n", dirent.name, dirent.type == DIRENT_DIR ? "/" : "", dirent.size);
-        }
-
-        readdir_close(readdirfd);
+        ls_dir(argv[index]);
     }
 
     return 0;
@@ -152,6 +180,8 @@ struct cmdline {
 };
 
 static struct cmdline _commands[] = {
+        {"cd", cd_main},
+        {"pwd", pwd_main},
         {"ls", ls_main},
         {"trace", trace_main},
         {"exec", exec_main},

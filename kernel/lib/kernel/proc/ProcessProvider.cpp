@@ -82,6 +82,24 @@ Process* ProcessProvider::createProcess(const char* name,
     return processPtr;
 }
 
+Process* ProcessProvider::forkProcess(Process& proc, Thread& thread) {
+    auto child = std::make_unique<Process>(proc);
+    if (!child) {
+        return nullptr;
+    }
+
+    InterruptsMutex mutex(true);
+    Thread* newThread = child->cloneThread(thread, *child, true);
+    if (!newThread) {
+        return nullptr;
+    }
+
+    auto childPtr = child.get();
+    _processList.push_back(std::move(child));
+
+    return childPtr;
+}
+
 Thread* ProcessProvider::getThreadByTid(pid_t tid) const {
 
     assert(PID_CURRENT != tid);

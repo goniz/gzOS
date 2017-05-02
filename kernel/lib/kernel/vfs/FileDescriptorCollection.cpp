@@ -1,25 +1,30 @@
 #include <lib/primitives/lock_guard.h>
 #include "FileDescriptorCollection.h"
 
+FileDescriptorCollection::FileDescriptorCollection(const FileDescriptorCollection& other)
+    : _fds(other._fds)
+{
+
+}
+
 int FileDescriptorCollection::push_filedescriptor(std::unique_ptr<FileDescriptor> fd) {
     if (nullptr == fd) {
         return INVALID_FD;
     }
+
+    InterruptsMutex mutex(true);
 
     int fdnum = this->allocate_fd();
     if (INVALID_FD == fdnum) {
         return INVALID_FD;
     }
 
-    _mutex.lock();
     _fds[fdnum] = std::shared_ptr<FileDescriptor>(std::move(fd));
-    _mutex.unlock();
-
     return fdnum;
 }
 
 int FileDescriptorCollection::allocate_fd(void) {
-    lock_guard<InterruptsMutex> guard(_mutex);
+    InterruptsMutex mutex(true);
 
     int new_fd = 0;
     for (; new_fd < MAX_FD; new_fd++) {
@@ -32,10 +37,9 @@ int FileDescriptorCollection::allocate_fd(void) {
 }
 
 FileDescriptor* FileDescriptorCollection::get_filedescriptor(int fdnum) {
-    _mutex.lock();
-    auto fd = _fds.find(fdnum);
-    _mutex.unlock();
+    InterruptsMutex mutex(true);
 
+    auto fd = _fds.find(fdnum);
     if (_fds.end() == fd) {
         return nullptr;
     }
@@ -53,21 +57,20 @@ int FileDescriptorCollection::remove_filedescriptor(int fdnum, bool close) {
         try { fd->close(); } catch (...) { }
     }
 
-    _mutex.lock();
+    InterruptsMutex mutex(true);
     try { _fds.erase(fdnum); } catch (...) { }
-    _mutex.unlock();
 
     return 0;
 }
 
 void FileDescriptorCollection::close_all(void) {
-    lock_guard<InterruptsMutex> guard(_mutex);
+    InterruptsMutex mutex(true);
 
     _fds.clear();
 }
 
 bool FileDescriptorCollection::duplicate(int old_fd, int new_fd) {
-    lock_guard<InterruptsMutex> guard(_mutex);
+    InterruptsMutex mutex(true);
 
     auto oldFileDesc = _fds.find(old_fd);
     if (_fds.end() == oldFileDesc) {

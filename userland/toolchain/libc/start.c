@@ -49,5 +49,4 @@ void _start(void* argument)
     int exitcode = main(argc, argv);
 
     exit(exitcode);
-    while(1);
 }

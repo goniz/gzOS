@@ -17,19 +17,19 @@ public:
     std::unique_ptr<FileDescriptor> readdir(const char* path);
     bool mkdir(const char* path);
 
-    SharedNode lookup(Path&& path);
-    SharedNode lookup(SharedNode rootNode, Path&& path);
+    SharedVFSNode lookup(Path&& path);
+    SharedVFSNode lookup(SharedVFSNode rootNode, Path&& path);
 
-    using MountpointFactoryFunc = SharedNode (*)(const char* source, const char* destName);
+    using MountpointFactoryFunc = SharedVFSNode (*)(const char* source, const char* destName);
     bool registerFilesystem(const char* fstype, MountpointFactoryFunc factory);
     bool mountFilesystem(const char* fstype, const char* source, const char* destination);
 
     static VirtualFileSystem& instance(void);
 
 private:
-    SharedNode createNode(const char* nodePath, VFSNode::Type type);
+    SharedVFSNode createNode(const char* nodePath, VFSNode::Type type);
 
-    SharedNode _rootNode;
+    SharedVFSNode _rootNode;
     HashMap<const char*, MountpointFactoryFunc> _supportedFs;
 };
 

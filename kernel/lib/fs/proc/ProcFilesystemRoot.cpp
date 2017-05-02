@@ -1,19 +1,17 @@
+#include <string>
 #include <platform/drivers.h>
 #include <lib/kernel/vfs/VirtualFileSystem.h>
+#include <lib/kernel/proc/ProcessProvider.h>
 #include "ProcFilesystemRoot.h"
-
-static std::shared_ptr<ProcFilesystemRoot> gProcInstance;
-std::shared_ptr<ProcFilesystemRoot> ProcFilesystemRoot::instance() {
-    if (nullptr == gProcInstance) {
-//        gProcInstance = std::make_shared<ProcFilesystemRoot>();
-    }
-
-    return gProcInstance;
-}
+#include "ProcPidNode.h"
 
 static int vfs_proc_init(void)
 {
+    kprintf("vfs: %p\n", nullptr);
+
     VirtualFileSystem& vfs = VirtualFileSystem::instance();
+
+    kprintf("vfs: %p\n", &vfs);
 
     vfs.registerFilesystem("procfs", [](const char* source, const char* destName) {
         auto node = std::make_shared<ProcFilesystemRoot>(std::string(destName));
@@ -26,17 +24,25 @@ static int vfs_proc_init(void)
 DECLARE_DRIVER(vfs_proc, vfs_proc_init, STAGE_SECOND);
 
 ProcFilesystemRoot::ProcFilesystemRoot(std::string&& path)
-        : BasicVFSNode(VFSNode::Type::Directory, std::move(path))
+    : BasicVFSNode(VFSNode::Type::Directory, std::move(path))
 {
 
 }
 
-static const std::vector<SharedNode> _empty;
-const std::vector<SharedNode>& ProcFilesystemRoot::childNodes(void) {
-    return _empty;
+const std::vector<SharedVFSNode>& ProcFilesystemRoot::childNodes(void) {
+    auto& procProvider = ProcessProvider::instance();
+
+    _nodes.clear();
+
+    InterruptsMutex mutex(true);
+    for (const auto& proc : procProvider.processList()) {
+        _nodes.push_back(std::make_shared<ProcPidNode>(proc->pid()));
+    }
+
+    return _nodes;
 }
 
-SharedNode ProcFilesystemRoot::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode ProcFilesystemRoot::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 

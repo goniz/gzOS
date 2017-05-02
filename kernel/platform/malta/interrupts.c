@@ -6,6 +6,7 @@
 #include <platform/kprintf.h>
 #include <assert.h>
 #include <lib/mm/pmap.h>
+#include <sys/cdefs.h>
 
 extern const char _ebase[];
 extern int is_in_irq;
@@ -127,6 +128,7 @@ void print_user_regs(struct user_regs *regs) {
  * 4KEc User's Manual. 
  */
 
+__used
 void *general_exception_table[32] = {
         [EXC_MOD]   = tlb_exception_handler,
         [EXC_TLBL]  = tlb_exception_handler,

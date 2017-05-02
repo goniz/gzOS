@@ -3,11 +3,7 @@
 #include <lib/kernel/signals.h>
 #include <lib/syscall/syscall.h>
 #include <lib/kernel/proc/Scheduler.h>
-#include <lib/kernel/proc/SignalProvider.h>
-#include "Suspendable.h"
-#include "lock_guard.h"
-
-extern "C" int kill(int pid, int sig);
+#include <lib/kernel/proc/proc.h>
 
 Suspendable::Suspendable(void)
 {

@@ -11,7 +11,7 @@ static int dev_pflash_init(void) {
     VirtualFileSystem& vfs = VirtualFileSystem::instance();
 
 
-    vfs.registerFilesystem("pflashfs", [](const char* source, const char* destName) -> SharedNode {
+    vfs.registerFilesystem("pflashfs", [](const char* source, const char* destName) -> SharedVFSNode {
         return std::static_pointer_cast<VFSNode>(std::make_shared<PFlashFileSystem>(std::string(destName)));
     });
 
@@ -33,11 +33,11 @@ std::unique_ptr<FileDescriptor> PFlashFileSystem::open(void) {
     return nullptr;
 }
 
-const std::vector<SharedNode>& PFlashFileSystem::childNodes(void) {
+const std::vector<SharedVFSNode>& PFlashFileSystem::childNodes(void) {
     return _nodes;
 }
 
-SharedNode PFlashFileSystem::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode PFlashFileSystem::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 
@@ -54,12 +54,12 @@ std::unique_ptr<FileDescriptor> PFlashVFSNode::open(void) {
     return std::make_unique<PFlashFileDescriptor>(start, end);
 }
 
-static std::vector<SharedNode> _empty;
-const std::vector<SharedNode>& PFlashVFSNode::childNodes(void) {
+static std::vector<SharedVFSNode> _empty;
+const std::vector<SharedVFSNode>& PFlashVFSNode::childNodes(void) {
     return _empty;
 }
 
-SharedNode PFlashVFSNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode PFlashVFSNode::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 

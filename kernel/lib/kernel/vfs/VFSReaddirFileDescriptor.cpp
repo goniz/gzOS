@@ -2,7 +2,7 @@
 #include "VFSReaddirFileDescriptor.h"
 #include "VFSNode.h"
 
-VFSReaddirFileDescriptor::VFSReaddirFileDescriptor(SharedNode node)
+VFSReaddirFileDescriptor::VFSReaddirFileDescriptor(SharedVFSNode node)
         : _node(node),
           _pos(_node->childNodes().begin()),
           _end(_node->childNodes().end())

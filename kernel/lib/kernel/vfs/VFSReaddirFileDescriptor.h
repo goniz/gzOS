@@ -7,14 +7,14 @@
 
 class VFSReaddirFileDescriptor : public ReaddirFileDescriptor {
 public:
-    VFSReaddirFileDescriptor(SharedNode node);
+    VFSReaddirFileDescriptor(SharedVFSNode node);
 
 private:
     bool getNextEntry(struct DirEntry &dirEntry) override;
 
-    SharedNode _node;
-    std::vector<SharedNode>::const_iterator _pos;
-    std::vector<SharedNode>::const_iterator _end;
+    SharedVFSNode _node;
+    std::vector<SharedVFSNode>::const_iterator _pos;
+    std::vector<SharedVFSNode>::const_iterator _end;
 };
 
 #endif //GZOS_VFSREADDIRFILEDESCRIPTOR_H

@@ -28,7 +28,7 @@ Fat32VFSNode::Fat32VFSNode(VFSNode::Type type, std::string&& fullPath, std::stri
 //    kprintf("segment: %s\n", this->getPathSegment().c_str());
 }
 
-const std::vector<SharedNode>& Fat32VFSNode::childNodes(void) {
+const std::vector<SharedVFSNode>& Fat32VFSNode::childNodes(void) {
     if (VFSNode::Type::Directory != this->getType()) {
         return _nodes;
     }
@@ -75,7 +75,7 @@ std::unique_ptr<FileDescriptor> Fat32VFSNode::open(void) {
     return std::make_unique<Fat32FileDescriptor>(pathString.c_str(), O_RDONLY);
 }
 
-SharedNode Fat32VFSNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode Fat32VFSNode::createNode(VFSNode::Type type, std::string&& path) {
     if (this->getType() != VFSNode::Type::Directory) {
         return nullptr;
     }

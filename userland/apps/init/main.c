@@ -33,6 +33,7 @@ int main(int argc, char **argv)
 
     execl("/bin/shell", "shell", NULL);
     execl("/bin/telnetd", "telnetd", NULL);
+    execl("/bin/fork_test", "fork_test", NULL);
 
     pause();
 //    interface_add("eth0", 0x01010101, 0xffffff00);

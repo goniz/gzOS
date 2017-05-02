@@ -21,7 +21,7 @@ Thread::Thread(Process& process,
        _platformThreadCb(),
        _preemptionContext(Thread::ContextType::UserSpace, false),
        _schedulingPolicyData(nullptr),
-       _state(Thread::READY),
+       _state(State::READY),
        _tid(gTidAllocator.allocate()),
        _exitCode(0),
        _cpuTime(0),
@@ -29,8 +29,7 @@ Thread::Thread(Process& process,
        _argument(argument),
        _proc(process),
        _pending_signal_nr(SIG_NONE),
-       _stackHead(nullptr),
-       _stackSize(stackSize)
+       _userStackRegion(nullptr)
 {
     assert(_tid != -1);
     strncpy(_name, name, sizeof(_name));
@@ -40,11 +39,8 @@ Thread::Thread(Process& process,
         panic("%s: thread stack size must be aligned to page size (%d): %d. try this: %d\n", name, PAGESIZE, stackSize, suggested);
     }
 
-    auto* stackRegion = _proc._memoryMap.get("stack");
-    assert(NULL != stackRegion);
-
-    _stackHead = stackRegion->allocate(_stackSize);
-    assert(NULL != _stackHead);
+    _userStackRegion = _proc.allocateStackRegion("stack#" + std::to_string(_tid), stackSize);
+    assert(NULL != _userStackRegion);
 
     _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
     assert(nullptr != _kernelStackPage);
@@ -56,20 +52,51 @@ Thread::Thread(Process& process,
     int is_kernel_proc = _proc.is_kernel_proc() ? 1 : 0;
     _platformThreadCb.stack_pointer = platform_initialize_stack(
             (void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
-            is_kernel_proc ? nullptr : (char*)_stackHead + _stackSize,
+            is_kernel_proc ? nullptr : (char*)(_userStackRegion->startAddress() + stackSize),
             (void*) _entryPoint, _argument,
             (void *) 0x0,
             is_kernel_proc
     );
 }
 
+Thread::Thread(const Thread& other, Process& father)
+    : _kernelStackPage(nullptr),
+      _platformThreadCb(),
+      _preemptionContext(other._preemptionContext),
+      _schedulingPolicyData(nullptr),
+      _state(State::READY),
+      _tid(gTidAllocator.allocate()),
+      _exitCode(0),
+      _cpuTime(0),
+      _entryPoint(other._entryPoint),
+      _argument(other._argument),
+      _proc(father),
+      _pending_signal_nr(SIG_NONE),
+      _userStackRegion(nullptr)
+{
+    assert(_tid != -1);
+    strncpy(_name, other._name, sizeof(_name));
+
+    _userStackRegion = _proc._memoryMap.get(other._userStackRegion->name());
+    assert(NULL != _userStackRegion);
+
+    _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
+    assert(nullptr != _kernelStackPage);
+
+    _platformThreadCb.stack_pointer = platform_copy_stack((void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
+                                                          other._platformThreadCb.stack_pointer);
+    // this is called from a fork syscall, and we need to skip the syscall opcode
+    platform_thread_advance_pc(&_platformThreadCb, 1);
+    // this sets the child's retval to 0
+    platform_thread_set_return_value(&_platformThreadCb, 0);
+}
+
 Thread::~Thread(void) {
     InterruptsMutex guard(true);
 
-    auto* stackRegion = _proc._memoryMap.get("stack");
-    assert(NULL != stackRegion);
-
-    stackRegion->free(_stackHead);
+    if (_userStackRegion) {
+        _proc._memoryMap.destroyMemoryRegion(_userStackRegion->name());
+    }
 
     if (_kernelStackPage) {
         pm_free(_kernelStackPage);

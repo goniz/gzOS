@@ -36,12 +36,12 @@ std::unique_ptr<FileDescriptor> DevVFSNode::open(void) {
     }
 }
 
-static const std::vector<SharedNode> _empty;
-const std::vector<SharedNode>& DevVFSNode::childNodes(void) {
+static const std::vector<SharedVFSNode> _empty;
+const std::vector<SharedVFSNode>& DevVFSNode::childNodes(void) {
     return _empty;
 }
 
-SharedNode DevVFSNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode DevVFSNode::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 
@@ -52,7 +52,7 @@ DevFileSystem::DevFileSystem(std::string&& path)
 }
 
 bool DevFileSystem::registerDevice(const char *deviceName, FileDescriptorFactory factory) {
-    auto comparator = [deviceName](const SharedNode& iter) -> bool {
+    auto comparator = [deviceName](const SharedVFSNode& iter) -> bool {
         return (iter && deviceName && iter->getPathSegment() == deviceName);
     };
 
@@ -65,11 +65,11 @@ bool DevFileSystem::registerDevice(const char *deviceName, FileDescriptorFactory
     return true;
 }
 
-const std::vector<SharedNode>& DevFileSystem::childNodes(void) {
+const std::vector<SharedVFSNode>& DevFileSystem::childNodes(void) {
     return _devices;
 }
 
-SharedNode DevFileSystem::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode DevFileSystem::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 

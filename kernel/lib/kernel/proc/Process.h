@@ -17,6 +17,7 @@
 #include <lib/mm/vm_map.h>
 #include <cassert>
 #include <lib/primitives/EventStream.h>
+#include <lib/kernel/vfs/VFSNode.h>
 
 /*
  * Process virtual address space:
@@ -43,12 +44,15 @@ public:
             ElfLoader& elfLoader,
             std::vector<std::string>&& arguments);
 
+    Process(const Process& father);
+
     ~Process(void);
 
     Thread* createThread(const char *name,
                          Thread::EntryPointFunction entryPoint, void *argument,
                          size_t stackSize,
                          bool schedule = true);
+    Thread* cloneThread(const Thread& thread, Process& father, bool schedule);
 
     bool signal(int sig_nr);
 
@@ -63,12 +67,18 @@ public:
 
     const char* name(void) const;
     const std::vector<std::string>& arguments(void) const;
-    int exit_code(void) const;
+    bool changeWorkingDir(std::string&& path);
+    const Path& currentWorkingPath(void);
+    SharedVFSNode currentWorkingNode(void);
+
     int state(void) const;
     uint64_t cpu_time(void) const;
     bool is_kernel_proc(void) const;
+
     bool traceme(bool state);
     bool traceme(void);
+
+    int exit_code(void) const;
     bool has_exited(void) const;
     int wait_for_exit(void);
 
@@ -91,7 +101,8 @@ public:
     }
 
 private:
-    void createStackRegion();
+    Thread* addThread(std::unique_ptr<Thread> thread, bool schedule);
+    VirtualMemoryRegion* allocateStackRegion(std::string&& name, size_t size);
     void createArgsRegion();
 
     char _name[64];
@@ -108,6 +119,8 @@ private:
     struct _reent _reent;
     bool _traceme;
     void* _userArgv;
+    Path _cwdPath;
+    SharedVFSNode _cwdNode;
 };
 
 #endif

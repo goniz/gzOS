@@ -19,17 +19,21 @@ class ProcessMemoryMap
 
 public:
     ProcessMemoryMap(void);
+    ProcessMemoryMap(const ProcessMemoryMap& other);
     ~ProcessMemoryMap(void);
 
     ProcessMemoryMap(ProcessMemoryMap&&) = delete;
-    ProcessMemoryMap(const ProcessMemoryMap&) = delete;
 
-    VirtualMemoryRegion* createMemoryRegion(const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot, bool plain = false);
+    // create a new memory region from start to end using prot
+    VirtualMemoryRegion* createMemoryRegion(const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
+    // create a new memory region from the first empty space from start of size using prot
+    VirtualMemoryRegion* createMemoryRegionInRange(const char* name, vm_addr_t start, size_t size, vm_prot_t prot);
     void destroyMemoryRegion(const char* name);
 
     VirtualMemoryRegion* get(const char* name) const;
 
     void activate(void) const;
+    void dump(void) const;
 
     template<typename TFunc>
     void runInScope(TFunc&& func) const {
@@ -49,25 +53,22 @@ private:
 class VirtualMemoryRegion
 {
 public:
-    VirtualMemoryRegion(ProcessMemoryMap& parent, const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot, bool plain = true);
+    VirtualMemoryRegion(ProcessMemoryMap& parent, const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
+    VirtualMemoryRegion(const VirtualMemoryRegion& other, ProcessMemoryMap& parent);
+    VirtualMemoryRegion(VirtualMemoryRegion&& other);
     ~VirtualMemoryRegion(void);
 
-    VirtualMemoryRegion(VirtualMemoryRegion&& other);
-    VirtualMemoryRegion(const VirtualMemoryRegion&) = delete;
 
+    const char* name(void) const;
+    vm_addr_t startAddress(void) const;
+    size_t size(void) const;
     bool extend(uintptr_t endAddr);
     void mprotect(vm_prot_t prot);
-    void* allocate(size_t size) const;
-    void free(void* ptr) const;
 
 private:
     ProcessMemoryMap& _parent;
-    const char* _name;
-    std::string _poolName;
-    malloc_pool_t* _pool;
-    vm_map_entry_t* _header;
+    std::string _name;
     vm_map_entry_t* _data;
-    vm_map_entry_t* _footer;
 };
 
 

@@ -14,6 +14,8 @@ public:
 
     Process& SystemProcess(void);
 
+    Process* forkProcess(Process& proc, Thread& thread);
+
     Process* createProcess(const char* name,
                            const void* buffer, size_t size,
                            std::vector<std::string>&& arguments,

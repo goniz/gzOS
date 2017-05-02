@@ -47,8 +47,6 @@ static int generate_dev_index(void) {
 
 _GLIBCXX_NORETURN
 static int ethernet_rx_main(void* argument) {
-    syscall(SYS_NR_SET_THREAD_RESPONSIVE, 1);
-
     while (1) {
         NetworkBuffer *nbuf = NULL;
         bool result = gRxQueue.pop(nbuf, true);
@@ -89,8 +87,6 @@ static int ethernet_rx_main(void* argument) {
 
 _GLIBCXX_NORETURN
 static int ethernet_tx_main(void* argument) {
-    syscall(SYS_NR_SET_THREAD_RESPONSIVE, 1);
-
     while (true) {
         NetworkBuffer *nbuf = NULL;
         if (!gTxQueue.pop(nbuf, true)) {

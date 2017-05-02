@@ -115,18 +115,6 @@ typedef int (*init_main_t)(void* argument);
 void scheduler_run_main(init_main_t init_main, void* argument);
 int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
 
-typedef enum {
-    TIMER_THATS_ENOUGH = 0,
-    TIMER_KEEP_GOING = 1
-} timeout_callback_ret;
-
-typedef timeout_callback_ret (*timeout_callback_t)(void* scheduler, void* arg);
-uint32_t scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg);
-void scheduler_unset_timeout(uint32_t timeoutId);
-
-pid_t scheduler_current_pid(void);
-pid_t scheduler_current_tid(void);
-
 #ifdef __cplusplus
 };
 #endif

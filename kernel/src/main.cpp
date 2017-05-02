@@ -54,7 +54,7 @@ void printArpCache(void) {
 int ps_main(void* argument) {
     while (1) {
 //        printProcessList();
-        ProcessProvider::instance().dumpProcesses();
+//        ProcessProvider::instance().dumpProcesses();
         syscall(SYS_NR_SLEEP, 5000);
     }
 }

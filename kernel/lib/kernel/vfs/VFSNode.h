@@ -8,7 +8,7 @@
 #include "lib/kernel/vfs/Path.h"
 
 struct VFSNode;
-using SharedNode = std::shared_ptr<VFSNode>;
+using SharedVFSNode = std::shared_ptr<VFSNode>;
 
 class VFSNode
 {
@@ -24,10 +24,10 @@ public:
     virtual const std::string& getPathSegment(void) const = 0;
     virtual size_t getSize(void) const = 0;
 
-    virtual const std::vector<SharedNode>& childNodes(void) = 0;
-    virtual bool mountNode(SharedNode node) = 0;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) = 0;
+    virtual bool mountNode(SharedVFSNode node) = 0;
     virtual bool isMounted(void) const = 0;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) = 0;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) = 0;
     virtual std::unique_ptr<FileDescriptor> open(void) = 0;
 };
 

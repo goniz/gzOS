@@ -34,6 +34,7 @@ public:
     bool process_in_segment(NetworkBuffer* nbuf);
     bool is_listening(void) const;
     bool is_connected(void) const;
+    bool wait_connected(void) const;
 
     const SocketAddress& remote_address(void) const {
         return _remoteAddr;

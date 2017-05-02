@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <vfs/Path.h>
 #include <proc/SignalProvider.h>
+#include <vfs/VirtualFileSystem.h>
 #include "proc/Process.h"
 #include "proc/Scheduler.h"
 #include "signals.h"
@@ -99,6 +100,18 @@ DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
     return newProc->pid();
 }
 
+DEFINE_SYSCALL(FORK, fork, SYS_IRQ_DISABLED)
+{
+    Thread* calling_thread = Scheduler::instance().CurrentThread();
+    if (!calling_thread) {
+        return -1;
+    }
+
+    Process* child = ProcessProvider::instance().forkProcess(calling_thread->proc(), *calling_thread);
+
+    return child->pid();
+}
+
 DEFINE_SYSCALL(WAIT_PID, wait_pid, SYS_IRQ_ENABLED)
 {
     SYSCALL_ARG(int, pid);
@@ -126,7 +139,7 @@ DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
     auto* proc = instance.CurrentProcess();
     assert(NULL != proc);
 
-//    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
+    kprintf("[sys_exit] %d: %p requested to exit(%d)\n", proc->pid(), requesting_function, exit_code);
 
     if (!instance.kill(proc, false)) {
         return -1;
@@ -136,27 +149,6 @@ DEFINE_SYSCALL(EXIT, exit, SYS_IRQ_DISABLED)
 
     *regs = instance.schedule(*regs);
     return 0;
-}
-
-DEFINE_SYSCALL(IS_THREAD_RESPONSIVE, is_thread_responsive, SYS_IRQ_DISABLED)
-{
-    auto thread = Scheduler::instance().CurrentThread();
-    assert(thread);
-
-//    return thread->isResponsive();
-    return 1;
-}
-
-DEFINE_SYSCALL(SET_THREAD_RESPONSIVE, set_thread_responsive, SYS_IRQ_DISABLED)
-{
-    __unused
-    SYSCALL_ARG(int, isResponsive);
-
-    auto thread = Scheduler::instance().CurrentThread();
-    assert(thread);
-
-//    thread->setResponsive((bool)isResponsive);
-    return 1;
 }
 
 DEFINE_SYSCALL(YIELD, yield, SYS_IRQ_DISABLED)
@@ -357,5 +349,35 @@ DEFINE_SYSCALL(TRACEME, traceme, SYS_IRQ_DISABLED)
     }
 
     currentProc->traceme((bool) state);
+    return 0;
+}
+
+DEFINE_SYSCALL(CHDIR, chdir, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(const char*, path);
+
+    Process* currentProc = Scheduler::instance().CurrentProcess();
+    if (NULL == currentProc) {
+        return -1;
+    }
+
+
+
+    currentProc->changeWorkingDir(std::string(path));
+    return 0;
+}
+
+DEFINE_SYSCALL(GET_CWD, getcwd, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(char*, out_path);
+    SYSCALL_ARG(size_t, out_size);
+
+    Process* currentProc = Scheduler::instance().CurrentProcess();
+    if (NULL == currentProc) {
+        return -1;
+    }
+
+    std::string cwd = currentProc->currentWorkingPath().string();
+    strncpy(out_path, cwd.c_str(), out_size);
     return 0;
 }

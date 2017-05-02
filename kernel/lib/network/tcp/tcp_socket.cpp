@@ -188,6 +188,18 @@ bool TcpFileDescriptor::is_connected() const {
     return _session && _session->state() == TcpStateEnum::Established;
 }
 
+bool TcpFileDescriptor::wait_connected(void) const {
+    if (!_session) {
+        return false;
+    }
+
+    if (this->is_connected()) {
+        return true;
+    }
+
+    return TcpStateEnum::Established == _session->wait_state_changed();
+}
+
 std::unique_ptr<TcpFileDescriptor> TcpFileDescriptor::createPlainDescriptor(void) {
     return std::unique_ptr<TcpFileDescriptor>(new TcpFileDescriptor());
 }

@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 2.8)
 # Mark the language as C so that CMake doesn't try to test the C++
 # cross-compiler's ability to compile a simple program because that will fail
 project(gzOS C CXX ASM)
+set(CMAKE_CXX_STANDARD 14)
 
 SET(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}/bin")
 

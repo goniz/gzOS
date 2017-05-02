@@ -39,9 +39,7 @@ int TcpStateListening::getNewClientFd(void)
             continue;
         }
 
-        if (!newClientFd->is_connected()) {
-            _acceptQueue.push(std::move(newClientFd));
-            syscall(SYS_NR_YIELD);
+        if (!newClientFd->wait_connected()) {
             continue;
         }
 

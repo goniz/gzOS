@@ -7,11 +7,11 @@ TmpfsNode::TmpfsNode(VFSNode::Type type, std::string&& path)
 
 }
 
-const std::vector<SharedNode>& TmpfsDirectoryNode::childNodes(void) {
+const std::vector<SharedVFSNode>& TmpfsDirectoryNode::childNodes(void) {
     return _nodes;
 }
 
-SharedNode TmpfsDirectoryNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode TmpfsDirectoryNode::createNode(VFSNode::Type type, std::string&& path) {
     std::shared_ptr<TmpfsNode> newNode;
 
     if (VFSNode::Type::Directory == type) {
@@ -35,12 +35,12 @@ TmpfsFileNode::TmpfsFileNode(VFSNode::Type type, std::string&& path)
     _data->reserve(1024);
 }
 
-static std::vector<SharedNode> _empty{};
-const std::vector<SharedNode>& TmpfsFileNode::childNodes(void) {
+static std::vector<SharedVFSNode> _empty{};
+const std::vector<SharedVFSNode>& TmpfsFileNode::childNodes(void) {
     return _empty;
 }
 
-SharedNode TmpfsFileNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode TmpfsFileNode::createNode(VFSNode::Type type, std::string&& path) {
     return nullptr;
 }
 

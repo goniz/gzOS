@@ -13,8 +13,8 @@ public:
     virtual ~DevVFSNode(void) = default;
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
 
 private:
     FileDescriptorFactory _fdFactory;
@@ -38,11 +38,11 @@ public:
     bool registerDevice(const char* deviceName, FileDescriptorFactory factory);
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;
-    virtual SharedNode createNode(VFSNode::Type type, std::string&& path) override;
-    virtual const std::vector<SharedNode>& childNodes(void) override;
+    virtual SharedVFSNode createNode(VFSNode::Type type, std::string&& path) override;
+    virtual const std::vector<SharedVFSNode>& childNodes(void) override;
 
 private:
-    std::vector<SharedNode> _devices;
+    std::vector<SharedVFSNode> _devices;
 };
 
 class DevfsIoctlFileDescriptor : public InvalidFileDescriptor

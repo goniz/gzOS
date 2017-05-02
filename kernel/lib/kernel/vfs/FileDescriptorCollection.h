@@ -11,6 +11,10 @@
 
 class FileDescriptorCollection {
 public:
+    FileDescriptorCollection(void) = default;
+    FileDescriptorCollection(const FileDescriptorCollection& other);
+    ~FileDescriptorCollection(void) = default;
+
     int push_filedescriptor(std::unique_ptr<FileDescriptor> fd);
     FileDescriptor* get_filedescriptor(int fdnum);
     int remove_filedescriptor(int fdnum, bool close = false);
@@ -21,7 +25,6 @@ private:
     int allocate_fd(void);
 
     std::map<int, std::shared_ptr<FileDescriptor>> _fds;
-    InterruptsMutex _mutex;
 };
 
 

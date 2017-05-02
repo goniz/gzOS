@@ -15,7 +15,7 @@ const std::string& BasicVFSNode::getPathSegment(void) const {
     return _segment;
 }
 
-bool BasicVFSNode::mountNode(SharedNode node) {
+bool BasicVFSNode::mountNode(SharedVFSNode node) {
     return false;
 }
 

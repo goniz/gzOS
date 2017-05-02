@@ -1,12 +1,12 @@
 #include "MountableNode.h"
 
-MountableNode::MountableNode(SharedNode innerNode)
+MountableNode::MountableNode(SharedVFSNode innerNode)
     : _innerNode(innerNode)
 {
 
 }
 
-const std::vector<SharedNode>& MountableNode::childNodes(void) {
+const std::vector<SharedVFSNode>& MountableNode::childNodes(void) {
     if (_mountedNode) {
         return _mountedNode->childNodes();
     } else {
@@ -14,12 +14,12 @@ const std::vector<SharedNode>& MountableNode::childNodes(void) {
     }
 }
 
-bool MountableNode::mountNode(SharedNode node) {
+bool MountableNode::mountNode(SharedVFSNode node) {
     _mountedNode = node;
     return true;
 }
 
-SharedNode MountableNode::createNode(VFSNode::Type type, std::string&& path) {
+SharedVFSNode MountableNode::createNode(VFSNode::Type type, std::string&& path) {
     if (_mountedNode) {
         return _mountedNode->createNode(type, std::move(path));
     } else {

@@ -252,7 +252,7 @@
         if (pos != std::string::npos) {
             return path.substr(pos + 1);
         }
-        return "";
+        return path;
     }
 
     inline std::string Path::extension() const {

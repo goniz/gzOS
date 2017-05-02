@@ -30,8 +30,8 @@ bool MultiLevelFeedbackQueuePolicy::add(Thread* thread) {
     // NOTE: take a shortcut to make the system responsive by "cutting the line"
     // when adding a thread "high priority" thread
     Thread* current = Scheduler::instance().CurrentThread();
-    if (current && current->schedulerData()) {
-        this->dataFromThread(current).quantum = 0;
+    if (current) {
+        current->yield();
     }
 
     thread->state() = Thread::State::READY;
@@ -115,8 +115,6 @@ void MultiLevelFeedbackQueuePolicy::suspend(Thread* thread) {
     auto& data = this->dataFromThread(thread);
     auto& runLevel = _runLevels[data.runLevel];
 
-    data.quantum = runLevel.quantum;
-    data.resetQuantum = runLevel.quantum;
     thread->state() = Thread::State::SUSPENDED;
 
     runLevel.queue.remove([thread](const auto& item) {

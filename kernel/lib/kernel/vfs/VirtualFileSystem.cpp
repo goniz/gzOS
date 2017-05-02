@@ -2,6 +2,7 @@
 #include <platform/drivers.h>
 #include <platform/panic.h>
 #include <vfs/AccessControlledFileDescriptor.h>
+#include <proc/Scheduler.h>
 #include "VirtualFileSystem.h"
 #include "TmpfsNode.h"
 #include "VFSReaddirFileDescriptor.h"
@@ -22,9 +23,9 @@ VirtualFileSystem& VirtualFileSystem::instance(void) {
     return *_vfsInstance;
 }
 
-SharedNode VirtualFileSystem::lookup(SharedNode rootNode, Path&& path) {
+SharedVFSNode VirtualFileSystem::lookup(SharedVFSNode rootNode, Path&& path) {
     // let start from the baseNode provided
-    SharedNode node = rootNode;
+    SharedVFSNode node = rootNode;
 
     path.trim();
     path.sanitize();
@@ -75,8 +76,16 @@ SharedNode VirtualFileSystem::lookup(SharedNode rootNode, Path&& path) {
     return nullptr;
 }
 
-SharedNode VirtualFileSystem::lookup(Path&& path) {
-    return this->lookup(_rootNode, std::forward<Path>(path));
+SharedVFSNode VirtualFileSystem::lookup(Path&& path) {
+    SharedVFSNode lookupRoot = _rootNode;
+    if (!path.is_absolute()) {
+        Process* currentProc = Scheduler::instance().CurrentProcess();
+        if (currentProc) {
+            lookupRoot = currentProc->currentWorkingNode();
+        }
+    }
+
+    return this->lookup(lookupRoot, std::forward<Path>(path));
 }
 
 VirtualFileSystem::VirtualFileSystem(void)
@@ -111,7 +120,7 @@ bool VirtualFileSystem::mountFilesystem(const char* fstype, const char* source, 
         return false;
     }
 
-    SharedNode newFsRootNode;
+    SharedVFSNode newFsRootNode;
     try {
         auto dirname = Path(destination).filename();
         newFsRootNode = (*fsFactory)(source, dirname.c_str());
@@ -170,7 +179,7 @@ std::unique_ptr<FileDescriptor> VirtualFileSystem::open(const char* path, int fl
     return std::make_unique<AccessControlledFileDescriptor>(std::move(fd), flags);
 }
 
-SharedNode VirtualFileSystem::createNode(const char* nodePath, VFSNode::Type type) {
+SharedVFSNode VirtualFileSystem::createNode(const char* nodePath, VFSNode::Type type) {
     // if the node already exists, fail
     Path existingNode(nodePath);
     existingNode.trim();

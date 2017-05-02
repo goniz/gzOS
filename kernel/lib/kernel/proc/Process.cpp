@@ -28,8 +28,7 @@ Process::Process(const char* name,
 
     if (!_memoryMap.createMemoryRegion("heap",
                                        endAddr, endAddr + PAGESIZE,
-                                       (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE),
-                                       true))
+                                       (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE)))
     {
         panic("%s (%d): failed to create heap region", _name, _pid);
     }
@@ -46,12 +45,13 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
           _pending_signal_nr((int)SIG_NONE),
           _memoryMap(),
           _traceme(false),
-          _userArgv(nullptr)
+          _userArgv(nullptr),
+          _cwdPath(std::string("/")),
+          _cwdNode(nullptr)
 {
     assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
 
-    this->createStackRegion();
     this->createArgsRegion();
 
     _REENT_INIT_PTR(&_reent);
@@ -62,6 +62,28 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
         _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
         _fileDescriptors.push_filedescriptor(VirtualFileSystem::instance().open("/dev/console", O_WRONLY));
     }
+
+    _threads.reserve(5);
+}
+
+Process::Process(const Process& father)
+    : _pid(gPidAllocator.allocate()),
+      _state(Process::State::READY),
+      _exitCode(0),
+      _entryPoint(father._entryPoint),
+      _arguments(father._arguments),
+      _pending_signal_nr((int)SIG_NONE),
+      _memoryMap(father._memoryMap),
+      _fileDescriptors(father._fileDescriptors),
+      _traceme(false),
+      _userArgv(father._userArgv),
+      _cwdPath(father._cwdPath),
+      _cwdNode(father._cwdNode)
+{
+    assert(_pid != -1);
+    strncpy(_name, father._name, sizeof(_name));
+
+    _REENT_INIT_PTR(&_reent);
 
     _threads.reserve(5);
 }
@@ -150,10 +172,10 @@ const std::vector<std::string>& Process::arguments(void) const {
     return _arguments;
 }
 
-void Process::createStackRegion() {
-    if (!_memoryMap.createMemoryRegion("stack", 0x70000000, 0x70a00000, (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE))) {
-        panic("failed to create stack region for %d (%s)", _pid, _name);
-    }
+VirtualMemoryRegion* Process::allocateStackRegion(std::string&& name, size_t size) {
+
+    vm_prot_t prot = (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE);
+    return _memoryMap.createMemoryRegionInRange(name.c_str(), 0x70000000, size, prot);
 }
 
 void Process::createArgsRegion() {
@@ -171,11 +193,7 @@ void Process::createArgsRegion() {
         argv_size += arg.size() + 1; // plus null
     }
 
-    char* user_argv = (char*) argsRegion->allocate(argv_size);
-    if (!user_argv) {
-        panic("failed to allocate argv region for %d (%s)", _pid, _name);
-    }
-
+    char* user_argv = (char*) argsRegion->startAddress();
     _memoryMap.runInScope([this, user_argv, argv_table_size]() {
         char** argv_table = (char**) (user_argv);
         char* argv_data_pos = (user_argv + argv_table_size);
@@ -209,7 +227,25 @@ Thread* Process::createThread(const char* name,
                               size_t stackSize,
                               bool schedule)
 {
+
     auto thread = std::make_unique<Thread>(*this, name, entryPoint, argument, stackSize);
+    if (!thread) {
+        return nullptr;
+    }
+
+    return this->addThread(std::move(thread), schedule);
+}
+
+Thread* Process::cloneThread(const Thread& thread, Process& father, bool schedule) {
+    auto cloned_thread = std::make_unique<Thread>(thread, father);
+    if (!cloned_thread) {
+        return nullptr;
+    }
+
+    return this->addThread(std::move(cloned_thread), schedule);
+}
+
+Thread* Process::addThread(std::unique_ptr<Thread> thread, bool schedule) {
     auto* thread_ptr = thread.get();
 
     assert(NULL != thread_ptr);
@@ -226,4 +262,27 @@ Thread* Process::createThread(const char* name,
     }
 
     return thread_ptr;
+}
+
+bool Process::changeWorkingDir(std::string&& path) {
+    auto node = VirtualFileSystem::instance().lookup(Path(path));
+    if (!node) {
+        return false;
+    }
+
+    _cwdPath = Path(path);
+    _cwdNode = node;
+    return true;
+}
+
+const Path& Process::currentWorkingPath(void) {
+    return _cwdPath;
+}
+
+SharedVFSNode Process::currentWorkingNode(void) {
+    if (!_cwdNode) {
+        this->changeWorkingDir(_cwdPath.string());
+    }
+
+    return _cwdNode;
 }
