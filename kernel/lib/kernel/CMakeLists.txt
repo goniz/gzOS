@@ -66,4 +66,13 @@ add_library(
         cmdline.h
         cmdline.cpp
         proc/proc.h
-        proc/active_scheduling_policy.h proc/SignalProvider.cpp proc/SignalProvider.h proc/MultiLevelFeedbackQueuePolicy.cpp proc/MultiLevelFeedbackQueuePolicy.h)
+        proc/active_scheduling_policy.h
+        proc/SignalProvider.cpp
+        proc/SignalProvider.h
+        proc/MultiLevelFeedbackQueuePolicy.cpp
+        proc/MultiLevelFeedbackQueuePolicy.h
+        ipc/Pipe.cpp
+        ipc/Pipe.h
+        ipc/PipeFileDescriptor.cpp
+        ipc/PipeFileDescriptor.h
+)

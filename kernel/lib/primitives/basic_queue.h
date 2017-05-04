@@ -117,10 +117,29 @@ public:
         }
 
         if (this->empty()) {
+            _mutex.unlock();
             return false;
         }
 
         out = _data.front();
+        _mutex.unlock();
+        return true;
+    }
+
+    bool peek_back(T& out, bool wait = false) {
+        _mutex.lock();
+        if (this->empty() && wait) {
+            _mutex.unlock();
+            this->wait();
+            _mutex.lock();
+        }
+
+        if (this->empty()) {
+            _mutex.unlock();
+            return false;
+        }
+
+        out = _data.back();
         _mutex.unlock();
         return true;
     }

@@ -344,7 +344,7 @@ int TcpSession::pop_output_bytes(uint8_t* buffer, size_t size, bool wait) {
         return 0;
     }
 
-    kprintf("pop_output_bytes(%p, %d, %s): avail_size=%d)\n", buffer, size, wait ? "true" : "false", avail_size);
+//    kprintf("pop_output_bytes(%p, %d, %s): avail_size=%d)\n", buffer, size, wait ? "true" : "false", avail_size);
 
     std::copy_n(_outputBuffer.buffer.begin(), avail_size, buffer);
     _outputBuffer.buffer.erase(_outputBuffer.buffer.begin(), _outputBuffer.buffer.begin() + avail_size);

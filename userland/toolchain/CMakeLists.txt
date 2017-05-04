@@ -42,4 +42,4 @@ add_library(cstubs STATIC
         libc/kill.h
         libc/listen.c
         libc/accept.c
-        libc/pause.c libc/chdir.c libc/getcwd.c libc/fork.c)
+        libc/pause.c libc/chdir.c libc/getcwd.c libc/fork.c libc/pipe.c)

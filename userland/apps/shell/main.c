@@ -10,6 +10,7 @@
 #include <libc/waitpid.h>
 #include <alloca.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 static int handle_line(char* line);
 
@@ -292,11 +293,28 @@ static int connect_and_dup(uint32_t ip, uint16_t port) {
     return 1;
 }
 
+#define HISTORY_SIZE (10)
+
+static char* current_line = NULL;
+static char* history[HISTORY_SIZE] = {0};
+static int history_index = 0;
+
+static void history_push(char* line) {
+    history[history_index] = strdup(line);
+    history_index = ((history_index + 1) % HISTORY_SIZE);
+}
+
 int main(int argc, char **argv) {
-    char linebuf[128];
     int index = 0;
     int c = 0;
-    memset(linebuf, 0, sizeof(linebuf));
+
+    current_line = malloc(128);
+    if (!current_line) {
+        return -1;
+    }
+
+    memset(current_line, 0, sizeof(128));
+    memset(history, 0, sizeof(history));
 
 //    traceme(1);
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -321,9 +339,11 @@ int main(int argc, char **argv) {
                 continue;
             }
 
-            linebuf[index] = '\0';
+            current_line[index] = '\0';
 
-            int result = handle_line(linebuf);
+            history_push(current_line);
+
+            int result = handle_line(current_line);
             switch (result) {
                 case 0:
                     break;
@@ -338,7 +358,7 @@ int main(int argc, char **argv) {
             }
 
             index = 0;
-            memset(linebuf, 0, sizeof(linebuf));
+            memset(current_line, 0, 128);
 
             prompt();
             continue;
@@ -346,7 +366,7 @@ int main(int argc, char **argv) {
 
         // backspace
         if (0x7f == c) {
-            linebuf[index] = '\0';
+            current_line[index] = '\0';
             if (0 != index) {
                 index--;
             }
@@ -355,13 +375,44 @@ int main(int argc, char **argv) {
             continue;
         }
 
+        // arrows
+        if ('\033' == c) {
+            fgetc(stdin); // skip the [
+            switch(fgetc(stdin)) { // the real value
+                case 'A':
+                    // code for arrow up
+                    if (0 == history_index) {
+                        break;
+                    }
+
+                    output_char('\r');
+                    prompt();
+                    fputs(history[history_index - 1], stdout);
+                    strncpy(current_line, history[history_index - 1], 128);
+                    index = strlen(current_line);
+
+                    break;
+                case 'B':
+                    // code for arrow down
+                    break;
+                case 'C':
+                    // code for arrow right
+                    break;
+                case 'D':
+                    // code for arrow left
+                    break;
+            }
+
+            continue;
+        }
+
         if (stdin_echo) {
             output_char(c);
         }
 
-        linebuf[index] = (char) c;
+        current_line[index] = (char) c;
         index++;
-        if (index >= sizeof(linebuf)) {
+        if (index >= 128) {
             index = 0;
         }
     }

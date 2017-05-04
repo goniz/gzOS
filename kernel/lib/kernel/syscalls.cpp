@@ -7,6 +7,7 @@
 #include <vfs/Path.h>
 #include <proc/SignalProvider.h>
 #include <vfs/VirtualFileSystem.h>
+#include <ipc/Pipe.h>
 #include "proc/Process.h"
 #include "proc/Scheduler.h"
 #include "signals.h"
@@ -379,5 +380,24 @@ DEFINE_SYSCALL(GET_CWD, getcwd, SYS_IRQ_DISABLED)
 
     std::string cwd = currentProc->currentWorkingPath().string();
     strncpy(out_path, cwd.c_str(), out_size);
+    return 0;
+}
+
+DEFINE_SYSCALL(PIPE, pipe, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int*, fds);
+
+    if (!fds) {
+        return -1;
+    }
+
+    auto pipe = Pipe::create();
+    if (!pipe.first || !pipe.second) {
+        return -1;
+    }
+
+    fds[0] = vfs_pushfd(std::move(pipe.first));
+    fds[1] = vfs_pushfd(std::move(pipe.second));
+
     return 0;
 }

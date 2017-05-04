@@ -12,6 +12,7 @@ class FileDescriptor;
 class InvalidFileDescriptor;
 class NullFileDescriptor;
 
+using UniqueFd = std::unique_ptr<FileDescriptor>;
 class FileDescriptor {
 public:
     virtual ~FileDescriptor(void) {
