@@ -89,7 +89,7 @@ SharedVFSNode VirtualFileSystem::lookup(Path&& path) {
 }
 
 VirtualFileSystem::VirtualFileSystem(void)
-        : _rootNode(std::make_shared<TmpfsDirectoryNode>(VFSNode::Type::Directory, "/"))
+        : _rootNode(std::make_shared<TmpfsDirectoryNode>("/"))
 {
 
 }

@@ -11,6 +11,7 @@
 struct MultiLevelFeedbackQueuePolicyData : public QuantumSchedulingPolicyData
 {
     int runLevel = -1;
+    bool isPinned = false;
 };
 
 class MultiLevelFeedbackQueuePolicy : public BaseSchedulingPolicy<MultiLevelFeedbackQueuePolicyData>
@@ -21,6 +22,7 @@ public:
 
     virtual bool add(Thread* thread) override;
     virtual bool remove(Thread* thread) override;
+    virtual bool setIdleThread(Thread* thread) override;
 
     virtual Thread* choose(void) override;
     virtual Thread* evaluate_and_choose(Thread* thread) override;

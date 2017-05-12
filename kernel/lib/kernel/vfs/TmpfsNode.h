@@ -13,7 +13,7 @@ public:
 class TmpfsDirectoryNode : public TmpfsNode
 {
 public:
-    TmpfsDirectoryNode(VFSNode::Type type, std::string&& path);
+    TmpfsDirectoryNode(std::string&& path);
     virtual ~TmpfsDirectoryNode() = default;
 
     virtual const std::vector<SharedVFSNode>& childNodes(void) override;
@@ -28,7 +28,9 @@ private:
 class TmpfsFileNode : public TmpfsNode
 {
 public:
-    TmpfsFileNode(VFSNode::Type type, std::string&& path);
+    TmpfsFileNode(std::string&& path);
+    TmpfsFileNode(std::string&& path, std::vector<uint8_t>&& data);
+    TmpfsFileNode(std::string&& path, const char* string);
     virtual ~TmpfsFileNode(void) = default;
 
     virtual std::unique_ptr<FileDescriptor> open(void) override;

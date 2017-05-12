@@ -18,11 +18,3 @@ add_custom_command(
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     COMMENT "Convert the ELF output file to a binary image"
 )
-
-add_custom_target(qemu)
-add_custom_command(
-        TARGET qemu
-        COMMAND ${CMAKE_SOURCE_DIR}/../scripts/run_qemu_gzos.sh
-        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        DEPENDS gzOS
-)

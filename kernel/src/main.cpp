@@ -28,37 +28,6 @@ std::vector<struct ps_ent> getProcessList(int expected_entries) {
     return std::move(buffer);
 }
 
-void printProcessList(void) {
-    std::vector<struct ps_ent> proclist = std::move(getProcessList(10));
-
-    InterruptsMutex mutex(true);
-
-    kprintf("%-7s %-20s %-10s %-10s %s\n",
-            "PID", "Name", "State", "CPU Time", "ExitCode");
-    for (const auto& proc : proclist) {
-//        kprintf("pid: %d\n", proc.pid);
-//        kprintf("name: %p\n", proc.name);
-//        kprintf("state: %p\n", proc.state);
-        kprintf("%-7d %-20s %-10s %-10lu %d\n",
-                proc.pid, proc.name, proc.state, proc.cpu_time, proc.exit_code);
-    }
-}
-
-void printArpCache(void) {
-    InterruptsMutex mutex;
-    mutex.lock();
-    arp_print_cache();
-    mutex.unlock();
-}
-
-int ps_main(void* argument) {
-    while (1) {
-//        printProcessList();
-//        ProcessProvider::instance().dumpProcesses();
-        syscall(SYS_NR_SLEEP, 5000);
-    }
-}
-
 static uint32_t read_size(int sock) {
     uint32_t size = 0;
     SocketAddress clientaddr{};
@@ -139,6 +108,37 @@ uint8_t* recv_file_over_udp(size_t* size) {
     return buffer;
 }
 
+static bool invoke_init(const char* filename)
+{
+    int fd = vfs_open(filename, O_RDONLY);
+    if (fd < 0) {
+        return false;
+    }
+
+    struct stat stinfo{};
+    if (0 != vfs_stat(fd, &stinfo)) {
+        vfs_close(fd);
+        return false;
+    }
+
+    size_t size = (size_t) stinfo.st_size;
+    auto buffer = std::make_unique<uint8_t[]>(size);
+    if (-1 == vfs_read(fd, buffer.get(), size)) {
+        vfs_close(fd);
+        return false;
+    }
+
+    vfs_close(fd);
+
+    std::vector<std::string> initArgs{filename};
+    auto* proc = ProcessProvider::instance().createProcess("init", buffer.get(), size, std::move(initArgs), PAGESIZE);
+    if (proc) {
+        Scheduler::instance().waitForPid(proc->pid());
+    }
+
+    return true;
+}
+
 extern "C"
 int kernel_main(void* argument) {
 
@@ -146,15 +146,7 @@ int kernel_main(void* argument) {
 
     initrd_initialize();
 
-    ProcessProvider::instance().createKernelThread("ps_main", ps_main, NULL, 4096);
-
-    std::vector<const char*> initArgs{"/bin/init"};
-    pid_t init_pid = syscall(SYS_NR_EXEC, "/bin/init", initArgs.size(), initArgs.data());
-    kprintf("init pid: %d\n", init_pid);
-
-    if (-1 != init_pid) {
-        syscall(SYS_NR_WAIT_PID, init_pid);
-    }
+    invoke_init("/bin/init");
 
     while (1) {
         uint32_t size = 0;
@@ -167,15 +159,13 @@ int kernel_main(void* argument) {
         kprintf("got buffer %p of %d size!\n", buffer, size);
         kprintf("checksum: %08x\n", checksum(buffer, (int) size, 0));
 
-        syscall(SYS_NR_YIELD);
-
-        std::vector<const char*> args{"arg"};
-        pid_t pid = syscall(SYS_NR_CREATE_PROCESS, buffer, size, "main.elf", args.size(), args.data());
-        kprintf("new pid: %d\n", pid);
-
+        std::vector<std::string> args{"arg"};
+        auto* proc = ProcessProvider::instance().createProcess("main.elf", buffer, size, std::move(args), PAGESIZE);
         free(buffer);
 
-        kprintf("pid exited with %d", syscall(SYS_NR_WAIT_PID, pid));
+        if (proc) {
+            Scheduler::instance().waitForPid(proc->pid());
+        }
     }
 
     return 0;

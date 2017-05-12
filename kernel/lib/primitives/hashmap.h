@@ -103,6 +103,11 @@ class HashMap
 {
 public:
     static constexpr int MAX_KEY_SIZE = 32;
+
+    friend void swap(HashMap& map1, HashMap& map2) {
+        std::swap(map1._map, map2._map);
+    }
+
     HashMap(void) {
         _map = hashmap_new();
     }

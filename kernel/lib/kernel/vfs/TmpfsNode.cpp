@@ -15,9 +15,9 @@ SharedVFSNode TmpfsDirectoryNode::createNode(VFSNode::Type type, std::string&& p
     std::shared_ptr<TmpfsNode> newNode;
 
     if (VFSNode::Type::Directory == type) {
-        newNode = std::static_pointer_cast<TmpfsNode>(createMountableNode<TmpfsDirectoryNode>(type, std::move(path)));
+        newNode = std::static_pointer_cast<TmpfsNode>(createMountableNode<TmpfsDirectoryNode>(std::move(path)));
     } else {
-        newNode = std::static_pointer_cast<TmpfsNode>(createMountableNode<TmpfsFileNode>(type, std::move(path)));
+        newNode = std::static_pointer_cast<TmpfsNode>(createMountableNode<TmpfsFileNode>(std::move(path)));
     }
 
     _nodes.push_back(newNode);
@@ -28,9 +28,24 @@ std::unique_ptr<FileDescriptor> TmpfsFileNode::open(void) {
     return std::make_unique<VectorBackedFileDescriptor>(_data);
 }
 
-TmpfsFileNode::TmpfsFileNode(VFSNode::Type type, std::string&& path)
-        : TmpfsNode(type, std::move(path)),
-          _data(std::make_shared<std::vector<uint8_t>>())
+TmpfsFileNode::TmpfsFileNode(std::string&& path, std::vector<uint8_t>&& data)
+    : TmpfsNode(Type::File, std::move(path)),
+      _data(std::make_shared<std::vector<uint8_t>>(std::move(data)))
+{
+
+}
+
+TmpfsFileNode::TmpfsFileNode(std::string&& path, const char* string)
+    : TmpfsFileNode(std::move(path),
+                    std::vector<uint8_t>(string,
+                                         string + strlen(string) + 1))
+{
+
+}
+
+TmpfsFileNode::TmpfsFileNode(std::string&& path)
+    : TmpfsNode(Type::File, std::move(path)),
+      _data(std::make_shared<std::vector<uint8_t>>())
 {
     _data->reserve(1024);
 }
@@ -52,8 +67,8 @@ size_t TmpfsFileNode::getSize(void) const {
     }
 }
 
-TmpfsDirectoryNode::TmpfsDirectoryNode(VFSNode::Type type, std::string&& path)
-        : TmpfsNode(type, std::move(path))
+TmpfsDirectoryNode::TmpfsDirectoryNode(std::string&& path)
+    : TmpfsNode(Type::Directory, std::move(path))
 {
 
 }

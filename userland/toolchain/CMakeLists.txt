@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 2.8)
 
 include_directories(${CMAKE_SOURCE_DIR}/../kernel/lib/syscall)
 
-add_library(cstubs STATIC
+add_library(cstubs OBJECT
         libc/exit.c
         libc/open.c
         libc/errno.c

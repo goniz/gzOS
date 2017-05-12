@@ -16,6 +16,7 @@ public:
 
 private:
     pid_t _pid;
+    std::vector<SharedVFSNode> _nodes;
 };
 
 #endif //cplusplus

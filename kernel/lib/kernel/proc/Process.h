@@ -46,6 +46,10 @@ public:
 
     Process(const Process& father);
 
+    bool Exec(const char* name,
+              ElfLoader& elfLoader,
+              std::vector<std::string>&& arguments);
+
     ~Process(void);
 
     Thread* createThread(const char *name,
@@ -53,6 +57,8 @@ public:
                          size_t stackSize,
                          bool schedule = true);
     Thread* cloneThread(const Thread& thread, Process& father, bool schedule);
+
+    void setKernelProc(void);
 
     bool signal(int sig_nr);
 
@@ -103,9 +109,12 @@ public:
 private:
     Thread* addThread(std::unique_ptr<Thread> thread, bool schedule);
     VirtualMemoryRegion* allocateStackRegion(std::string&& name, size_t size);
-    void createArgsRegion();
+    char** createArgsRegion(ProcessMemoryMap& memoryMap, const std::vector<std::string>& arguments);
+    bool createHeapRegion(ElfLoader& elfLoader, ProcessMemoryMap& memoryMap);
+    bool discardAllThreads(void);
 
     char _name[64];
+    bool _is_kernel_proc;
     const pid_t _pid;
     enum State _state;
     int _exitCode;
@@ -113,7 +122,7 @@ private:
     Thread::EntryPointFunction _entryPoint;
     std::vector<std::string> _arguments;
     std::atomic<int> _pending_signal_nr;
-    ProcessMemoryMap _memoryMap;
+    std::unique_ptr<ProcessMemoryMap> _memoryMap;
     FileDescriptorCollection _fileDescriptors;
     std::vector<std::unique_ptr<Thread>>   _threads;
     struct _reent _reent;

@@ -7,11 +7,7 @@
 
 static int vfs_proc_init(void)
 {
-    kprintf("vfs: %p\n", nullptr);
-
     VirtualFileSystem& vfs = VirtualFileSystem::instance();
-
-    kprintf("vfs: %p\n", &vfs);
 
     vfs.registerFilesystem("procfs", [](const char* source, const char* destName) {
         auto node = std::make_shared<ProcFilesystemRoot>(std::string(destName));

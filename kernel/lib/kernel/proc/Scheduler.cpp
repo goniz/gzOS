@@ -32,6 +32,7 @@ Scheduler::Scheduler(ProcessProvider& processProvider, std::unique_ptr<Schedulin
         : _currentThread(nullptr),
           _processProvider(processProvider),
           _policy(std::move(policy)),
+          _idleProc(nullptr),
           _idleThread(nullptr),
           _mutex()
 {
@@ -40,12 +41,27 @@ Scheduler::Scheduler(ProcessProvider& processProvider, std::unique_ptr<Schedulin
 
 void Scheduler::initialize(void)
 {
-    _idleThread = _processProvider.createKernelThread("idle", idleProcMain, nullptr, PAGESIZE, false);
-    _currentThread = _idleThread;
+    _idleProc = _processProvider.createKernelProcess("idle", {}, false);
+    assert(NULL != _idleProc);
+
+    _idleThread = _idleProc->createThread("idle_main", idleProcMain, nullptr, PAGESIZE, false);
+    assert(NULL != _idleThread);
+
+    _policy->setIdleThread(_idleThread);
+}
+
+struct user_regs* Scheduler::activate(void) {
+    return this->schedule(NULL);
 }
 
 struct user_regs* Scheduler::schedule(struct user_regs* regs) {
-    assert(NULL != _currentThread);
+
+    if (nullptr == _currentThread) {
+        _currentThread = _policy->choose();
+        goto switch_to_proc;
+    }
+
+    assert(_currentThread->is_in_kstack_range(regs));
 
     // save current context
     _currentThread->_platformThreadCb.stack_pointer = regs;
@@ -56,17 +72,10 @@ struct user_regs* Scheduler::schedule(struct user_regs* regs) {
         goto switch_to_proc;
     }
 
-    if (_currentThread == _idleThread) {
-        _currentThread = _policy->choose();
-        goto switch_to_proc;
-    }
-
     _currentThread = _policy->evaluate_and_choose(_currentThread);
 
 switch_to_proc:
-    if (NULL == _currentThread) {
-        _currentThread = _idleThread;
-    }
+    assert(NULL != _currentThread);
 
     if (Thread::State::READY != _currentThread->_state && Thread::State::RUNNING != _currentThread->_state) {
         panic("scheduler: chosen thread is in an invalid state: %s %d", _currentThread->name(), _currentThread->state());
@@ -312,16 +321,17 @@ int Scheduler::handleIRQDisabledSyscall(struct user_regs **regs, const kernel_sy
     Thread::PreemptionContext ctx{Thread::ContextType::KernelSpace, true};
     int ret;
 
-    if (_currentThread) {
-        std::swap(ctx, _currentThread->_preemptionContext);
+    auto* this_thread = _currentThread;
+    if (this_thread) {
+        std::swap(ctx, this_thread->_preemptionContext);
     }
 
     ret = syscall->handler(regs, args);
 
-    if (_currentThread) {
-        std::swap(ctx, _currentThread->_preemptionContext);
+    if (this_thread) {
+        std::swap(ctx, this_thread->_preemptionContext);
 
-        const auto state = _currentThread->_state;
+        const auto state = this_thread->_state;
         if ((state != Thread::State::READY && state != Thread::State::RUNNING)) {
             *regs = this->schedule(*regs);
         }
@@ -333,7 +343,7 @@ int Scheduler::handleIRQDisabledSyscall(struct user_regs **regs, const kernel_sy
 int Scheduler::handleIRQEnabledSyscall(struct user_regs **regs, const kernel_syscall *syscall, va_list args) {
     int ret = 0;
     Thread::PreemptionContext ctx{Thread::ContextType::KernelSpace, false};
-    auto thread = _currentThread;
+    auto* thread = _currentThread;
 
     if (!thread) {
         panic("IRQ enabled syscalls cannot be called without a running thread. (%d)", syscall->number);
@@ -381,22 +391,27 @@ bool Scheduler::destroyProcess(Process* proc) {
         return false;
     }
 
-    if (&_currentThread->proc() == proc) {
-        kprintf("proc is still current proc!\n");
-        _currentThread = nullptr;
-    }
-
     _processProvider.destroyProcess(proc);
     return true;
 }
 
 bool Scheduler::addThread(Thread* thread) {
+    InterruptsMutex mutex(true);
+
     return _policy->add(thread);
 }
 
 bool Scheduler::removeThread(Thread* thread) {
-//    InterruptsMutex mutex(true);
-    // TODO: implement
+    InterruptsMutex mutex(true);
+
+    if (!_policy->remove(thread)) {
+        return false;
+    }
+
+    if (thread == _currentThread) {
+        _currentThread = NULL;
+    }
+
     return true;
 }
 

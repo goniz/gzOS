@@ -291,6 +291,7 @@ static void pm_free_from_seg(pm_seg_t *seg, vm_page_t *page) {
                 pg->pm_flags &= ~PM_ALLOCATED;
                 pg++;
             } while (--n);
+
             break;
         }
 

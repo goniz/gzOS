@@ -16,6 +16,12 @@ public:
 
     Process* forkProcess(Process& proc, Thread& thread);
 
+    bool execProcess(Process& proc,
+                     const char* name,
+                     const void* buffer, size_t size,
+                     std::vector<std::string>&& arguments,
+                     size_t stackSize);
+
     Process* createProcess(const char* name,
                            const void* buffer, size_t size,
                            std::vector<std::string>&& arguments,

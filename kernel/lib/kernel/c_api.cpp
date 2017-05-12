@@ -7,10 +7,15 @@
 
 extern "C" {
 
+__attribute__((noreturn))
 void scheduler_run_main(init_main_t init_main, void* argument)
 {
     ProcessProvider::instance().createKernelThread("kernel_main", init_main, argument, 8192);
     clock_set_handler(Scheduler::onTickTimer, &Scheduler::instance());
+
+    syscall(SYS_NR_ENTER_SCHED);
+
+    __builtin_unreachable();
 }
 
 uint32_t scheduler_set_timeout(int timeout_ms, timeout_callback_t callback, void* arg) {

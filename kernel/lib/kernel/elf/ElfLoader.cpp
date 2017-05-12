@@ -5,6 +5,7 @@
 #include "ElfLoader.h"
 #include "elf.h"
 
+#define ELF32_DEBUG
 #undef ELF32_DEBUG
 
 ElfLoader::ElfLoader(const void *buffer, size_t size)
@@ -94,49 +95,9 @@ bool ElfLoader::loadSections(ProcessMemoryMap& memoryMap) {
     bool success = true;
 
     this->forEachSection([&](const Elf32_Shdr* sec) {
-        const uintptr_t start = sec->sh_addr;
-        const uintptr_t end = start + sec->sh_size;
-        const char* name = this->getStringByIndex((int) sec->sh_name);
-
-        // skip section if he is empty, or not marked for allocation.
-        if (0 == sec->sh_size || !(sec->sh_flags & SHF_ALLOC)) {
-            return;
+        if (success) {
+            success = this->loadSection(memoryMap, *sec);
         }
-
-        // TODO: when mprotect is implemented, remove the VM_PROT_WRITE here and call mprotect after copying the data.
-        uint32_t prot = VM_PROT_READ | VM_PROT_WRITE;
-        if (sec->sh_flags & SHF_WRITE) {
-            prot |= VM_PROT_WRITE;
-        }
-
-        if (sec->sh_flags & SHF_EXECINSTR) {
-            prot |= VM_PROT_EXEC;
-        }
-
-#ifdef ELF32_DEBUG
-        kprintf("Adding section '%s' @ %08x... ", name, start);
-#endif
-        if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot)) {
-            success = false;
-#ifdef ELF32_DEBUG
-            kputs("Failed.\n");
-#endif
-            return;
-        }
-
-#ifdef ELF32_DEBUG
-        kputs("Done.\n");
-#endif
-
-        memoryMap.runInScope([&]() {
-            if (SHT_PROGBITS == sec->sh_type) {
-                const char* from = (const char*)_buffer + sec->sh_offset;
-                void* to = (void*)start;
-                memcpy(to, from, sec->sh_size);
-            } else if (SHT_NOBITS == sec->sh_type) {
-                memset((void *) start, 0, sec->sh_size);
-            }
-        });
     });
 
     return success;
@@ -169,5 +130,52 @@ const Elf32_Shdr *ElfLoader::getSectionByName(const char *name) const {
     });
 
     return found;
+}
+
+bool ElfLoader::loadSection(ProcessMemoryMap& memoryMap, const Elf32_Shdr& section) {
+    const uintptr_t start = section.sh_addr;
+    const uintptr_t end = start + section.sh_size;
+    const char* name = this->getStringByIndex((int) section.sh_name);
+
+    // skip section if he is empty, or not marked for allocation.
+    if (0 == section.sh_size || !(section.sh_flags & SHF_ALLOC)) {
+        return true;
+    }
+
+    // TODO: when mprotect is implemented, remove the VM_PROT_WRITE here and call mprotect after copying the data.
+    uint32_t prot = VM_PROT_READ | VM_PROT_WRITE;
+    if (section.sh_flags & SHF_WRITE) {
+        prot |= VM_PROT_WRITE;
+    }
+
+    if (section.sh_flags & SHF_EXECINSTR) {
+        prot |= VM_PROT_EXEC;
+    }
+
+#ifdef ELF32_DEBUG
+    kprintf("Mapping section '%s' (%d) from 0x%x to 0x%x... ", name, section.sh_size, start, end);
+#endif
+    if (!memoryMap.createMemoryRegion(name, start, end, (vm_prot_t) prot)) {
+#ifdef ELF32_DEBUG
+        kputs("Failed.\n");
+#endif
+        return false;
+    }
+
+#ifdef ELF32_DEBUG
+    kputs("Done.\n");
+#endif
+
+    memoryMap.runInScope([&]() {
+        if (SHT_PROGBITS == section.sh_type) {
+            const char* from = (const char*)this->_buffer + section.sh_offset;
+            void* to = (void*)start;
+            memcpy(to, from, section.sh_size);
+        } else if (SHT_NOBITS == section.sh_type) {
+            memset((void *) start, 0, section.sh_size);
+        }
+    });
+
+    return true;
 }
 

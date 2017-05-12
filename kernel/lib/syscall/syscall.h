@@ -74,6 +74,7 @@ long int syscall(long int number, ...);
 
 enum system_call_numbers
 {
+    DECLARE_SYSCALL_NR(ENTER_SCHED),
     DECLARE_SYSCALL_NR(CREATE_PROCESS),
     DECLARE_SYSCALL_NR(CREATE_THREAD),
     DECLARE_SYSCALL_NR(GET_PID),

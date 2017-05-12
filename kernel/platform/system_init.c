@@ -3,6 +3,7 @@
 #include <platform/pci/pci.h>
 #include <platform/drivers.h>
 #include "kprintf.h"
+#include "clock.h"
 
 static void initialize_stdio(void);
 static void invoke_constructors(void);
@@ -20,9 +21,6 @@ void system_init(int argc, const char **argv, const char **envp)
     platform_pci_driver_probe();
 
     scheduler_run_main(kernel_main, NULL);
-    interrupts_enable_all();
-
-    while(1);
 }
 
 static void initialize_stdio(void)

@@ -7,6 +7,7 @@
 #include <lib/mm/pmap.h>
 #include <lib/mm/vm_map.h>
 #include <lib/malloc/malloc.h>
+#include <lib/primitives/interrupts_mutex.h>
 #include <memory>
 #include <string>
 
@@ -18,11 +19,11 @@ class ProcessMemoryMap
     friend class VirtualMemoryRegion;
 
 public:
+    friend void swap(ProcessMemoryMap& map1, ProcessMemoryMap& map2);
+
     ProcessMemoryMap(void);
     ProcessMemoryMap(const ProcessMemoryMap& other);
     ~ProcessMemoryMap(void);
-
-    ProcessMemoryMap(ProcessMemoryMap&&) = delete;
 
     // create a new memory region from start to end using prot
     VirtualMemoryRegion* createMemoryRegion(const char* name, vm_addr_t start, vm_addr_t end, vm_prot_t prot);
@@ -37,6 +38,7 @@ public:
 
     template<typename TFunc>
     void runInScope(TFunc&& func) const {
+        InterruptsMutex mutex(true);
         auto* old = get_user_vm_map();
         vm_map_activate(_map);
 
@@ -70,6 +72,7 @@ private:
     std::string _name;
     vm_map_entry_t* _data;
 };
+
 
 
 #endif //cplusplus

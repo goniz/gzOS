@@ -56,6 +56,25 @@ bool MultiLevelFeedbackQueuePolicy::remove(Thread* thread) {
     return true;
 }
 
+bool MultiLevelFeedbackQueuePolicy::setIdleThread(Thread* thread) {
+    if (!thread) {
+        return false;
+    }
+
+    auto data = std::make_unique<MultiLevelFeedbackQueuePolicyData>();
+    auto& runLevel = _runLevels[MultiLevelFeedbackQueuePolicy::RunLevels - 1];
+
+    data->quantum = runLevel.quantum;
+    data->resetQuantum = runLevel.quantum;
+    data->runLevel = runLevel.index;
+    data->isPinned = true;
+
+    thread->setSchedulerData(std::move(data));
+    thread->state() = Thread::State::READY;
+
+    return runLevel.queue.push(thread);
+}
+
 Thread* MultiLevelFeedbackQueuePolicy::choose(void) {
     for (auto& runLevel : _runLevels) {
         Thread* newThread(nullptr);
@@ -91,12 +110,14 @@ Thread* MultiLevelFeedbackQueuePolicy::evaluate_and_choose(Thread* thread) {
     if (0 >= data.quantum) {
 
         auto newRunLevel = (data.runLevel >= RunLevels - 1) ? data.runLevel : (data.runLevel + 1);
-
-        if (newRunLevel != data.runLevel) {
-            kprintf("thread %s bumped from %d to %d! (quantum empty)\n", thread->name(), data.runLevel, newRunLevel);
+        if (!data.isPinned && newRunLevel != data.runLevel) {
+            kprintf("thread %s bumped from %d to %d! (quantum empty)\n", 
+                    thread->name(), 
+                    data.runLevel, 
+                    newRunLevel);
+            data.runLevel = newRunLevel;
         }
 
-        data.runLevel = newRunLevel;
         auto& runLevel = _runLevels[data.runLevel];
 
         data.quantum = runLevel.quantum;
@@ -125,9 +146,12 @@ void MultiLevelFeedbackQueuePolicy::suspend(Thread* thread) {
 void MultiLevelFeedbackQueuePolicy::resume(Thread* thread) {
     auto& data = this->dataFromThread(thread);
 
-    if (0 < data.runLevel) {
+    if (!data.isPinned && 0 < data.runLevel) {
         data.runLevel--;
-        kprintf("thread %s bumped from %d to %d (resumed)!\n", thread->name(), data.runLevel + 1, data.runLevel);
+        kprintf("thread %s bumped from %d to %d (resumed)!\n", 
+                thread->name(), 
+                data.runLevel + 1, 
+                data.runLevel);
     }
 
     auto& runLevel = _runLevels[data.runLevel];

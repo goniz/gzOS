@@ -358,8 +358,8 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
         vm_addr_t orig_vaddr = (vaddr - PT_BASE) * PTF_ENTRIES;
         if (0 == orig_vaddr) {
             kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
-            kprintf("epc %p opcode %08x\n", regs->epc, *((uint32_t*)regs->epc));
-            hexDump(NULL, (void*)regs->epc, 16);
+//            kprintf("epc %p opcode %08x\n", regs->epc, *((uint32_t*)regs->epc));
+//            hexDump(NULL, (void*)regs->epc, 16);
             vm_do_segfault(orig_vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE, VM_PROT_NONE);
             return regs;
         }

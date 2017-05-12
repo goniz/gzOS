@@ -24,6 +24,7 @@ public:
 
 private:
     const char *getStringByIndex(int index) const;
+    bool loadSection(ProcessMemoryMap& memoryMap, const Elf32_Shdr& section);
 
     template<typename TFunc>
     void forEachSection(TFunc&& func) const {

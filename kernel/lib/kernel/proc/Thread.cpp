@@ -77,7 +77,7 @@ Thread::Thread(const Thread& other, Process& father)
     assert(_tid != -1);
     strncpy(_name, other._name, sizeof(_name));
 
-    _userStackRegion = _proc._memoryMap.get(other._userStackRegion->name());
+    _userStackRegion = _proc._memoryMap->get(other._userStackRegion->name());
     assert(NULL != _userStackRegion);
 
     _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
@@ -95,7 +95,7 @@ Thread::~Thread(void) {
     InterruptsMutex guard(true);
 
     if (_userStackRegion) {
-        _proc._memoryMap.destroyMemoryRegion(_userStackRegion->name());
+        _proc._memoryMap->destroyMemoryRegion(_userStackRegion->name());
     }
 
     if (_kernelStackPage) {
@@ -127,4 +127,12 @@ void Thread::yield(void) {
     if (_schedulingPolicyData) {
         _schedulingPolicyData->yieldRequested = true;
     }
+}
+
+bool Thread::is_in_kstack_range(void* ptr) {
+    const char* start = (char*) PG_VADDR_START(_kernelStackPage);
+    const char* end = start + KernelStackSize;
+    const char* pos = (char*)ptr;
+
+    return pointer_is_in_range(pos, start, end);
 }

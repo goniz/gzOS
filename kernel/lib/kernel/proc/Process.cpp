@@ -4,6 +4,7 @@
 #include <platform/panic.h>
 #include <vfs/VirtualFileSystem.h>
 #include <lib/primitives/align.h>
+#include <workqueue.h>
 #include "Scheduler.h"
 #include "IdAllocator.h"
 #include "vfs/ConsoleFileDescriptor.h"
@@ -15,35 +16,27 @@ Process::Process(const char* name,
                  std::vector<std::string>&& arguments)
         : Process(name, std::move(arguments))
 {
-    if (!elfLoader.loadSections(_memoryMap)) {
+    if (!elfLoader.loadSections(*_memoryMap)) {
         panic("%s (%d): failed to load elf section", _name, _pid);
     }
 
-    uintptr_t endAddr = elfLoader.getEndAddress();
-    if (0 == endAddr) {
-        panic("%s (%d): failed to obtain end address", _name, _pid);
-    }
-
-//    kprintf("%s: creating heap area from %08x to %08x\n", _name, endAddr, endAddr + PAGESIZE);
-
-    if (!_memoryMap.createMemoryRegion("heap",
-                                       endAddr, endAddr + PAGESIZE,
-                                       (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE)))
-    {
-        panic("%s (%d): failed to create heap region", _name, _pid);
+    if (!this->createHeapRegion(elfLoader, *_memoryMap)) {
+        panic("%s (%d): failed to create heap section", _name, _pid);
     }
 
     _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
 }
 
 Process::Process(const char* name, std::vector<std::string>&& arguments, bool initializeFds)
-        : _pid(gPidAllocator.allocate()),
+        : _name(),
+          _is_kernel_proc(false),
+          _pid(gPidAllocator.allocate()),
           _state(Process::State::READY),
           _exitCode(0),
           _entryPoint(nullptr),
           _arguments(std::move(arguments)),
           _pending_signal_nr((int)SIG_NONE),
-          _memoryMap(),
+          _memoryMap(std::make_unique<ProcessMemoryMap>()),
           _traceme(false),
           _userArgv(nullptr),
           _cwdPath(std::string("/")),
@@ -52,7 +45,9 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
     assert(_pid != -1);
     strncpy(_name, name, sizeof(_name));
 
-    this->createArgsRegion();
+    if (!(_userArgv = this->createArgsRegion(*_memoryMap, _arguments))) {
+        panic("failed to create args region for %d (%s)", _pid, _name);
+    }
 
     _REENT_INIT_PTR(&_reent);
 
@@ -67,13 +62,14 @@ Process::Process(const char* name, std::vector<std::string>&& arguments, bool in
 }
 
 Process::Process(const Process& father)
-    : _pid(gPidAllocator.allocate()),
+    : _is_kernel_proc(father._is_kernel_proc),
+      _pid(gPidAllocator.allocate()),
       _state(Process::State::READY),
       _exitCode(0),
       _entryPoint(father._entryPoint),
       _arguments(father._arguments),
       _pending_signal_nr((int)SIG_NONE),
-      _memoryMap(father._memoryMap),
+      _memoryMap(std::make_unique<ProcessMemoryMap>(*father._memoryMap)),
       _fileDescriptors(father._fileDescriptors),
       _traceme(false),
       _userArgv(father._userArgv),
@@ -86,6 +82,56 @@ Process::Process(const Process& father)
     _REENT_INIT_PTR(&_reent);
 
     _threads.reserve(5);
+}
+
+bool Process::Exec(const char* name, ElfLoader& elfLoader, std::vector<std::string>&& arguments)
+{
+    auto newMap = std::make_unique<ProcessMemoryMap>();
+    if (!newMap) {
+        return false;
+    }
+
+    if (!elfLoader.loadSections(*newMap)) {
+        kprintf("load sections failed\n");
+        return false;
+    }
+
+    if (!this->createHeapRegion(elfLoader, *newMap)) {
+        kprintf("heap creation failed\n");
+        return false;
+    }
+
+    char** userArgv = this->createArgsRegion(*newMap, arguments);
+    if (!userArgv) {
+        kprintf("args creation failed\n");
+        return false;
+    }
+
+    if (!this->discardAllThreads()) {
+        kprintf("thread discard failed\n");
+        // panic??
+        return false;
+    }
+
+    std::swap(_memoryMap, newMap);
+
+    workqueue_put([](void* arg) -> void {
+        delete((ProcessMemoryMap*)arg);
+    }, newMap.release());
+
+    // replace the name
+    strncpy(_name, name, sizeof(_name));
+
+    _arguments = std::move(arguments);
+
+    // set new entry point and argv
+    _entryPoint = (Thread::EntryPointFunction) elfLoader.getEntryPoint();
+    _userArgv = userArgv;
+
+    _reclaim_reent(&_reent);
+    _REENT_INIT_PTR(&_reent);
+
+    return true;
 }
 
 Process::~Process(void)
@@ -137,11 +183,15 @@ uint64_t Process::cpu_time() const
 void Process::activateProcess(void)
 {
     _REENT = &_reent;
-    _memoryMap.activate();
+    _memoryMap->activate();
+}
+
+void Process::setKernelProc(void) {
+    _is_kernel_proc = true;
 }
 
 bool Process::is_kernel_proc(void) const {
-    return 0 == strcmp("kernel", _name);
+    return _is_kernel_proc;
 }
 
 void Process::terminate(int exit_code) {
@@ -152,7 +202,7 @@ void Process::terminate(int exit_code) {
 }
 
 bool Process::extendHeap(uintptr_t endAddr){
-    auto* heapRegion = _memoryMap.get("heap");
+    auto* heapRegion = _memoryMap->get("heap");
     if (!heapRegion) {
         return false;
     }
@@ -175,32 +225,45 @@ const std::vector<std::string>& Process::arguments(void) const {
 VirtualMemoryRegion* Process::allocateStackRegion(std::string&& name, size_t size) {
 
     vm_prot_t prot = (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE);
-    return _memoryMap.createMemoryRegionInRange(name.c_str(), 0x70000000, size, prot);
+    return _memoryMap->createMemoryRegionInRange(name.c_str(), 0x70000000, size, prot);
 }
 
-void Process::createArgsRegion() {
-    auto* argsRegion = _memoryMap.createMemoryRegion("args",
-                                                     0x70b00000, 0x70b01000,
-                                                     (vm_prot_t) (VM_PROT_READ | VM_PROT_WRITE));
-    if (!argsRegion) {
-        panic("failed to create args region for %d (%s)", _pid, _name);
+bool Process::createHeapRegion(ElfLoader& elfLoader, ProcessMemoryMap& memoryMap) {
+    uintptr_t endAddr = elfLoader.getEndAddress();
+    if (0 == endAddr) {
+        kprintf("elfLoader: failed to obtain end address");
+        return false;
     }
 
-    auto argv_elements = _arguments.size() + 1; // for null ptr at the end
+//    kprintf("Process: creating heap area from %08x to %08x\n", endAddr, endAddr + PAGESIZE);
+
+    return nullptr != memoryMap.createMemoryRegion("heap", endAddr, endAddr + PAGESIZE,
+                                                   (vm_prot_t)(VM_PROT_READ | VM_PROT_WRITE));
+}
+
+char** Process::createArgsRegion(ProcessMemoryMap& memoryMap, const std::vector<std::string>& arguments) {
+    auto* argsRegion = memoryMap.createMemoryRegion("args",
+                                                    0x70b00000, 0x70b01000,
+                                                    (vm_prot_t) (VM_PROT_READ | VM_PROT_WRITE));
+    if (!argsRegion) {
+        return nullptr;
+    }
+
+    auto argv_elements = arguments.size() + 1; // for null ptr at the end
     auto argv_table_size = (sizeof(const char*) * argv_elements);
     int argv_size = argv_table_size;
-    for (const auto& arg : _arguments) {
+    for (const auto& arg : arguments) {
         argv_size += arg.size() + 1; // plus null
     }
 
     char* user_argv = (char*) argsRegion->startAddress();
-    _memoryMap.runInScope([this, user_argv, argv_table_size]() {
+    memoryMap.runInScope([this, user_argv, argv_table_size, &arguments]() {
         char** argv_table = (char**) (user_argv);
         char* argv_data_pos = (user_argv + argv_table_size);
         size_t index;
 
-        for (index = 0; index < this->_arguments.size(); index++) {
-            const auto& arg = this->_arguments[index];
+        for (index = 0; index < arguments.size(); index++) {
+            const auto& arg = arguments[index];
             argv_table[index] = argv_data_pos;
 
             strcpy(argv_data_pos, arg.c_str());
@@ -211,7 +274,7 @@ void Process::createArgsRegion() {
         argv_table[index] = nullptr;
     });
 
-    this->_userArgv = user_argv;
+    return (char**)user_argv;
 }
 
 bool Process::has_exited(void) const {
@@ -233,6 +296,8 @@ Thread* Process::createThread(const char* name,
         return nullptr;
     }
 
+    kprintf("[%s] spawned a new thread with tid %d named %s\n", this->name(), thread->tid(), thread->name());
+
     return this->addThread(std::move(thread), schedule);
 }
 
@@ -249,8 +314,6 @@ Thread* Process::addThread(std::unique_ptr<Thread> thread, bool schedule) {
     auto* thread_ptr = thread.get();
 
     assert(NULL != thread_ptr);
-
-    kprintf("[%s] spawned a new thread with tid %d named %s\n", this->name(), thread->tid(), thread->name());
 
     {
         InterruptsMutex mutex(true);
@@ -285,4 +348,29 @@ SharedVFSNode Process::currentWorkingNode(void) {
     }
 
     return _cwdNode;
+}
+
+bool Process::discardAllThreads(void) {
+    auto& sched = Scheduler::instance();
+
+    InterruptsMutex mutex(true);
+    if (!sched.kill(this, false)) {
+        return false;
+    }
+
+    for (const auto& thread : _threads) {
+        sched.removeThread(thread.get());
+    }
+
+    // now we actually free the threads on a deferred workqueue job
+    // to prevent us from pm_free() our own stack while running from it..
+    auto* oldThreads = new (std::nothrow) std::vector<std::unique_ptr<Thread>>();
+    assert(NULL != oldThreads);
+    std::swap(_threads, *oldThreads);
+
+    workqueue_put([](void* argument) -> void {
+        delete((std::vector<std::unique_ptr<Thread>>*)argument);
+    }, oldThreads);
+
+    return true;
 }

@@ -54,7 +54,6 @@ static int ethernet_rx_main(void* argument) {
             continue;
         }
 
-
         const ethernet_t *header = ethernet_hdr(nbuf);
         const EthernetHandler *handler = find_handler(header->type);
         if (nullptr == handler) {

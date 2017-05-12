@@ -37,6 +37,8 @@ Process* ProcessProvider::createKernelProcess(const char* name,
         return nullptr;
     }
 
+    process->setKernelProc();
+
     kprintf("spawned a new kernel proc with pid %d named %s\n", process->pid(), process->name());
 
     auto processPtr = process.get();
@@ -68,31 +70,62 @@ Process* ProcessProvider::createProcess(const char* name,
     char thrd_name[128];
     sprintf(thrd_name, "%s_main", name);
 
-    auto mainThread = process->createThread(thrd_name, process->entryPoint(), process->userArgv(), stackSize);
+    InterruptsMutex mutex(true);
+    auto mainThread = process->createThread(thrd_name, process->entryPoint(), process->userArgv(), stackSize, true);
     if (!mainThread) {
         return nullptr;
     }
 
     auto processPtr = process.get();
-    {
-        InterruptsMutex mutex(true);
-        _processList.push_back(std::move(process));
-    }
+    _processList.push_back(std::move(process));
 
     return processPtr;
 }
 
+bool ProcessProvider::execProcess(Process& proc,
+                                  const char* name,
+                                  const void* buffer, size_t size,
+                                  std::vector<std::string>&& arguments,
+                                  size_t stackSize)
+{
+    ElfLoader loader(buffer, size);
+    if (!loader.sanityCheck()) {
+        return false;
+    }
+
+    InterruptsMutex mutex(true);
+    if (!proc.Exec(name, loader, std::move(arguments))) {
+        kprintf("exec failed\n");
+        return false;
+    }
+
+    kprintf("proc with pid %d renamed to %s\n", proc.pid(), proc.name());
+
+    char thrd_name[128];
+    sprintf(thrd_name, "%s_main", name);
+
+    auto mainThread = proc.createThread(thrd_name, proc.entryPoint(), proc.userArgv(), stackSize, true);
+    if (!mainThread) {
+        return false;
+    }
+
+    return true;
+}
+
 Process* ProcessProvider::forkProcess(Process& proc, Thread& thread) {
+    InterruptsMutex mutex(true);
     auto child = std::make_unique<Process>(proc);
     if (!child) {
         return nullptr;
     }
 
-    InterruptsMutex mutex(true);
     Thread* newThread = child->cloneThread(thread, *child, true);
     if (!newThread) {
         return nullptr;
     }
+
+    kprintf("proc %s (%d) forked to %d\n", proc.name(), proc.pid(), child->pid());
+
 
     auto childPtr = child.get();
     _processList.push_back(std::move(child));

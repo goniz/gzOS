@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-static int handle_line(char* line);
+static int eval_line(char* line);
 
 static int cd_main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -147,7 +147,7 @@ static int trace_main(int argc, char* argv[]) {
 }
 
 static int connect_main(int argc, char* argv[]) {
-    return handle_line("exec /usr/BIN/NC 1.1.1.2:8888");
+    return eval_line("exec /usr/BIN/NC 1.1.1.2:8888");
 }
 
 static int cat_main(int argc, char* argv[]) {
@@ -171,8 +171,49 @@ static int cat_main(int argc, char* argv[]) {
     return 0;
 }
 
+static int sleep_main(int argc, char* argv[]) {
+    if (2 != argc) {
+        return -1;
+    }
+
+    sleep(atoi(argv[1]));
+    return 0;
+}
+
 static int exit_main(int argc, char* argv[]) {
     return 1;
+}
+
+static int do_exec(int argc, char* argv[]) {
+    // prepare args
+    char** exec_argv = alloca(sizeof(char*) * (argc + 1)); // +1 for the null at the end
+    for (int i = 0; i < argc; i++) {
+        exec_argv[i] = argv[i];
+    }
+    exec_argv[argc] = NULL;
+
+    // fork and exec
+    pid_t pid = fork();
+    if (0 > pid) {
+        printf("fork failed!\n");
+        return -1;
+    }
+
+    // father
+    if (0 < pid) {
+        return waitpid(pid);
+    }
+
+    // child
+    if (0 == pid) {
+
+	sleep(1);
+
+        execv(*exec_argv, exec_argv);
+
+        printf("%s: no such file or directory\n", *exec_argv);
+        exit(-1);
+    }
 }
 
 struct cmdline {
@@ -188,6 +229,7 @@ static struct cmdline _commands[] = {
         {"exec", exec_main},
         {"connect", connect_main},
         {"cat", cat_main},
+	{"sleep", sleep_main},
         {"exit", exit_main},
         {"q", exit_main}
 };
@@ -204,7 +246,7 @@ static int count_spaces(const char* line) {
     return spaces;
 }
 
-static int handle_line(char* line) {
+static int eval_line(char* line) {
     int argc = count_spaces(line) + 1;
     char* argv[argc];
 
@@ -232,7 +274,7 @@ static int handle_line(char* line) {
         }
     }
 
-    return 0;
+    return do_exec(argc, argv);
 }
 
 static void output_char(int c) {
@@ -343,7 +385,7 @@ int main(int argc, char **argv) {
 
             history_push(current_line);
 
-            int result = handle_line(current_line);
+            int result = eval_line(current_line);
             switch (result) {
                 case 0:
                     break;

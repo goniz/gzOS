@@ -12,6 +12,12 @@
 #include "proc/Scheduler.h"
 #include "signals.h"
 
+DEFINE_SYSCALL(ENTER_SCHED, enter_sched, SYS_IRQ_DISABLED)
+{
+    *regs = Scheduler::instance().activate();
+    return 0;
+}
+
 DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
 {
     SYSCALL_ARG(const void*, elfBuffer);
@@ -31,7 +37,7 @@ DEFINE_SYSCALL(CREATE_PROCESS, create_process, SYS_IRQ_DISABLED)
         arguments.emplace_back(argv[i]);
     }
 
-    Process* newProc = ProcessProvider::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 8192);
+    Process* newProc = ProcessProvider::instance().createProcess(name, elfBuffer, elfSize, std::move(arguments), 1*1024*1024);
     if (NULL == newProc) {
         return -1;
     }
@@ -93,12 +99,18 @@ DEFINE_SYSCALL(EXEC, exec, SYS_IRQ_DISABLED)
     }
 
     auto filenameOnly = Path(filename).filename();
-    Process* newProc = ProcessProvider::instance().createProcess(filenameOnly.c_str(), buffer.get(), size, std::move(arguments), 8192);
-    if (!newProc) {
+
+    if (!ProcessProvider::instance().execProcess(*Scheduler::instance().CurrentProcess(),
+                                            filenameOnly.c_str(),
+                                            buffer.get(), size,
+                                            std::move(arguments),
+                                            1*1024*1024))
+    {
         return -1;
     }
 
-    return newProc->pid();
+    *regs = Scheduler::instance().schedule(*regs);
+    return 0;
 }
 
 DEFINE_SYSCALL(FORK, fork, SYS_IRQ_DISABLED)
@@ -195,7 +207,6 @@ DEFINE_SYSCALL(SIGNAL, signal, SYS_IRQ_DISABLED)
         return -1;
     }
 
-    *regs = Scheduler::instance().schedule(*regs);
     return 0;
 }
 

@@ -75,4 +75,4 @@ add_library(
         ipc/Pipe.h
         ipc/PipeFileDescriptor.cpp
         ipc/PipeFileDescriptor.h
-)
+        workqueue.cpp workqueue.h)

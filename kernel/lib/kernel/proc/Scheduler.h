@@ -53,6 +53,7 @@ public:
 
     void setDebugMode(void);
 
+    struct user_regs* activate(void);
     struct user_regs* schedule(struct user_regs* regs);
     static struct user_regs* onTickTimer(void* argument, struct user_regs* regs);
 
@@ -90,8 +91,9 @@ private:
 
     Thread*                                 _currentThread;
     ProcessProvider&                        _processProvider;
-    std::unique_ptr<SchedulingPolicy>      _policy;
+    std::unique_ptr<SchedulingPolicy>       _policy;
     std::vector<TickControlBlock>           _tickHandlers;
+    Process*                                _idleProc;
     Thread*                                 _idleThread;
     spinlock_mutex                          _mutex;
     std::atomic_bool                        _debugMode;
@@ -112,6 +114,8 @@ extern "C" {
 #endif
 
 typedef int (*init_main_t)(void* argument);
+
+__attribute__((noreturn))
 void scheduler_run_main(init_main_t init_main, void* argument);
 int scheduler_syscall_handler(struct user_regs **regs, const struct kernel_syscall* syscall, va_list args);
 

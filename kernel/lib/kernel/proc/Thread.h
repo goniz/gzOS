@@ -18,7 +18,7 @@ class Thread
     friend class Process;
 
     enum ContextType { UserSpace, KernelSpace };
-    static constexpr int KernelStackSize = PAGESIZE * 2;
+    static constexpr int KernelStackSize = PAGESIZE * 4;
 
     struct PreemptionContext {
         PreemptionContext(enum ContextType type, bool preemption_disallowed)
@@ -47,6 +47,7 @@ public:
     bool sleep(int ms);
     bool signal(int sig_nr);
     void yield(void);
+    bool is_in_kstack_range(void* ptr);
 
     inline const char*  name(void) const        { return _name; }
     inline int          exit_code(void) const   { return _exitCode; }

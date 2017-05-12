@@ -16,6 +16,7 @@ public:
 
     virtual bool add(Thread* thread) = 0;
     virtual bool remove(Thread* thread) = 0;
+    virtual bool setIdleThread(Thread* thread) = 0;
 
     virtual Thread* choose(void) = 0;
     virtual Thread* evaluate_and_choose(Thread* thread) = 0;

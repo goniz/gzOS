@@ -196,3 +196,11 @@ vm_addr_t VirtualMemoryRegion::startAddress(void) const {
 size_t VirtualMemoryRegion::size(void) const {
     return _data->end - _data->start;
 }
+
+void swap(ProcessMemoryMap& map1, ProcessMemoryMap& map2)
+{
+    using std::swap;
+
+    swap(map1._regions, map2._regions);
+    swap(map1._map, map2._map);
+}

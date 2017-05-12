@@ -162,6 +162,8 @@ void vm_map_remove_entry(vm_map_t* vm_map, vm_map_entry_t* entry) {
 void vm_map_delete(vm_map_t* map) {
     int irq = interrupts_disable();
 
+    kprintf("vm_map_delete(%p)\n", map);
+
     while (map->nentries > 0) {
         vm_map_remove_entry(map, TAILQ_FIRST(&map->list));
     }
@@ -356,7 +358,7 @@ int vm_page_fault(vm_map_t* map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     vm_map_entry_t* entry = NULL;
 
 #if TLBDEBUG == 1
-    kprintf("vm_page_fault map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
+    kprintf("vm_page_fault map %p, asid %d addr %p\n", map, map->pmap->asid, (void*)fault_addr);
     vm_map_dump(map);
 #endif
 
@@ -395,7 +397,7 @@ int vm_page_fault(vm_map_t* map, vm_addr_t fault_addr, vm_prot_t fault_type) {
     pmap_map(map->pmap, start, end, frame->paddr, (vm_prot_t) entry->prot);
 
 #if TLBDEBUG == 1
-    kprintf("vm_page_fault DONE map %p, asid %d addr %p\n", map, map->pmap.asid, (void*)fault_addr);
+    kprintf("vm_page_fault DONE map %p, asid %d addr %p\n", map, map->pmap->asid, (void*)fault_addr);
     vm_map_dump(map);
 #endif
 

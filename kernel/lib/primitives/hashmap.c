@@ -41,9 +41,12 @@ map_t hashmap_new() {
     m->size = 0;
 
     return m;
-    err:
-    if (m)
+
+err:
+    if (m) {
         hashmap_free(m);
+    }
+
     return NULL;
 }
 
@@ -387,6 +390,11 @@ int hashmap_remove(map_t in, char** key) {
 
 /* Deallocate the hashmap */
 void hashmap_free(map_t in) {
+
+    void* ra = __builtin_return_address(0);
+
+    kprintf("hashmap_free(%p) from %p\n", in, ra);
+
     hashmap_map *m = (hashmap_map *) in;
     free(m->data);
     free(m);
