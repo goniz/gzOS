@@ -13,7 +13,7 @@ set( CMAKE_PLATFORM_NAME		malta CACHE STRING "" )
 
 # Set a toolchain path. You only need to set this if the toolchain isn't in
 # your system path. Don't forget a trailing path separator!
-set( TC_PATH "/data/toolchains/imgtec/Toolchains/mips-mti-elf/2016.05-03/bin/" )
+# set( TC_PATH "/data/toolchains/imgtec/Toolchains/mips-mti-elf/2016.05-03/bin/" )
 
 # The toolchain prefix for all toolchain executables
 set( CROSS_COMPILE mips-mti-elf- )
