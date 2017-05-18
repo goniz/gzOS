@@ -18,7 +18,6 @@ public:
     void notifyAll(uintptr_t value);
 
 private:
-    InterruptsMutex      m_mutex;
     std::vector<pid_t>   m_waitingPids;
 };
 

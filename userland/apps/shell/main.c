@@ -192,6 +192,8 @@ static int do_exec(int argc, char* argv[]) {
     }
     exec_argv[argc] = NULL;
 
+    //traceme(1);
+
     // fork and exec
     pid_t pid = fork();
     if (0 > pid) {
@@ -206,9 +208,6 @@ static int do_exec(int argc, char* argv[]) {
 
     // child
     if (0 == pid) {
-
-	sleep(1);
-
         execv(*exec_argv, exec_argv);
 
         printf("%s: no such file or directory\n", *exec_argv);

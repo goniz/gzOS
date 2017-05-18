@@ -71,7 +71,7 @@ Process::Process(const Process& father)
       _pending_signal_nr((int)SIG_NONE),
       _memoryMap(std::make_unique<ProcessMemoryMap>(*father._memoryMap)),
       _fileDescriptors(father._fileDescriptors),
-      _traceme(false),
+      _traceme(father._traceme),
       _userArgv(father._userArgv),
       _cwdPath(father._cwdPath),
       _cwdNode(father._cwdNode)
@@ -301,8 +301,8 @@ Thread* Process::createThread(const char* name,
     return this->addThread(std::move(thread), schedule);
 }
 
-Thread* Process::cloneThread(const Thread& thread, Process& father, bool schedule) {
-    auto cloned_thread = std::make_unique<Thread>(thread, father);
+Thread* Process::cloneThread(const Thread& thread, Process& father, const struct user_regs* regs, bool schedule) {
+    auto cloned_thread = std::make_unique<Thread>(thread, father, regs);
     if (!cloned_thread) {
         return nullptr;
     }
@@ -364,13 +364,13 @@ bool Process::discardAllThreads(void) {
 
     // now we actually free the threads on a deferred workqueue job
     // to prevent us from pm_free() our own stack while running from it..
-    auto* oldThreads = new (std::nothrow) std::vector<std::unique_ptr<Thread>>();
+    auto oldThreads = std::make_unique<std::vector<std::unique_ptr<Thread>>>();
     assert(NULL != oldThreads);
     std::swap(_threads, *oldThreads);
 
     workqueue_put([](void* argument) -> void {
         delete((std::vector<std::unique_ptr<Thread>>*)argument);
-    }, oldThreads);
+    }, oldThreads.release());
 
     return true;
 }

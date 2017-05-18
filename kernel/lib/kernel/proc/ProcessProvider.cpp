@@ -99,7 +99,7 @@ bool ProcessProvider::execProcess(Process& proc,
         return false;
     }
 
-    kprintf("proc with pid %d renamed to %s\n", proc.pid(), proc.name());
+    kprintf("spawned a new proc with pid %d named %s\n", proc.pid(), proc.name());
 
     char thrd_name[128];
     sprintf(thrd_name, "%s_main", name);
@@ -112,20 +112,17 @@ bool ProcessProvider::execProcess(Process& proc,
     return true;
 }
 
-Process* ProcessProvider::forkProcess(Process& proc, Thread& thread) {
+Process* ProcessProvider::forkProcess(const Process& proc, const Thread& thread, const struct user_regs* regs) {
     InterruptsMutex mutex(true);
     auto child = std::make_unique<Process>(proc);
     if (!child) {
         return nullptr;
     }
 
-    Thread* newThread = child->cloneThread(thread, *child, true);
+    Thread* newThread = child->cloneThread(thread, *child, regs, true);
     if (!newThread) {
         return nullptr;
     }
-
-    kprintf("proc %s (%d) forked to %d\n", proc.name(), proc.pid(), child->pid());
-
 
     auto childPtr = child.get();
     _processList.push_back(std::move(child));

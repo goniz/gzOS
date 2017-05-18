@@ -162,8 +162,6 @@ void vm_map_remove_entry(vm_map_t* vm_map, vm_map_entry_t* entry) {
 void vm_map_delete(vm_map_t* map) {
     int irq = interrupts_disable();
 
-    kprintf("vm_map_delete(%p)\n", map);
-
     while (map->nentries > 0) {
         vm_map_remove_entry(map, TAILQ_FIRST(&map->list));
     }

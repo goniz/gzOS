@@ -14,7 +14,10 @@ public:
 
     Process& SystemProcess(void);
 
-    Process* forkProcess(Process& proc, Thread& thread);
+    /* forks the given `proc`
+     * using the given `thread` as the `main` root thread
+     * `regs` is the current system call frame that we want to resume to in our new process */
+    Process* forkProcess(const Process& proc, const Thread& thread, const user_regs* regs);
 
     bool execProcess(Process& proc,
                      const char* name,

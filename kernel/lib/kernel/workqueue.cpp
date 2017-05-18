@@ -18,7 +18,7 @@ bool workqueue_put(workqueue_func_t work, void* arg)
 
     bool result = _workqueue.push(WorkQueueItem{work, arg}, false);
     if (result) {
-        kprintf("workqueue_put: job added\n");
+//        kprintf("workqueue_put: job added\n");
     } else {
         kprintf("workqueue_put: failed to add job\n");
     }
@@ -38,7 +38,7 @@ static int workqueue_main(void* argument) {
             continue;
         }
 
-        kprintf("running workqueue item %p(%p)\n", workItem.work, workItem.argument);
+//        kprintf("running workqueue item %p(%p)\n", workItem.work, workItem.argument);
 
         try {
             workItem.work(workItem.argument);

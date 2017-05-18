@@ -27,7 +27,7 @@ if(NOT CMAKE_PLATFORM_NAME)
 endif()
 
 add_subdirectory(platform)
-add_subdirectory(stubs)
+add_subdirectory(lib/stubs)
 add_subdirectory(lib)
 add_subdirectory(src)
 add_subdirectory(tests)
