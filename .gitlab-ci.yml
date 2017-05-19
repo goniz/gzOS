@@ -1,6 +1,10 @@
-image: toolchain
+image: gitlab.goniz.net:4567/gz/gzos-v3/toolchain
 
-build:
+stages:
+    - build
+
+compile:
+    stage: build
     tags:
         - docker
     script:
