@@ -18,6 +18,7 @@ clean:
 	make -C userland clean
 
 rootfs:
+	id
 	./scripts/create_rootfs.sh
 	./scripts/create_flash.sh build/rootfs/ kernel/flash.bin
 	./scripts/create_initrd.sh build/rootfs/ kernel/initrd.cpio

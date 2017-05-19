@@ -1,0 +1,22 @@
+image: gitlab.goniz.net:4567/gz/gzos-v3/toolchain
+
+stages:
+    - build
+
+compile:
+    stage: build
+    tags:
+        - docker
+
+    script:
+        - make clean
+        - make malta
+        - make
+        - make rootfs
+
+    artifacts:
+        paths:
+        - kernel/build/gzOS.elf
+        - kernel/initrd.cpio
+        - kernel/flash.bin
+
