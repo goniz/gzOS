@@ -7,9 +7,13 @@ compile:
     stage: build
     tags:
         - docker
+
     script:
-        - make clean malta
+        - make clean
+        - make malta
         - make
+        - make rootfs
+
     artifacts:
         paths:
         - kernel/build/gzOS.elf
