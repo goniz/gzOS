@@ -17,8 +17,3 @@ RUN mkdir -p /opt && \
 
 ENV PATH $PATH:/opt/mips-mti-elf/2016.05-03/bin
 ENV MIPS_ELF_ROOT /opt/mips-mti-elf/2016.05-03
-
-COPY . /code
-WORKDIR /code
-RUN make clean malta
-RUN make
