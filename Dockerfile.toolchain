@@ -17,3 +17,8 @@ RUN mkdir -p /opt && \
 
 ENV PATH $PATH:/opt/mips-mti-elf/2016.05-03/bin
 ENV MIPS_ELF_ROOT /opt/mips-mti-elf/2016.05-03
+
+RUN apt-get update -y && \
+    apt-get install -y tree cpio sudo && \
+    apt-get install -y rsync dosfstools && \
+    apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
