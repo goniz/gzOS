@@ -40,7 +40,7 @@ public:
            EntryPointFunction entryPoint, void *argument,
            size_t stackSize);
 
-    Thread(const Thread& other, Process& father);
+    Thread(const Thread& other, Process& father, const struct user_regs* regs);
 
     ~Thread(void);
 

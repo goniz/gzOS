@@ -25,7 +25,7 @@ uintptr_t Suspendable::wait(void)
     pid_t currentTid = scheduler_current_tid();
 
     {
-        lock_guard<InterruptsMutex> guard(m_mutex);
+        InterruptsMutex mutex(true);
         if (m_waitingPids.end() == std::find(m_waitingPids.begin(), m_waitingPids.end(), currentTid)) {
             m_waitingPids.push_back(currentTid);
         }
@@ -39,7 +39,7 @@ void Suspendable::notifyOne(uintptr_t value)
     pid_t pid;
 
     {
-        lock_guard<InterruptsMutex> guard(m_mutex);
+        InterruptsMutex mutex(true);
 
         if (m_waitingPids.empty()) {
             return;
@@ -54,11 +54,14 @@ void Suspendable::notifyOne(uintptr_t value)
 
 void Suspendable::notifyAll(uintptr_t value)
 {
-    lock_guard<InterruptsMutex> guard(m_mutex);
+    std::vector<pid_t> waitingPids;
 
-    for (pid_t pid : m_waitingPids) {
-        syscall(SYS_NR_SIGNAL, pid, SIG_CONT, value);
+    {
+        InterruptsMutex mutex(true);
+        std::swap(waitingPids, m_waitingPids);
     }
 
-    m_waitingPids.clear();
+    for (pid_t pid : waitingPids) {
+        syscall(SYS_NR_SIGNAL, pid, SIG_CONT, value);
+    }
 }

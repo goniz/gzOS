@@ -56,7 +56,7 @@ public:
                          Thread::EntryPointFunction entryPoint, void *argument,
                          size_t stackSize,
                          bool schedule = true);
-    Thread* cloneThread(const Thread& thread, Process& father, bool schedule);
+    Thread* cloneThread(const Thread& thread, Process& father, const struct user_regs* regs, bool schedule);
 
     void setKernelProc(void);
 

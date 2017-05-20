@@ -93,14 +93,13 @@ exception_from_kernel:
     jalr    $k1
     nop
 
+    # Interrupts may be enabled here and that's ok.
+    # Disable interrupts till ERET.
+    di
+
     la      $k0, _thread_cb_pointer
     addiu   $k1, $v0, REG_STACK_STORE_SIZE
     sw      $k1, THREAD_STACK($k0)
-
-    # Interrupts may be enabled here and that's ok.
-
-    # Disable interrupts till ERET.
-    di
 
     /*
      * Support for ctx switch.

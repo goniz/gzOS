@@ -78,8 +78,9 @@ static void pmap_setup(pmap_t *pmap, vm_addr_t start, vm_addr_t end) {
 
   TAILQ_INIT(&pmap->pte_pages);
 
-  for (int i = 0; i < PD_ENTRIES; i++)
-    pmap->pde[i] = in_kernel_space(i * PTF_ENTRIES * PAGESIZE) ? PTE_GLOBAL : 0;
+  for (int i = 0; i < PD_ENTRIES; i++) {
+      pmap->pde[i] = in_kernel_space(i * PTF_ENTRIES * PAGESIZE) ? PTE_GLOBAL : 0;
+  }
 }
 
 /* TODO: remove all mappings from TLB, evict related cache lines */
@@ -356,13 +357,6 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
         uint32_t index = PTE_INDEX(vaddr - PT_BASE);
     	/* Restore address that caused a TLB miss into virtualized page table. */
         vm_addr_t orig_vaddr = (vaddr - PT_BASE) * PTF_ENTRIES;
-        if (0 == orig_vaddr) {
-            kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
-//            kprintf("epc %p opcode %08x\n", regs->epc, *((uint32_t*)regs->epc));
-//            hexDump(NULL, (void*)regs->epc, 16);
-            vm_do_segfault(orig_vaddr, code == EXC_TLBL ? VM_PROT_READ : VM_PROT_WRITE, VM_PROT_NONE);
-            return regs;
-        }
 
 #if TLBDEBUG == 1
         kprintf("tlb miss in page table: %p for page %p\n", (void*)vaddr, (void*)orig_vaddr);
@@ -417,7 +411,6 @@ struct user_regs *tlb_exception_handler(struct user_regs *regs) {
         kprintf("segfault location: %p ra: %p\n", regs->epc, regs->ra);
         vm_map_dump(map);
         vm_do_segfault(vaddr, page_fault_prot, VM_PROT_NONE);
-//        vm_do_segfault(fault_addr, fault_type, (vm_prot_t) (entry ? entry->prot : (uint32_t) -1));
     }
 
     return regs;

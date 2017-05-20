@@ -45,6 +45,8 @@ Thread::Thread(Process& process,
     _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
     assert(nullptr != _kernelStackPage);
 
+    memset((void*) PG_VADDR_START(_kernelStackPage), 0xef, KernelStackSize);
+
     if (NULL == _entryPoint) {
         panic("Tried to create a process with NULL as entry point.. shame..");
     }
@@ -59,7 +61,7 @@ Thread::Thread(Process& process,
     );
 }
 
-Thread::Thread(const Thread& other, Process& father)
+Thread::Thread(const Thread& other, Process& father, const struct user_regs* regs)
     : _kernelStackPage(nullptr),
       _platformThreadCb(),
       _preemptionContext(other._preemptionContext),
@@ -83,8 +85,11 @@ Thread::Thread(const Thread& other, Process& father)
     _kernelStackPage = pm_alloc(KernelStackSize / PAGESIZE);
     assert(nullptr != _kernelStackPage);
 
-    _platformThreadCb.stack_pointer = platform_copy_stack((void *) PG_VADDR_START(_kernelStackPage), KernelStackSize,
-                                                          other._platformThreadCb.stack_pointer);
+    memset((void*) PG_VADDR_START(_kernelStackPage), 0xef, KernelStackSize);
+
+    _platformThreadCb.stack_pointer = platform_copy_stack((void *) PG_VADDR_START(_kernelStackPage),
+                                                          KernelStackSize,
+                                                          regs);
     // this is called from a fork syscall, and we need to skip the syscall opcode
     platform_thread_advance_pc(&_platformThreadCb, 1);
     // this sets the child's retval to 0
