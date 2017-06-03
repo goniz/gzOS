@@ -13,6 +13,7 @@ public:
     void wait(void);
     void raise(void);
     void reset(void);
+    bool is_set(void) const;
 
 private:
     std::atomic_bool _flag;
