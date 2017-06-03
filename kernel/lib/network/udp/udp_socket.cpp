@@ -21,6 +21,11 @@ UdpFileDescriptor::UdpFileDescriptor() : sourcePort(0),
 
 }
 
+UdpFileDescriptor::~UdpFileDescriptor(void)
+{
+    this->close();
+}
+
 int UdpFileDescriptor::recvfrom(void *buffer, size_t size, SocketAddress *address) {
     NetworkBuffer* nbuf = NULL;
     if ((nullptr == buffer) || (!this->rxQueue.pop(nbuf, true))) {
@@ -85,14 +90,18 @@ int UdpFileDescriptor::seek(int where, int whence) {
     return -1;
 }
 
-void UdpFileDescriptor::close(void) {
-    InterruptsMutex mutex(true);
+void UdpFileDescriptor::close(void)
+{
+    {
+        InterruptsMutex mutex(true);
+        if (0 != this->sourcePort) {
+            _portSessionsMap.remove(this->sourcePort);
+            this->sourcePort = 0;
+            this->dstAddress = {0, 0};
+        }
+    }
+
     NetworkBuffer* nbuf = NULL;
-
-    _portSessionsMap.remove(this->sourcePort);
-    this->sourcePort = 0;
-    this->dstAddress = {0, 0};
-
     while (this->rxQueue.pop(nbuf, false)) {
         nbuf_free(nbuf);
     }
@@ -108,8 +117,7 @@ int UdpFileDescriptor::bind(const SocketAddress& addr) {
         port = (uint16_t) (rand() % UINT16_MAX);
     }
 
-    InterruptsMutex mutex;
-    mutex.lock();
+    InterruptsMutex mutex(true);
     if (_portSessionsMap.get(port)) {
         return -1;
     }
@@ -125,5 +133,19 @@ int UdpFileDescriptor::connect(const SocketAddress& addr) {
     }
 
     this->dstAddress = addr;
+    return 0;
+}
+
+int UdpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
+    InterruptsMutex mutex(true);
+
+    if (read_ready) {
+        *read_ready = !this->rxQueue.empty();
+    }
+
+    if (write_ready) {
+        *write_ready = true;
+    }
+
     return 0;
 }

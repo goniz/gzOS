@@ -46,3 +46,7 @@ int TcpStateListening::getNewClientFd(void)
         return vfs_pushfd(std::move(newClientFd));
     }
 }
+
+bool TcpStateListening::hasNewClientsInQueue(void) const {
+    return !_acceptQueue.empty();
+}

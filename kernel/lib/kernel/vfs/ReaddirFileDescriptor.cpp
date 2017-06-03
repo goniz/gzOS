@@ -1,5 +1,5 @@
 #include <cstddef>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include "ReaddirFileDescriptor.h"
 
 int ReaddirFileDescriptor::read(void *buffer, size_t size) {

@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <atomic>
 #include <memory>
+#include <sys/time.h>
 #include <lib/mm/vm.h>
 #include <platform/process.h>
 #include "lib/kernel/proc/SchedulingPolicyData.h"
@@ -45,6 +46,7 @@ public:
     ~Thread(void);
 
     bool sleep(int ms);
+    bool sleep(struct timeval& timeout);
     bool signal(int sig_nr);
     void yield(void);
     bool is_in_kstack_range(void* ptr);

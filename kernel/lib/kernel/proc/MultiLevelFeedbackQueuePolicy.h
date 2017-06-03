@@ -41,6 +41,7 @@ private:
     };
 
     std::array<ThreadFIFO, RunLevels> _runLevels;
+    InterruptsMutex _mutex;
 };
 
 

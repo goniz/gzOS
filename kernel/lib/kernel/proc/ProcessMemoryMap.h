@@ -7,7 +7,7 @@
 #include <lib/mm/pmap.h>
 #include <lib/mm/vm_map.h>
 #include <lib/malloc/malloc.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <memory>
 #include <string>
 

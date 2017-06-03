@@ -21,7 +21,8 @@ extern "C" int basic_queue_full(basic_queue_t queue);
 #include <platform/kprintf.h>
 #include <lib/primitives/Suspendable.h>
 #include <algorithm>
-#include "lock_guard.h"
+#include "LockGuard.h"
+#include "SuspendableMutex.h"
 
 template<typename T>
 class basic_queue : public Suspendable
@@ -50,7 +51,7 @@ public:
         }
 
         {
-            lock_guard<InterruptsMutex> guard(_mutex);
+            LockGuard guard(_mutex);
             _data.push_back(value);
         }
 
@@ -60,7 +61,7 @@ public:
 
     void push_head(const T& value) {
         {
-            lock_guard<InterruptsMutex> guard(_mutex);
+            LockGuard guard(_mutex);
             _data.insert(_data.begin(), value);
         }
 
@@ -81,7 +82,7 @@ public:
         }
 
         {
-            lock_guard<InterruptsMutex> guard(_mutex);
+            LockGuard guard(_mutex);
             _data.push_back(std::move(value));
         }
 
@@ -102,59 +103,50 @@ public:
             return false;
         }
 
-        lock_guard<InterruptsMutex> guard(_mutex);
+        LockGuard guard(_mutex);
         out = std::move(_data.front());
         _data.erase(_data.begin());
         return true;
     }
 
     bool peek(T& out, bool wait = false) {
-        _mutex.lock();
         if (this->empty() && wait) {
-            _mutex.unlock();
             this->wait();
-            _mutex.lock();
         }
 
         if (this->empty()) {
-            _mutex.unlock();
             return false;
         }
 
+        LockGuard guard(_mutex);
         out = _data.front();
-        _mutex.unlock();
         return true;
     }
 
     bool peek_back(T& out, bool wait = false) {
-        _mutex.lock();
         if (this->empty() && wait) {
-            _mutex.unlock();
             this->wait();
-            _mutex.lock();
         }
 
         if (this->empty()) {
-            _mutex.unlock();
             return false;
         }
 
+        LockGuard guard(_mutex);
         out = _data.back();
-        _mutex.unlock();
         return true;
     }
 
     template<typename TFunc>
     void remove(TFunc comparatorFunc) {
-        _mutex.lock();
+        LockGuard guard(_mutex);
 
         auto results = std::remove_if(_data.begin(), _data.end(), comparatorFunc);
         _data.erase(results, _data.end());
-
-        _mutex.unlock();
     }
 
     void reserve(size_t size) {
+        LockGuard guard(_mutex);
         _data.reserve(size);
     }
 
@@ -167,7 +159,7 @@ public:
     }
 
     inline bool empty(void) const {
-        return (0 == this->size());
+        return _data.empty();
     }
 
     inline bool full(void) const {
@@ -180,7 +172,7 @@ public:
 
 private:
     std::vector<T>  _data;
-    InterruptsMutex _mutex;
+    SuspendableMutex _mutex;
 };
 
 #endif // c++

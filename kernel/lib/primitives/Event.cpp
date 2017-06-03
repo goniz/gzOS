@@ -8,7 +8,8 @@ Event::Event(void)
 
 void Event::wait(void) {
     while (!_flag) {
-        if (0 != Suspendable::wait()) {
+        const int result = Suspendable::wait();
+        if (0 != result) {
             break;
         }
     }
@@ -22,4 +23,8 @@ void Event::raise(void) {
 void Event::reset(void) {
     _flag = false;
     this->notifyAll(0);
+}
+
+bool Event::is_set(void) const {
+    return _flag;
 }

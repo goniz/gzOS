@@ -1,4 +1,4 @@
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include "VFSReaddirFileDescriptor.h"
 #include "VFSNode.h"
 

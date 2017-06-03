@@ -168,9 +168,9 @@ int Process::state(void) const
     return (int)_state;
 }
 
-uint64_t Process::cpu_time() const
+uint64_t Process::cpu_time()
 {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
 
     uint64_t time = 0;
     for (const auto& thread : _threads) {
@@ -195,7 +195,7 @@ bool Process::is_kernel_proc(void) const {
 }
 
 void Process::terminate(int exit_code) {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
     _exitCode = exit_code;
     _state = Process::State::TERMINATED;
     _exitEvent.emit(exit_code);
@@ -316,7 +316,7 @@ Thread* Process::addThread(std::unique_ptr<Thread> thread, bool schedule) {
     assert(NULL != thread_ptr);
 
     {
-        InterruptsMutex mutex(true);
+        LockGuard guard(_mutex);
         _threads.push_back(std::move(thread));
     }
 
@@ -353,7 +353,8 @@ SharedVFSNode Process::currentWorkingNode(void) {
 bool Process::discardAllThreads(void) {
     auto& sched = Scheduler::instance();
 
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
+
     if (!sched.kill(this, false)) {
         return false;
     }

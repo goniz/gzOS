@@ -4,7 +4,7 @@
 
 #include <sys/types.h>
 #include <vector>
-#include "interrupts_mutex.h"
+#include "InterruptsMutex.h"
 
 class Suspendable {
 public:

@@ -3,7 +3,7 @@
 
 #include <map>
 #include <memory>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include "FileDescriptor.h"
 
 #define MAX_FD      (1024)
