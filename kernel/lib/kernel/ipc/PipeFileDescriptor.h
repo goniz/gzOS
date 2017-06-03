@@ -19,6 +19,8 @@ public:
     virtual int stat(struct stat* stat) override;
     virtual int seek(int where, int whence) override;
 
+    int poll(bool* read_ready, bool* write_ready) override;
+
 private:
     std::shared_ptr<Pipe> _pipe;
     Direction _direction;

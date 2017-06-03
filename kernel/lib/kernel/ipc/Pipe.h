@@ -5,6 +5,7 @@
 #include <vector>
 #include <lib/kernel/vfs/FileDescriptor.h>
 #include <lib/primitives/basic_queue.h>
+#include <lib/primitives/Event.h>
 
 #ifdef __cplusplus
 
@@ -17,11 +18,20 @@ public:
 
     int read(void* buffer, size_t size);
     int write(const void* buffer, size_t size);
+    int poll(bool* read_ready, bool* write_ready);
 
 private:
+    static constexpr int PipeMaxSize = 1*1024*1024;
     Pipe(void);
+    bool isBufferEmptySafe(void);
+    bool isBufferFullSafe();
 
-    basic_queue<std::vector<uint8_t>> _bufferQueue;
+    std::vector<uint8_t> _buffer;
+    Event _readAvailable;
+    Event _writeAvailable;
+    SuspendableMutex _mutex;
+
+    void processBufferSizeUnsafe();
 };
 
 

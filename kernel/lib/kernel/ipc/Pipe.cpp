@@ -1,54 +1,91 @@
 #include <sys/param.h>
+#include <cassert>
 #include "lib/kernel/ipc/Pipe.h"
 #include "PipeFileDescriptor.h"
 
 Pipe::Pipe(void)
-    : _bufferQueue()
+    : _buffer(),
+      _readAvailable(),
+      _writeAvailable(),
+      _mutex()
 {
-    _bufferQueue.reserve(10);
+    _buffer.reserve(1024);
 }
 
 int Pipe::read(void* buffer, size_t size) {
 
-    std::vector<uint8_t> head;
-    if (!_bufferQueue.peek(head, true)) {
-        return -1;
+    while (this->isBufferEmptySafe()) {
+        _readAvailable.wait();
     }
 
-    InterruptsMutex mutex(true);
-    size_t size_to_copy = MIN(head.size(), size);
-    std::copy_n(head.begin(), size_to_copy, (uint8_t*)buffer);
-    head.erase(head.begin(), head.begin() + size_to_copy);
+    LockGuard guard(_mutex);
 
-    if (head.empty()) {
-        _bufferQueue.pop(head, false);
-    }
+    size_t size_to_copy = MIN(_buffer.size(), size);
+    assert(0 != size_to_copy);
+
+    std::copy_n(_buffer.begin(), size_to_copy, (uint8_t*)buffer);
+    _buffer.erase(_buffer.begin(), _buffer.begin() + size_to_copy);
+
+    this->processBufferSizeUnsafe();
 
     return size_to_copy;
 }
 
 int Pipe::write(const void* buffer, size_t size) {
-    InterruptsMutex mutex(true);
 
-    if (_bufferQueue.empty()) {
-        if (_bufferQueue.push(std::vector<uint8_t>((uint8_t*)buffer, (uint8_t*)buffer + size))) {
-            return size;
-        }
-
-        return -1;
+    while (this->isBufferFullSafe()) {
+        _writeAvailable.wait();
     }
 
-    std::vector<uint8_t> back;
-    if (!_bufferQueue.peek_back(back, false)) {
-        if (_bufferQueue.push(std::vector<uint8_t>((uint8_t*)buffer, (uint8_t*)buffer + size))) {
-            return size;
-        }
+    LockGuard guard(_mutex);
 
-        return -1;
-    }
+    _buffer.insert(_buffer.end(), (char*)buffer, (char*)buffer + size);
 
-    std::copy_n((uint8_t*)buffer, size, back.end());
+    this->processBufferSizeUnsafe();
+
     return size;
+}
+
+int Pipe::poll(bool* read_ready, bool* write_ready) {
+    if (read_ready) {
+        *read_ready = !this->isBufferEmptySafe();
+    }
+
+    if (write_ready) {
+        *write_ready = !this->isBufferFullSafe();
+    }
+
+    return 0;
+}
+
+bool Pipe::isBufferEmptySafe(void) {
+    LockGuard guard(_mutex);
+    return _buffer.empty();
+}
+
+bool Pipe::isBufferFullSafe() {
+    LockGuard guard(_mutex);
+    return _buffer.size() >= Pipe::PipeMaxSize;
+}
+
+void Pipe::processBufferSizeUnsafe() {
+    // if the buffer is empty
+    if (_buffer.empty()) {
+        // we want to signal that read is unavailable
+        _readAvailable.reset();
+    } else {
+        // else, let them read!
+        _readAvailable.raise();
+    }
+
+    // if the buffer is less than max size
+    if (_buffer.size() < Pipe::PipeMaxSize) {
+        // mark write as available
+        _writeAvailable.raise();
+    } else {
+        // else mark as full
+        _writeAvailable.reset();
+    }
 }
 
 std::pair<UniqueFd, UniqueFd> Pipe::create(void) {

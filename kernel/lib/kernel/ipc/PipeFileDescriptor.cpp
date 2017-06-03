@@ -24,6 +24,16 @@ int PipeFileDescriptor::write(const void* buffer, size_t size) {
     return _pipe->write(buffer, size);
 }
 
+int PipeFileDescriptor::poll(bool* read_ready, bool* write_ready) {
+    if (Direction::Write == _direction) {
+        read_ready = nullptr;
+    } else {
+        write_ready = nullptr;
+    }
+
+    return _pipe->poll(read_ready, write_ready);
+}
+
 int PipeFileDescriptor::seek(int where, int whence) {
     return -1;
 }
