@@ -5,20 +5,23 @@
 #ifndef GZOS_LOCK_GUARD_H
 #define GZOS_LOCK_GUARD_H
 
-template<typename TMutex>
-class lock_guard
+#include <lib/primitives/Mutex.h>
+
+class LockGuard
 {
 public:
-    lock_guard(TMutex& mutex) : _mutex(mutex) {
+    LockGuard(Mutex& mutex)
+        : _mutex(mutex)
+    {
         _mutex.lock();
     }
 
-    ~lock_guard(void) {
+    ~LockGuard(void) {
         _mutex.unlock();
     }
 
 private:
-    TMutex& _mutex;
+    Mutex& _mutex;
 };
 
 #endif //GZOS_LOCK_GUARD_H

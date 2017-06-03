@@ -18,6 +18,7 @@
 #include <cassert>
 #include <lib/primitives/EventStream.h>
 #include <lib/kernel/vfs/VFSNode.h>
+#include <lib/primitives/SuspendableMutex.h>
 
 /*
  * Process virtual address space:
@@ -78,7 +79,7 @@ public:
     SharedVFSNode currentWorkingNode(void);
 
     int state(void) const;
-    uint64_t cpu_time(void) const;
+    uint64_t cpu_time(void);
     bool is_kernel_proc(void) const;
 
     bool traceme(bool state);
@@ -130,6 +131,7 @@ private:
     void* _userArgv;
     Path _cwdPath;
     SharedVFSNode _cwdNode;
+    SuspendableMutex _mutex;
 };
 
 #endif

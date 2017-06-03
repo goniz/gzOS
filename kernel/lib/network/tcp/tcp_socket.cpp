@@ -1,6 +1,6 @@
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <lib/primitives/hashmap.h>
-#include <lib/primitives/spinlock_mutex.h>
+#include <lib/primitives/SpinlockMutex.h>
 #include <platform/kprintf.h>
 #include <lib/kernel/proc/Scheduler.h>
 #include <lib/primitives/Timer.h>
@@ -174,6 +174,14 @@ int TcpFileDescriptor::connect(const SocketAddress& addr) {
 
     auto new_state = _session->wait_state_changed();
     return TcpStateEnum::Established == new_state ? 0 : -1;
+}
+
+int TcpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
+    if (_session) {
+        return _session->poll(read_ready, write_ready);
+    }
+
+    return -1;
 }
 
 bool TcpFileDescriptor::process_in_segment(NetworkBuffer* nbuf) {

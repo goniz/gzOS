@@ -1,6 +1,6 @@
-#include <lib/primitives/spinlock_mutex.h>
+#include <lib/primitives/SuspendableMutex.h>
 #include <lib/primitives/hashmap.h>
-#include <lib/primitives/lock_guard.h>
+#include <lib/primitives/LockGuard.h>
 #include <algorithm>
 #include <set>
 #include <platform/kprintf.h>
@@ -9,21 +9,17 @@
 #include "lib/network/tcp/tcp_socket.h"
 #include "lib/network/tcp/tcp_sessions.h"
 
-static spinlock_mutex _tcpLock;
+static SuspendableMutex _tcpLock;
 static std::set<uint16_t> _tcpPorts;
 static std::vector<TcpFileDescriptor*> _tcpSessions;
 
 void registerTcpDescriptor(TcpFileDescriptor* fileDescriptor) {
-    kprintf("[tcp] Registering tcp fd %p\n", fileDescriptor);
-
-    lock_guard<spinlock_mutex> guard(_tcpLock);
+    LockGuard guard(_tcpLock);
     _tcpSessions.push_back(fileDescriptor);
 }
 
 void removeTcpDescriptor(TcpFileDescriptor* fileDescriptor) {
-    kprintf("[tcp] Removing tcp fd %p\n", fileDescriptor);
-
-    lock_guard<spinlock_mutex> guard(_tcpLock);
+    LockGuard guard(_tcpLock);
 
     auto iter = std::find(_tcpSessions.begin(), _tcpSessions.end(), fileDescriptor);
     if (_tcpSessions.end() == iter) {
@@ -36,8 +32,6 @@ void removeTcpDescriptor(TcpFileDescriptor* fileDescriptor) {
 TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& localEP, const SocketAddress& remoteEP) {
 //    kprintf("[tcp] Searching for socket for %08x:%d --> %08x:%d\n", remoteEP.address, remoteEP.port, localEP.address, localEP.port);
 
-    lock_guard<spinlock_mutex> guard(_tcpLock);
-
     auto activeSessionComparator = [&localEP, &remoteEP](const TcpFileDescriptor* session) -> bool {
         const auto& remote = session->remote_address();
 
@@ -47,6 +41,7 @@ TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& localEP, con
         return session->local_port() == localEP.port && remote == remoteEP;
     };
 
+    LockGuard guard(_tcpLock);
     auto session = std::find_if(_tcpSessions.begin(), _tcpSessions.end(), activeSessionComparator);
     if (_tcpSessions.end() != session) {
 //        kprintf("[tcp] Found connection fd %p\n", *session);
@@ -73,35 +68,31 @@ TcpFileDescriptor* getTcpDescriptorByFourTuple(const SocketAddress& localEP, con
 
 static uint16_t _basePort = 0;
 uint16_t allocatePort(uint16_t port) {
-    lock_guard<spinlock_mutex> guard(_tcpLock); {
-        if (0 == _basePort) {
-            srand(clock_get_raw_count());
-            _basePort = MAX(10000, rand() % UINT16_MAX);
+    LockGuard guard(_tcpLock);
+
+    if (0 == _basePort) {
+        srand(clock_get_raw_count());
+        _basePort = MAX(10000, rand() % UINT16_MAX);
+    }
+
+    if (0 != port) {
+        if (_tcpPorts.emplace(port).second) {
+            return port;
         }
+    } else {
 
-        if (0 != port) {
-            if (_tcpPorts.emplace(port).second) {
-//                kprintf("allocatePort(%d) = %d\n", port, port);
-                return port;
+        for (int i = _basePort; i < UINT16_MAX; i++) {
+            if (_tcpPorts.emplace(i).second) {
+                return i;
             }
-        } else {
-
-            for (int i = _basePort; i < UINT16_MAX; i++) {
-                if (_tcpPorts.emplace(i).second) {
-//                    kprintf("allocatePort(%d) = %d\n", port, i);
-                    return i;
-                }
-            } // for
-        } // if else
-    } // lock
+        } // for
+    } // if else
 
     return 0;
 }
 
 bool releasePort(uint16_t port) {
-    kprintf("releasePort(%d)\n", port);
-    lock_guard<spinlock_mutex> guard(_tcpLock); {
-        return 0 < _tcpPorts.erase(port);
-    }
-}
+    LockGuard guard(_tcpLock);
 
+    return 0 < _tcpPorts.erase(port);
+}

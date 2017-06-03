@@ -5,7 +5,7 @@
 #include <lib/mm/vm_pager.h>
 #include <platform/kprintf.h>
 #include <lib/primitives/align.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <lib/mm/physmem.h>
 #include <platform/panic.h>
 #include "ProcessMemoryMap.h"

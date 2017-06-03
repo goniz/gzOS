@@ -22,6 +22,7 @@ public:
     ~TcpSession();
 
     bool process_in_segment(NetworkBuffer* nbuf);
+    int poll(bool* read_ready, bool* write_ready);
 
     bool send_syn(void);
     bool send_ack(void);

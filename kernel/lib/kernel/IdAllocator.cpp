@@ -1,5 +1,6 @@
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <algorithm>
+#include <lib/primitives/LockGuard.h>
 #include "IdAllocator.h"
 
 IdAllocator::IdAllocator(const size_t start, const size_t end)
@@ -11,7 +12,7 @@ IdAllocator::IdAllocator(const size_t start, const size_t end)
 
 unsigned int IdAllocator::allocate(void)
 {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
 
     const size_t size = _allocated.size();
     for (size_t i = 0; i < size; i++) {
@@ -28,7 +29,8 @@ unsigned int IdAllocator::allocate(void)
 
 void IdAllocator::deallocate(const unsigned int id)
 {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
+
     if (!this->isAllocated(id)) {
         return;;
     }
@@ -37,7 +39,8 @@ void IdAllocator::deallocate(const unsigned int id)
 }
 
 bool IdAllocator::isAllocated(const unsigned int id) {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
+
     return ((size_t)id >= _start && (size_t)id <= _end) && _allocated[id - _start];
 }
 

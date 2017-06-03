@@ -23,7 +23,7 @@ bool MultiLevelFeedbackQueuePolicy::add(Thread* thread) {
     data->resetQuantum = runLevel.quantum;
     data->runLevel = runLevel.index;
 
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
 
     thread->setSchedulerData(std::move(data));
 
@@ -40,7 +40,7 @@ bool MultiLevelFeedbackQueuePolicy::add(Thread* thread) {
 }
 
 bool MultiLevelFeedbackQueuePolicy::remove(Thread* thread) {
-    InterruptsMutex mutex(true);
+    LockGuard guard(_mutex);
 
     auto& data = this->dataFromThread(thread);
     if (0 > data.runLevel) {
@@ -133,6 +133,8 @@ Thread* MultiLevelFeedbackQueuePolicy::evaluate_and_choose(Thread* thread) {
 }
 
 void MultiLevelFeedbackQueuePolicy::suspend(Thread* thread) {
+    LockGuard guard(_mutex);
+
     auto& data = this->dataFromThread(thread);
     auto& runLevel = _runLevels[data.runLevel];
 
@@ -144,6 +146,8 @@ void MultiLevelFeedbackQueuePolicy::suspend(Thread* thread) {
 }
 
 void MultiLevelFeedbackQueuePolicy::resume(Thread* thread) {
+    LockGuard guard(_mutex);
+
     auto& data = this->dataFromThread(thread);
 
     if (!data.isPinned && 0 < data.runLevel) {
