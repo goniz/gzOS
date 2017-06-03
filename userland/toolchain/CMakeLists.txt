@@ -47,8 +47,6 @@ add_library(cstubs OBJECT
         libc/getcwd.c
         libc/fork.c
         libc/pipe.c
-        libc/thread.c
-        libc/thread.h
         libc/select.h
         libc/select.c
 )
