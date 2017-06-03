@@ -1,9 +1,9 @@
-#include <lib/primitives/spinlock_mutex.h>
-#include <lib/primitives/lock_guard.h>
+#include <lib/primitives/SpinlockMutex.h>
+#include <lib/primitives/LockGuard.h>
 #include <cstddef>
 #include <platform/interrupts.h>
 #include <lib/malloc/malloc.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <platform/panic.h>
 #include <cstring>
 #include <cassert>

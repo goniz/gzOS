@@ -4,7 +4,7 @@
 #ifdef __cplusplus
 #include <vector>
 #include <memory>
-#include <lib/primitives/spinlock_mutex.h>
+#include <lib/primitives/SpinlockMutex.h>
 #include <lib/kernel/proc/Process.h>
 #include <lib/primitives/basic_queue.h>
 #include <platform/interrupts.h>
@@ -95,7 +95,7 @@ private:
     std::vector<TickControlBlock>           _tickHandlers;
     Process*                                _idleProc;
     Thread*                                 _idleThread;
-    spinlock_mutex                          _mutex;
+    SpinlockMutex                           _mutex;
     std::atomic_bool                        _debugMode;
 };
 

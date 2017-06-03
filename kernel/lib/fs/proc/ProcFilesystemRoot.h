@@ -3,6 +3,7 @@
 #ifdef __cplusplus
 
 #include <lib/kernel/vfs/BasicVFSNode.h>
+#include <lib/primitives/SuspendableMutex.h>
 
 class ProcFilesystemRoot : public BasicVFSNode
 {
@@ -16,6 +17,7 @@ public:
 
 private:
     std::vector<SharedVFSNode> _nodes;
+    SuspendableMutex _nodesMutex;
 };
 
 #endif //cplusplus

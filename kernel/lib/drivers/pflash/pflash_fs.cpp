@@ -1,7 +1,7 @@
 #include <platform/drivers.h>
 #include <lib/kernel/vfs/DevFileSystem.h>
 #include <lib/kernel/vfs/ReaddirFileDescriptor.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <lib/primitives/array.h>
 #include <lib/kernel/vfs/VirtualFileSystem.h>
 #include "pflash_fs.h"

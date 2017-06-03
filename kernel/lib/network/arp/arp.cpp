@@ -177,7 +177,7 @@ static bool arp_is_valid(arp_t* arp) {
 
 static timeout_callback_ret arp_timeout_callback(void* scheduler, void* arg)
 {
-    lock_guard<InterruptsMutex> guard(_mutex);
+    LockGuard guard(_mutex);
     _arp_cache.iterate([](any_t, char * key, any_t data) -> int {
         ArpCacheEntry* entry = (ArpCacheEntry *) data;
         if (entry->is_static) {
@@ -197,7 +197,7 @@ static timeout_callback_ret arp_timeout_callback(void* scheduler, void* arg)
 
 int arp_set_entry(const char *devName, MacAddress macAddress, IpAddress ipAddress)
 {
-    lock_guard<InterruptsMutex> guard(_mutex);
+    LockGuard guard(_mutex);
     ArpCacheEntry* arpCacheEntry = _arp_cache.get(ipAddress);
     if (nullptr != arpCacheEntry) {
         if (arpCacheEntry->is_static) {

@@ -1,5 +1,5 @@
 #include <platform/drivers.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <vfs/VirtualFileSystem.h>
 #include <algorithm>
 #include "DevFileSystem.h"

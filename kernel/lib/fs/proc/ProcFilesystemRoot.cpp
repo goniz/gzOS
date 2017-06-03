@@ -2,6 +2,7 @@
 #include <platform/drivers.h>
 #include <lib/kernel/vfs/VirtualFileSystem.h>
 #include <lib/kernel/proc/ProcessProvider.h>
+#include <lib/primitives/LockGuard.h>
 #include "ProcFilesystemRoot.h"
 #include "ProcPidNode.h"
 
@@ -20,7 +21,9 @@ static int vfs_proc_init(void)
 DECLARE_DRIVER(vfs_proc, vfs_proc_init, STAGE_SECOND);
 
 ProcFilesystemRoot::ProcFilesystemRoot(std::string&& path)
-    : BasicVFSNode(VFSNode::Type::Directory, std::move(path))
+    : BasicVFSNode(VFSNode::Type::Directory, std::move(path)),
+      _nodes(),
+      _nodesMutex()
 {
 
 }
@@ -28,9 +31,10 @@ ProcFilesystemRoot::ProcFilesystemRoot(std::string&& path)
 const std::vector<SharedVFSNode>& ProcFilesystemRoot::childNodes(void) {
     auto& procProvider = ProcessProvider::instance();
 
+    LockGuard guard(_nodesMutex);
+
     _nodes.clear();
 
-    InterruptsMutex mutex(true);
     for (const auto& proc : procProvider.processList()) {
         _nodes.push_back(std::make_shared<ProcPidNode>(proc->pid()));
     }

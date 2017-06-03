@@ -1,6 +1,6 @@
 #include <algorithm>
 #include <sys/param.h>
-#include <lib/primitives/interrupts_mutex.h>
+#include <lib/primitives/InterruptsMutex.h>
 #include <lib/primitives/basic_queue.h>
 #include "lib/network/socket.h"
 

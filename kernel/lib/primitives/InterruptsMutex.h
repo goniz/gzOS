@@ -7,12 +7,22 @@
 
 #include <cstdint>
 #include <platform/interrupts.h>
+#include <lib/primitives/Mutex.h>
 
-class InterruptsMutex
+class InterruptsMutex : public Mutex
 {
 public:
-    InterruptsMutex(void) : _isLocked(false), _isrMask(0) {}
-    InterruptsMutex(bool lockNow) : InterruptsMutex() {
+    InterruptsMutex(void)
+        : Mutex(),
+          _isLocked(false),
+          _isrMask(0)
+    {
+
+    }
+
+    InterruptsMutex(bool lockNow)
+        : InterruptsMutex()
+    {
         if (lockNow) {
             this->lock();
         }
@@ -24,14 +34,14 @@ public:
         }
     }
 
-    void lock(void) {
+    virtual void lock(void) override {
         if (!_isLocked) {
             _isrMask = interrupts_disable();
             _isLocked = true;
         }
     }
 
-    void unlock(void) {
+    virtual void unlock(void) override {
         if (_isLocked) {
             interrupts_enable(_isrMask);
             _isLocked = false;
