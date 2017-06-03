@@ -17,6 +17,7 @@ public:
     virtual void handle_incoming_segment(NetworkBuffer* nbuf, const iphdr_t* ip, const tcp_t* tcp) override;
 
     int getNewClientFd(void);
+    bool hasNewClientsInQueue(void) const;
 
 private:
     basic_queue<std::unique_ptr<TcpFileDescriptor>> _acceptQueue;

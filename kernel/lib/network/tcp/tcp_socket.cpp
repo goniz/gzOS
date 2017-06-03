@@ -176,6 +176,14 @@ int TcpFileDescriptor::connect(const SocketAddress& addr) {
     return TcpStateEnum::Established == new_state ? 0 : -1;
 }
 
+int TcpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
+    if (_session) {
+        return _session->poll(read_ready, write_ready);
+    }
+
+    return -1;
+}
+
 bool TcpFileDescriptor::process_in_segment(NetworkBuffer* nbuf) {
     return _session->process_in_segment(nbuf);
 }

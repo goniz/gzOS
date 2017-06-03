@@ -402,3 +402,34 @@ int TcpSession::acceptNewClient(void) {
     TcpStateListening* tcpStateListening = (TcpStateListening*)_state.get();
     return tcpStateListening->getNewClientFd();
 }
+
+int TcpSession::poll(bool* read_ready, bool* write_ready) {
+    switch (this->state())
+    {
+        case TcpStateEnum::Established:
+            if (read_ready) {
+                InterruptsMutex guard(true);
+                *read_ready = !_inputBuffer.buffer.empty();
+            }
+
+            if (write_ready) {
+                InterruptsMutex guard(true);
+                *write_ready = _outputBuffer.buffer.size() < _receive_window;
+            }
+
+            break;
+
+        case TcpStateEnum::Listening:
+            if (read_ready) {
+                InterruptsMutex guard(true);
+                *read_ready = ((TcpStateListening*)_state.get())->hasNewClientsInQueue();
+            }
+
+            break;
+
+        default:
+            return -1;
+    }
+
+    return 0;
+}
