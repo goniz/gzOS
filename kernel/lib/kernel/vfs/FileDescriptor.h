@@ -23,6 +23,7 @@ public:
     virtual int write(const void* buffer, size_t size) = 0;
     virtual int seek(int where, int whence) = 0;
     virtual int stat(struct stat *stat) = 0;
+    virtual int poll(bool* read_ready, bool* write_ready) { return -1; }
     virtual void close(void) { }
 
     virtual int ioctl(int cmd, void* buffer, size_t size);
@@ -42,6 +43,7 @@ public:
     virtual int write(const void *buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
     virtual int stat(struct stat *stat) override;
+    virtual int poll(bool* read_ready, bool* write_ready) override;
     virtual void close(void) override;
 
 private:

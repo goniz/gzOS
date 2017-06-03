@@ -197,7 +197,7 @@ int VectorBackedFileDescriptor::seek(int where, int whence) {
     return this->offset;
 }
 
-void VectorBackedFileDescriptor::   close(void) {
+void VectorBackedFileDescriptor::close(void) {
 
 }
 
@@ -239,6 +239,14 @@ int DuplicatedFileDescriptor::seek(int where, int whence) {
 int DuplicatedFileDescriptor::stat(struct stat* stat) {
     if (_dupFd) {
         return _dupFd->stat(stat);
+    } else {
+        return -1;
+    }
+}
+
+int DuplicatedFileDescriptor::poll(bool* read_ready, bool* write_ready) {
+    if (_dupFd) {
+        return _dupFd->poll(read_ready, write_ready);
     } else {
         return -1;
     }

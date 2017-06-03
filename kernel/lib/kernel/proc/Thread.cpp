@@ -4,6 +4,7 @@
 #include <lib/mm/physmem.h>
 #include <platform/panic.h>
 #include <lib/primitives/align.h>
+#include <lib/primitives/time.h>
 #include "lib/kernel/proc/Thread.h"
 #include "lib/kernel/IdAllocator.h"
 #include "lib/kernel/proc/Scheduler.h"
@@ -113,6 +114,10 @@ Thread::~Thread(void) {
 bool Thread::signal(int sig_nr) {
     int oldValue = SIG_NONE;
     return _pending_signal_nr.compare_exchange_weak(oldValue, sig_nr);
+}
+
+bool Thread::sleep(struct timeval& timeout) {
+    return this->sleep(time_timeval_to_ms(&timeout));
 }
 
 bool Thread::sleep(int ms) {
