@@ -53,7 +53,12 @@ bool SignalProvider::signalProcessPid(pid_t pid, int signal_nr, uintptr_t value)
 
         case SIG_ABORT:
         case SIG_KILL:
-            return _scheduler.kill(proc, false);
+            if (!_scheduler.kill(proc, false)) {
+                return false;
+            }
+
+            proc->terminate(-127);
+            return true;
 
         default:
             kprintf("%s: unknown signal received %d\n", proc->name(), signal_nr);

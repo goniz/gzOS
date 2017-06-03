@@ -2,7 +2,13 @@
 #include <unistd.h>
 #include "duktape.h"
 
-static const char* source = "function main() { while (true) { print('pid: ' + getpid()); sleep(1); } }; main();";
+static const char* source = "function main() { "
+                                "while (true) { "
+                                    "print('pid: ' + getpid()); "
+                                    "sleep(1); "
+                                "} "
+                            "}; "
+                            "main();";
 
 duk_ret_t duk_current_pid(duk_context* ctx)
 {
@@ -12,13 +18,13 @@ duk_ret_t duk_current_pid(duk_context* ctx)
 
 duk_ret_t duk_sleep(duk_context* ctx)
 {
-    sleep(duk_require_uint(ctx, 0));
+    sleep(duk_require_int(ctx, 0));
     return 0;
 }
 
 duk_function_list_entry funcs[] = {
-        {"getpid", duk_current_pid},
-        {"sleep", duk_sleep},
+        {"getpid", duk_current_pid, 0},
+        {"sleep", duk_sleep, 1},
         {NULL, NULL}
 };
 

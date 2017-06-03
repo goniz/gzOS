@@ -4,6 +4,7 @@
 #include <libc/traceme.h>
 #include <libc/waitpid.h>
 #include <alloca.h>
+#include <stdlib.h>
 
 void fork_once() {
     int result = fork();
