@@ -3,6 +3,7 @@
 
 #ifdef __cplusplus
 #include <vector>
+#include <lib/primitives/SpinlockMutex.h>
 
 class IdAllocator {
 public:
@@ -16,6 +17,7 @@ private:
     size_t _start;
     size_t _end;
     std::vector<bool> _allocated;
+    SpinlockMutex _mutex;
 };
 
 #endif //cplusplus

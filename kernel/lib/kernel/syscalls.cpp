@@ -219,7 +219,7 @@ static const char* g_states[] = {
         "Terminated"
 };
 
-static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_left)
+static bool fill_ps_ent(Process* proc, struct ps_ent* ent, size_t size_left)
 {
     if (sizeof(struct ps_ent) > size_left) {
         return false;

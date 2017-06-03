@@ -1,4 +1,4 @@
-#include <lib/primitives/lock_guard.h>
+#include <lib/primitives/LockGuard.h>
 #include "FileDescriptorCollection.h"
 
 FileDescriptorCollection::FileDescriptorCollection(const FileDescriptorCollection& other)
