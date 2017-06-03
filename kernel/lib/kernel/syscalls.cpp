@@ -51,14 +51,13 @@ DEFINE_SYSCALL(CREATE_THREAD, create_thread, SYS_IRQ_DISABLED)
     SYSCALL_ARG(const char*, name);
     SYSCALL_ARG(Thread::EntryPointFunction, entryPoint);
     SYSCALL_ARG(void*, argument);
-    SYSCALL_ARG(size_t, stackSize);
 
     Process* currentProc = Scheduler::instance().CurrentProcess();
     if (NULL == currentProc) {
         return -1;
     }
 
-    Thread* newThread = currentProc->createThread(name, entryPoint, argument, stackSize);
+    Thread* newThread = currentProc->createThread(name, entryPoint, argument, 1*1024*1024);
     if (NULL == newThread) {
         return -1;
     }
@@ -219,7 +218,7 @@ static const char* g_states[] = {
         "Terminated"
 };
 
-static bool fill_ps_ent(const Process* proc, struct ps_ent* ent, size_t size_left)
+static bool fill_ps_ent(Process* proc, struct ps_ent* ent, size_t size_left)
 {
     if (sizeof(struct ps_ent) > size_left) {
         return false;

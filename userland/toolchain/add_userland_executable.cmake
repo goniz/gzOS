@@ -1,7 +1,7 @@
 
-function(add_userland_executable name sources)
+function(add_userland_executable name)
     add_definitions(-mno-gpopt)
-    add_executable(${name} ${sources} $<TARGET_OBJECTS:cstubs>)
+    add_executable(${name} ${ARGN} $<TARGET_OBJECTS:cstubs>)
     target_link_libraries(${name} c stdc++ supc++ m)
     target_include_directories(${name} SYSTEM PRIVATE ${CMAKE_SOURCE_DIR}/toolchain)
 

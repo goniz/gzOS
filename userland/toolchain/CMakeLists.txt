@@ -42,4 +42,13 @@ add_library(cstubs OBJECT
         libc/kill.h
         libc/listen.c
         libc/accept.c
-        libc/pause.c libc/chdir.c libc/getcwd.c libc/fork.c libc/pipe.c)
+        libc/pause.c
+        libc/chdir.c
+        libc/getcwd.c
+        libc/fork.c
+        libc/pipe.c
+        libc/thread.c
+        libc/thread.h
+        libc/select.h
+        libc/select.c
+)

@@ -192,8 +192,6 @@ static int do_exec(int argc, char* argv[]) {
     }
     exec_argv[argc] = NULL;
 
-    //traceme(1);
-
     // fork and exec
     pid_t pid = fork();
     if (0 > pid) {
@@ -228,7 +226,7 @@ static struct cmdline _commands[] = {
         {"exec", exec_main},
         {"connect", connect_main},
         {"cat", cat_main},
-	{"sleep", sleep_main},
+	    {"sleep", sleep_main},
         {"exit", exit_main},
         {"q", exit_main}
 };
@@ -258,15 +256,10 @@ static int eval_line(char* line) {
         index++;
     }
 
-//    printf("argc: %d\n", argc);
-//    for (int i = 0; i < argc; i++) {
-//        printf("argv[%d] = %p\n", i, (void *) argv[i]);
-//    }
-
     for (int i = 0; i < (sizeof(_commands) / sizeof(_commands[0])); i++) {
         struct cmdline* cmd = &_commands[i];
 
-        printf("cmd: %s\n", cmd->cmd);
+//        printf("cmd: %s\n", cmd->cmd);
 
         if (0 == strcmp(cmd->cmd, argv[0])) {
             return cmd->cmd_main(argc, argv);

@@ -5,6 +5,7 @@
 #include <libc/kill.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <libc/waitpid.h>
 
 struct inittab {
     const char* filename;
@@ -12,8 +13,8 @@ struct inittab {
 };
 
 struct inittab _inittab[] = {
-    {"/bin/shell", -1},
-    {"/bin/telnetd", -1}
+	{"/bin/telnetd", -1}
+    	//{"/bin/shell", -1}
 };
 
 static void create_dirs() {
@@ -65,6 +66,15 @@ static void execute_inittab() {
             printf("exec failed: %s\n", _inittab[i].filename);
             exit(-1);
         }
+    }
+
+    for (int i = 0; i < n_inittab; i++) {
+        struct inittab* item = &_inittab[i];
+        if (-1 == item->pid || 0 == item->pid) {
+            continue;
+        }
+
+        waitpid(item->pid);
     }
 }
 
