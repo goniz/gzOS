@@ -13,8 +13,8 @@ struct inittab {
 };
 
 struct inittab _inittab[] = {
-	{"/bin/telnetd", -1}
-    	//{"/bin/shell", -1}
+	{"/bin/telnetd", -1},
+//    {"/bin/shell", -1}
 };
 
 static void create_dirs() {

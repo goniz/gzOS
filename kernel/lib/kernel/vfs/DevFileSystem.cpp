@@ -83,14 +83,12 @@ DevfsIoctlFileDescriptor::DevfsIoctlFileDescriptor(DevFileSystem& devfs)
 
 }
 
-int DevfsIoctlFileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
+int DevfsIoctlFileDescriptor::ioctl(int cmd, va_list args) {
     if ((int)DevFileSystem::IoctlCommands::RegisterDevice == cmd) {
-        auto* cmdbuf = (DevFileSystem::IoctlRegisterDevice*)buffer;
-        if (size != sizeof(*cmdbuf)) {
-            return -1;
-        }
-
-        return _devfs.registerDevice(cmdbuf->deviceName, cmdbuf->fdFactory) ? 0 : -1;
+        auto cmdbuf = va_arg(args, DevFileSystem::IoctlRegisterDevice);
+//        kprintf("cmdbuf: %p\n", cmdbuf);
+        kprintf("deviceName: %p fdFactory: %p\n", cmdbuf.deviceName, cmdbuf.fdFactory);
+        return _devfs.registerDevice(cmdbuf.deviceName, cmdbuf.fdFactory) ? 0 : -1;
     }
 
     return -1;

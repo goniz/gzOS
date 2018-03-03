@@ -83,7 +83,7 @@ pid_t getpid(void)
  isatty
  Query whether output stream is a terminal. For consistency with the other minimal implementations,
  */
-int _isatty_r(struct _reent * reent, int file) {
+int isatty(int file) {
     switch (file) {
         case STDOUT_FILENO:
         case STDERR_FILENO:
@@ -121,8 +121,8 @@ int _link(char *oldName, char * newName) {
  lseek
  Set position in a file. Minimal implementation:
  */
-int _lseek_r(struct _reent * reent, int file, int ptr, int dir) {
-    return 0;
+off_t lseek(int file, off_t offset, int dir) {
+    return -1;
 }
 
 /*
@@ -207,6 +207,17 @@ int gettimeofday(struct timeval* tv, void* tz)
     }
 
     return 0;
+}
+
+char* getcwd(char* buf, size_t size)
+{
+    syscall(SYS_NR_GET_CWD, buf, size);
+    return buf;
+}
+
+int mkdir(const char *pathname, mode_t mode)
+{
+    return syscall(SYS_NR_MKDIR, pathname, mode);
 }
 
 } // extern "C"

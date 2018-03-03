@@ -49,4 +49,4 @@ add_library(cstubs OBJECT
         libc/pipe.c
         libc/select.h
         libc/select.c
-)
+        ioctl.c ioctl.h)

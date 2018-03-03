@@ -9,7 +9,9 @@
 #include <libc/traceme.h>
 #include <sys/signal.h>
 #include <libc/kill.h>
+#include <ioctl.h>
 #include "vlad.h"
+#include "telnet_protocol.h"
 
 typedef union {
     int fds[2];
@@ -271,6 +273,8 @@ static bool telnetd_add_client(struct server_ctx* telnetd, int fd) {
     }
 
     client->socket_fd = fd;
+
+//    ioctl(client->socket_fd, FD_SET_BLOCKING, 0);
 
     if (!vlad_register_fd(client->vlad,
                           client->socket_fd,

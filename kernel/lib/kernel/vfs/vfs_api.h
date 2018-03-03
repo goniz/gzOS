@@ -25,6 +25,8 @@ int vfs_stat(int fd, struct stat* stat);
 int vfs_mkdir(const char* path);
 int vfs_mount(const char* fstype, const char* source, const char* destination);
 int vfs_readdir(const char* path);
+int vfs_ioctl(int fd, int request, ...);
+int vfs_vioctl(int fd, int request, va_list args);
 
 #ifdef __cplusplus
 }

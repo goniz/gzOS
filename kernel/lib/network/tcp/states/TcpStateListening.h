@@ -16,7 +16,7 @@ public:
 
     virtual void handle_incoming_segment(NetworkBuffer* nbuf, const iphdr_t* ip, const tcp_t* tcp) override;
 
-    int getNewClientFd(void);
+    int getNewClientFd(bool wait);
     bool hasNewClientsInQueue(void) const;
 
 private:

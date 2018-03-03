@@ -58,7 +58,6 @@ int ip_input(NetworkBuffer *incomingPacket)
     ip_hint_arp_cache(incomingPacket);
 
 //    kprintf("ip: received an IP datagram %08x --> %08x (%d)\n", iphdr->saddr, iphdr->daddr, iphdr->proto);
-//    kprintf("ip: pkt refcnt %d\n", incomingPacket->refcnt);
 
     // duplicate the packet and push it to each waiting raw ip socket
     {

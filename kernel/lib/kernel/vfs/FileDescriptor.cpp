@@ -70,8 +70,36 @@ bool FileDescriptor::is_valid(void) const {
     return nullptr != dynamic_cast<const InvalidFileDescriptor*>(this);
 }
 
-int FileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
-    return -1;
+int FileDescriptor::ioctl(int cmd, ...) {
+    va_list args;
+    va_start(args, cmd);
+    int result = this->ioctl(cmd, args);
+    va_end(args);
+
+    return result;
+}
+
+int FileDescriptor::ioctl(int cmd, va_list args) {
+    int new_state;
+
+    const auto ioctlCommand = (IoctlCommands) cmd;
+    switch (ioctlCommand) {
+        case IoctlCommands::GetBlocking:
+            *va_arg(args, int*) = this->blocking_state;
+            return 0;
+
+        case IoctlCommands::SetBlocking:
+            new_state = va_arg(args, int);
+            if (this->set_blocking(new_state)) {
+                this->blocking_state = new_state;
+                return 0;
+            }
+
+            return -1;
+
+        default:
+            return -1;
+    }
 }
 
 MemoryBackedFileDescriptor::MemoryBackedFileDescriptor(uintptr_t start, uintptr_t end)

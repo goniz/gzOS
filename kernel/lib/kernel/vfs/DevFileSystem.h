@@ -30,7 +30,7 @@ public:
     struct IoctlRegisterDevice {
         const char* deviceName;
         FileDescriptorFactory fdFactory;
-    };
+    } __packed;
 
     DevFileSystem(std::string&& path);
     virtual ~DevFileSystem(void) = default;
@@ -51,7 +51,7 @@ public:
     DevfsIoctlFileDescriptor(DevFileSystem& devfs);
     virtual ~DevfsIoctlFileDescriptor(void) = default;
 
-    virtual int ioctl(int cmd, void* buffer, size_t size) override;
+    virtual int ioctl(int cmd, va_list args) override;
 
 private:
     DevFileSystem& _devfs;

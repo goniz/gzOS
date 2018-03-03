@@ -51,7 +51,7 @@ int TcpFileDescriptor::read(void* buffer, size_t size) {
         return 0;
     }
 
-    return _session->pop_input_bytes((uint8_t*) buffer, size, true);
+    return _session->pop_input_bytes((uint8_t*) buffer, size, this->blocking_state == 1);
 }
 
 int TcpFileDescriptor::recvfrom(void* buffer, size_t size, SocketAddress* address) {
@@ -142,7 +142,7 @@ int TcpFileDescriptor::accept(SocketAddress* clientAddress, size_t* clientAddres
         return -1;
     }
 
-    int newfd = _session->acceptNewClient();
+    int newfd = _session->acceptNewClient(this->blocking_state == 1);
     if (-1 == newfd) {
         return -1;
     }
@@ -172,6 +172,10 @@ int TcpFileDescriptor::connect(const SocketAddress& addr) {
         return -1;
     }
 
+    if (0 == this->blocking_state) {
+        return -EINPROGRESS;
+    }
+
     auto new_state = _session->wait_state_changed();
     return TcpStateEnum::Established == new_state ? 0 : -1;
 }
@@ -182,6 +186,10 @@ int TcpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
     }
 
     return -1;
+}
+
+int TcpFileDescriptor::set_blocking(int blocking_state) {
+    return 1;
 }
 
 bool TcpFileDescriptor::process_in_segment(NetworkBuffer* nbuf) {

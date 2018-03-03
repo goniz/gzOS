@@ -15,7 +15,7 @@ public:
     virtual int write(const void *buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
     virtual int stat(struct stat *stat) override;
-    virtual int ioctl(int cmd, void* buffer, size_t size) override;
+    virtual int ioctl(int cmd, va_list args) override;
     virtual void close(void) override;
 
 private:

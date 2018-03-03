@@ -151,7 +151,9 @@ DEFINE_SYSCALL(SELECT, select, SYS_IRQ_ENABLED)
         BREAK_IF_TIMED_OUT();
 
 //         relax cpu
-//        platform_cpu_wait();
+        platform_cpu_wait();
+
+        BREAK_IF_TIMED_OUT();
 
     } while (0 >= fds_ready);
 

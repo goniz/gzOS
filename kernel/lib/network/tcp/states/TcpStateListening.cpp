@@ -27,12 +27,16 @@ void TcpStateListening::handle_incoming_segment(NetworkBuffer* nbuf, const iphdr
     _acceptQueue.push(std::move(newfd), false);
 }
 
-int TcpStateListening::getNewClientFd(void)
+int TcpStateListening::getNewClientFd(bool wait)
 {
     while (true) {
         std::unique_ptr<TcpFileDescriptor> newClientFd(nullptr);
-        if (!_acceptQueue.pop(newClientFd, true)) {
-            continue;
+        if (!_acceptQueue.pop(newClientFd, wait)) {
+            if (wait) {
+                continue;
+            } else {
+                return -1;
+            }
         }
 
         if (!newClientFd) {

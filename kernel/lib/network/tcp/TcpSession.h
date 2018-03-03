@@ -49,7 +49,7 @@ public:
     uint16_t localPort(void) const;
     SocketAddress remoteAddr(void) const;
 
-    int acceptNewClient(void);
+    int acceptNewClient(bool wait);
 
     int push_input_bytes(const uint8_t* buffer, size_t size);
     int push_output_bytes(const uint8_t* buffer, size_t size);

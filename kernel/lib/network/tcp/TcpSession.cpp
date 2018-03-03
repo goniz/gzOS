@@ -394,16 +394,17 @@ SocketAddress TcpSession::remoteAddr(void) const {
     return _remoteAddr;
 }
 
-int TcpSession::acceptNewClient(void) {
+int TcpSession::acceptNewClient(bool wait) {
     if (this->state() != TcpStateEnum::Listening) {
         return -1;
     }
 
     TcpStateListening* tcpStateListening = (TcpStateListening*)_state.get();
-    return tcpStateListening->getNewClientFd();
+    return tcpStateListening->getNewClientFd(wait);
 }
 
 int TcpSession::poll(bool* read_ready, bool* write_ready) {
+
     switch (this->state())
     {
         case TcpStateEnum::Established:

@@ -17,7 +17,7 @@ static int dev_console_init(void)
         return std::unique_ptr<FileDescriptor>(new ConsoleFileDescriptor());
     };
 
-    return fd->ioctl((int)DevFileSystem::IoctlCommands::RegisterDevice, &cmdbuf, sizeof(cmdbuf));
+    return fd->ioctl((int)DevFileSystem::IoctlCommands::RegisterDevice, cmdbuf);
 }
 
 DECLARE_DRIVER(dev_console, dev_console_init, STAGE_SECOND + 1);

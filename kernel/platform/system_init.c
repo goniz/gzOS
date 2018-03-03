@@ -42,7 +42,7 @@ static void invoke_constructors(void)
     printf("\nInvoking C++ static constructors!\n");
     while (init_array < init_array_end) {
         func_t func = (func_t)(*init_array++);
-//        printf("Invoking ctor at %p\r\n", func);
+        printf("Invoking ctor at %p\r\n", func);
         func();
     }
 }

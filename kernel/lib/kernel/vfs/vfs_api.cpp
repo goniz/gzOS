@@ -134,4 +134,24 @@ int vfs_readdir(const char* path)
     return vfs_pushfd(std::move(fd));
 }
 
+int vfs_ioctl(int fd, int request, ...)
+{
+    va_list args;
+    va_start(args, request);
+    int result = vfs_ioctl(fd, request, args);
+    va_end(args);
+
+    return result;
+}
+
+int vfs_vioctl(int fd, int request, va_list args)
+{
+    auto fileDes = vfs_num_to_fd(fd);
+    if (nullptr == fileDes) {
+        return -1;
+    }
+
+    return fileDes->ioctl(request, args);
+}
+
 } // extern "C"

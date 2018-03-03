@@ -413,3 +413,11 @@ DEFINE_SYSCALL(PIPE, pipe, SYS_IRQ_DISABLED)
 
     return 0;
 }
+
+DEFINE_SYSCALL(IOCTL, ioctl, SYS_IRQ_DISABLED)
+{
+    SYSCALL_ARG(int, fd);
+    SYSCALL_ARG(int, request);
+
+    return vfs_vioctl(fd, request, args);
+}

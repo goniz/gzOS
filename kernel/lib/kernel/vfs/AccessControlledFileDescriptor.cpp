@@ -62,12 +62,12 @@ int AccessControlledFileDescriptor::stat(struct stat *stat) {
     return _fd->stat(stat);
 }
 
-int AccessControlledFileDescriptor::ioctl(int cmd, void* buffer, size_t size) {
+int AccessControlledFileDescriptor::ioctl(int cmd, va_list args) {
     if (!_fd || !_writable) {
         return -1;
     }
 
-    return _fd->ioctl(cmd, buffer, size);
+    return _fd->ioctl(cmd, args);
 }
 
 AccessControlledFileDescriptor::~AccessControlledFileDescriptor(void) {

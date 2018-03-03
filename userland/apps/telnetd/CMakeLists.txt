@@ -6,4 +6,5 @@ add_userland_executable(telnetd
     main.c
     vlad.c
     vlad.h
+    telnet_protocol.h
 )

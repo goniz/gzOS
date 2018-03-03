@@ -26,6 +26,7 @@ public:
     virtual int recvfrom(void* buffer, size_t size, SocketAddress* address) override;
     virtual int write(const void* buffer, size_t size) override;
     virtual int poll(bool* read_ready, bool* write_ready) override;
+    virtual int set_blocking(int blocking_state) override;
 
     int sendto(const void* buffer, size_t size, const SocketAddress& address) override;
 
