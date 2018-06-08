@@ -53,6 +53,10 @@ int FileDescriptorCollection::remove_filedescriptor(int fdnum, bool close) {
         return -1;
     }
 
+#if 0
+    kprintf("remove_fd(%d) --> %s\n", fdnum, fd->type());
+#endif
+
     if (close) {
         try { fd->close(); } catch (...) { }
     }
@@ -79,4 +83,10 @@ bool FileDescriptorCollection::duplicate(int old_fd, int new_fd) {
 
     _fds[new_fd] = oldFileDesc->second;
     return true;
+}
+
+void FileDescriptorCollection::dump_fds(void) const {
+    for (auto& fd : _fds) {
+        kprintf("fd %d type %s\n", fd.first, fd.second->type());
+    }
 }

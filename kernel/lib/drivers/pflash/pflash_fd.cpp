@@ -11,3 +11,7 @@ PFlashFileDescriptor::PFlashFileDescriptor(uintptr_t start, uintptr_t end)
 int PFlashFileDescriptor::write(const void* buffer, size_t size) {
     return -1;
 }
+
+const char* PFlashFileDescriptor::type(void) const {
+    return "PFlashFileDescriptor";
+}

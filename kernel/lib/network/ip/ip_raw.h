@@ -10,11 +10,11 @@ public:
     RawIpFileDescriptor();
     virtual ~RawIpFileDescriptor(void);
 
+    virtual const char* type(void) const override;
     virtual int read(void *buffer, size_t size) override;
     virtual int write(const void *buffer, size_t size) override;
     virtual int poll(bool* read_ready, bool* write_ready) override;
     virtual int seek(int where, int whence) override;
-
     virtual void close(void) override;
 
 private:

@@ -9,6 +9,7 @@ class PFlashFileDescriptor : public MemoryBackedFileDescriptor {
 public:
     PFlashFileDescriptor(uintptr_t start, uintptr_t end);
 
+    virtual const char* type(void) const override;
     virtual int write(const void* buffer, size_t size) override;
 };
 

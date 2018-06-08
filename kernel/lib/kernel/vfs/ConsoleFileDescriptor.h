@@ -6,6 +6,8 @@
 
 class ConsoleFileDescriptor : public FileDescriptor {
 public:
+    virtual const char* type(void) const override;
+
     virtual int read(void* buffer, size_t size) override;
     virtual int write(const void* buffer, size_t size) override;
     virtual int seek(int where, int whence) override;

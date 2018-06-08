@@ -13,9 +13,22 @@ Pipe::Pipe(void)
 }
 
 int Pipe::read(void* buffer, size_t size) {
+    // if the read end is closed and read() was called
+    // then return an error
+    if (_readClosed) {
+        return -1;
+    }
 
-    while (this->isBufferEmptySafe()) {
+    // if we dont have any data to read but the write side is still open
+    // then we need to wait for data to be available
+    while (this->isBufferEmptySafe() && !_writeClosed) {
         _readAvailable.wait();
+    }
+
+    // if the write side is closed
+    // then return EOF
+    if (_writeClosed) {
+        return 0;
     }
 
     LockGuard guard(_mutex);
@@ -32,6 +45,9 @@ int Pipe::read(void* buffer, size_t size) {
 }
 
 int Pipe::write(const void* buffer, size_t size) {
+    if (_writeClosed || _readClosed) {
+        return -1;
+    }
 
     while (this->isBufferFullSafe()) {
         _writeAvailable.wait();
@@ -48,11 +64,11 @@ int Pipe::write(const void* buffer, size_t size) {
 
 int Pipe::poll(bool* read_ready, bool* write_ready) {
     if (read_ready) {
-        *read_ready = !this->isBufferEmptySafe();
+        *read_ready = !this->isBufferEmptySafe() || _writeClosed || _readClosed;
     }
 
     if (write_ready) {
-        *write_ready = !this->isBufferFullSafe();
+        *write_ready = !this->isBufferFullSafe() || _writeClosed || _readClosed;
     }
 
     return 0;
@@ -85,6 +101,16 @@ void Pipe::processBufferSizeUnsafe() {
     } else {
         // else mark as full
         _writeAvailable.reset();
+    }
+}
+
+void Pipe::close(Pipe::Direction direction) {
+    if (direction == Direction::Read) {
+        _readClosed = true;
+    }
+
+    if (direction == Direction::Write) {
+        _writeClosed = true;
     }
 }
 

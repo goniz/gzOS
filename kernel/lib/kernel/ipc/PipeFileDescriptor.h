@@ -9,15 +9,19 @@
 class PipeFileDescriptor : public FileDescriptor
 {
 public:
-    enum class Direction { Read, Write };
+    using Direction = Pipe::Direction;
 
     PipeFileDescriptor(std::shared_ptr<Pipe> pipe, Direction direction);
-    virtual ~PipeFileDescriptor(void) = default;
+    virtual ~PipeFileDescriptor(void) {
+        this->close();
+    }
 
+    virtual const char* type(void) const override;
     virtual int read(void* buffer, size_t size) override;
     virtual int write(const void* buffer, size_t size) override;
     virtual int stat(struct stat* stat) override;
     virtual int seek(int where, int whence) override;
+    virtual void close(void) override;
 
     int poll(bool* read_ready, bool* write_ready) override;
 

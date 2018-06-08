@@ -114,7 +114,7 @@ static int telnetd_init(struct server_ctx* telnetd) {
 }
 
 static void close_fd(int* fd) {
-    if (!fd) {
+    if (NULL == fd) {
         return;
     }
 
@@ -211,9 +211,16 @@ static pid_t telnetd_exec(struct client_ctx* client) {
     }
 
     // child
+    close_fd(&client->pipes.in.pipe.write_fd);
+    close_fd(&client->pipes.out.pipe.read_fd);
+    close_fd(&client->socket_fd);
+
     dup2(client->pipes.in.pipe.read_fd, STDIN_FILENO);
     dup2(client->pipes.out.pipe.write_fd, STDOUT_FILENO);
     dup2(client->pipes.out.pipe.write_fd, STDERR_FILENO);
+
+    close_fd(&client->pipes.in.pipe.read_fd);
+    close_fd(&client->pipes.out.pipe.write_fd);
 
     char* const argv[] = {NULL};
     execv("/bin/shell", argv);

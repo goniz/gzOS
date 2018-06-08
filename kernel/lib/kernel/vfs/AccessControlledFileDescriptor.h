@@ -14,6 +14,9 @@ public:
     virtual int read(void *buffer, size_t size) override;
     virtual int write(const void *buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
+
+    const char* type(void) const override;
+
     virtual int stat(struct stat *stat) override;
     virtual int ioctl(int cmd, va_list args) override;
     virtual void close(void) override;

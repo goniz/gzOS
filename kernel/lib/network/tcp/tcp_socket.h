@@ -18,6 +18,7 @@ public:
                                                                         uint32_t seq);
     virtual ~TcpFileDescriptor(void);
 
+    virtual const char* type(void) const override;
     virtual int bind(const SocketAddress& addr) override;
     virtual int listen(int backlog) override;
     virtual int accept(SocketAddress* clientAddress, size_t* clientAddressLen) override;

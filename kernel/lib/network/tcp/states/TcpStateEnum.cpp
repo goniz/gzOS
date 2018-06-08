@@ -6,6 +6,7 @@ static const char* _states[] = {
         "Syn-Received",
         "Established",
         "Listen",
+        "Fin-Sent",
         "Close-Wait",
         "Last-Ack"
 };

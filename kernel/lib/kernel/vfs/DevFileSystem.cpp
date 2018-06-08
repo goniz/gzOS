@@ -93,3 +93,7 @@ int DevfsIoctlFileDescriptor::ioctl(int cmd, va_list args) {
 
     return -1;
 }
+
+const char* DevfsIoctlFileDescriptor::type(void) const {
+    return "DevfsIoctlFileDescriptor";
+}

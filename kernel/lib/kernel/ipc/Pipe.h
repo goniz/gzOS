@@ -12,6 +12,8 @@
 class Pipe
 {
 public:
+    enum class Direction { Read, Write };
+
     static std::pair<UniqueFd, UniqueFd> create(void);
 
     ~Pipe(void) = default;
@@ -19,6 +21,7 @@ public:
     int read(void* buffer, size_t size);
     int write(const void* buffer, size_t size);
     int poll(bool* read_ready, bool* write_ready);
+    void close(Direction direction);
 
 private:
     static constexpr int PipeMaxSize = 1*1024*1024;
@@ -29,6 +32,8 @@ private:
     std::vector<uint8_t> _buffer;
     Event _readAvailable;
     Event _writeAvailable;
+    bool _readClosed = false;
+    bool _writeClosed = false;
     SuspendableMutex _mutex;
 
     void processBufferSizeUnsafe();

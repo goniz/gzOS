@@ -61,3 +61,7 @@ int RawIpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
 
     return 0;
 }
+
+const char* RawIpFileDescriptor::type(void) const {
+    return "RawIpFileDescriptor";
+}

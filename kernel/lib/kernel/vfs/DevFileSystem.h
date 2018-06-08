@@ -51,6 +51,7 @@ public:
     DevfsIoctlFileDescriptor(DevFileSystem& devfs);
     virtual ~DevfsIoctlFileDescriptor(void) = default;
 
+    virtual const char* type(void) const override;
     virtual int ioctl(int cmd, va_list args) override;
 
 private:

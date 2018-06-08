@@ -81,3 +81,7 @@ uint8_t Fat32FileDescriptor::translateFlags(int flags) const {
 
     return result;
 }
+
+const char* Fat32FileDescriptor::type(void) const {
+    return "Fat32FileDescriptor";
+}

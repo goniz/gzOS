@@ -118,14 +118,9 @@ static int exec_main(int argc, char* argv[]) {
 
     pid_t newpid = execv(*exec_argv, exec_argv);
     if (-1 == newpid) {
+        printf("execv failed!\n");
         return -1;
     }
-
-    printf("new pid: %d\n", newpid);
-
-    int exit_code = waitpid(newpid);
-
-    printf("exit code: %d\n", exit_code);
 
     return 0;
 }

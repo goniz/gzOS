@@ -25,6 +25,8 @@ public:
         this->close();
     }
 
+    virtual const char* type(void) const = 0;
+
     virtual int read(void* buffer, size_t size) = 0;
     virtual int write(const void* buffer, size_t size) = 0;
     virtual int seek(int where, int whence) = 0;
@@ -111,6 +113,7 @@ public:
     VectorBackedFileDescriptor(std::shared_ptr<std::vector<uint8_t>> vector);
     virtual ~VectorBackedFileDescriptor(void) = default;
 
+    virtual const char* type(void) const override;
     virtual int read(void* buffer, size_t size) override;
     virtual int write(const void* buffer, size_t size) override;
     virtual int seek(int where, int whence) override;

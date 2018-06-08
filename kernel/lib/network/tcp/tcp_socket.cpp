@@ -232,3 +232,7 @@ std::unique_ptr<TcpFileDescriptor> TcpFileDescriptor::createListeningDescriptor(
 {
     return std::unique_ptr<TcpFileDescriptor>(new TcpFileDescriptor(localPort, remoteAddr, seq));
 }
+
+const char* TcpFileDescriptor::type(void) const {
+    return "TcpFileDescriptor";
+}

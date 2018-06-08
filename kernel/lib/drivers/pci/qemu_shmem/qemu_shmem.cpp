@@ -121,3 +121,7 @@ void ShmemFileDescriptor::close(void)                             { }
 int ShmemFileDescriptor::stat(struct stat *stat) {
     return -1;
 }
+
+const char* ShmemFileDescriptor::type(void) const {
+    return "ShmemFileDescriptor";
+}

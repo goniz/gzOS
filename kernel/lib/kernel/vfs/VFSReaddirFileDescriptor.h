@@ -9,6 +9,8 @@ class VFSReaddirFileDescriptor : public ReaddirFileDescriptor {
 public:
     VFSReaddirFileDescriptor(SharedVFSNode node);
 
+    virtual const char* type(void) const override;
+
 private:
     bool getNextEntry(struct DirEntry &dirEntry) override;
 

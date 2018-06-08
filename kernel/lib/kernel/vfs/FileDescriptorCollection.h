@@ -19,6 +19,7 @@ public:
     FileDescriptor* get_filedescriptor(int fdnum);
     int remove_filedescriptor(int fdnum, bool close = false);
     bool duplicate(int old_fd, int new_fd);
+    void dump_fds(void) const;
     void close_all(void);
 
 private:

@@ -9,6 +9,7 @@
 #include <lib/network/tcp/states/TcpStateClosed.h>
 #include <lib/network/tcp/states/TcpStateListening.h>
 #include <tcp/states/TcpStateSynReceived.h>
+#include <tcp/states/TcpStateFinSent.h>
 #include "lib/network/tcp/tcp_sessions.h"
 
 /*
@@ -245,6 +246,11 @@ bool TcpSession::process_in_segment(NetworkBuffer* nbuf) {
 
 void TcpSession::close(void) {
     // TODO: implement properly..
+
+    if (this->state() != TcpStateEnum::Closed) {
+        this->set_state<TcpStateFinSent>();
+        this->wait_state_changed();
+    }
 
     _receive_next_ack = 0;
     _receive_window = 0;

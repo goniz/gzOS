@@ -234,6 +234,10 @@ int VectorBackedFileDescriptor::stat(struct stat* stat) {
     return 0;
 }
 
+const char* VectorBackedFileDescriptor::type(void) const {
+    return "VectorBackedFileDescriptor";
+}
+
 DuplicatedFileDescriptor::DuplicatedFileDescriptor(std::unique_ptr<FileDescriptor>& dupFd)
     : _dupFd(dupFd)
 {

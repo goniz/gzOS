@@ -421,3 +421,15 @@ DEFINE_SYSCALL(IOCTL, ioctl, SYS_IRQ_DISABLED)
 
     return vfs_vioctl(fd, request, args);
 }
+
+DEFINE_SYSCALL(DUMP_FDS, dump_fds, SYS_IRQ_DISABLED)
+{
+    const auto proc = Scheduler::instance().CurrentProcess();
+    if (nullptr == proc) {
+        return -1;
+    }
+
+    FileDescriptorCollection& fdc = proc->fileDescriptorCollection();
+    fdc.dump_fds();
+    return 0;
+}

@@ -26,3 +26,7 @@ bool VFSReaddirFileDescriptor::getNextEntry(struct DirEntry& dirEntry) {
     dirEntry.size = node->getSize();
     return true;
 }
+
+const char* VFSReaddirFileDescriptor::type(void) const {
+    return "VFSReaddirFileDescriptor";
+}

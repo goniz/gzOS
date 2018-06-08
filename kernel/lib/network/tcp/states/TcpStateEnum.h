@@ -9,6 +9,7 @@ enum class TcpStateEnum {
     SynReceived,
     Established,
     Listening,
+    FinSent,
     CloseWait,
     LastAck
 };

@@ -149,3 +149,7 @@ int UdpFileDescriptor::poll(bool* read_ready, bool* write_ready) {
 
     return 0;
 }
+
+const char* UdpFileDescriptor::type(void) const {
+    return "UdpFileDescriptor";
+}

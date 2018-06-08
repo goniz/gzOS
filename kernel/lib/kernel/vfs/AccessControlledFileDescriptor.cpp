@@ -73,3 +73,11 @@ int AccessControlledFileDescriptor::ioctl(int cmd, va_list args) {
 AccessControlledFileDescriptor::~AccessControlledFileDescriptor(void) {
     this->close();
 }
+
+const char* AccessControlledFileDescriptor::type(void) const {
+    if (!_fd) {
+        return "AccessControlledFileDescriptor";
+    }
+
+    return _fd->type();
+}

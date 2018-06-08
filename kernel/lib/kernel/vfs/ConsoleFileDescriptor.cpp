@@ -30,3 +30,7 @@ void ConsoleFileDescriptor::close(void)                             { }
 int ConsoleFileDescriptor::stat(struct stat *stat) {
     return -1;
 }
+
+const char* ConsoleFileDescriptor::type(void) const {
+    return "ConsoleFileDescriptor";
+}

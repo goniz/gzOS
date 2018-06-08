@@ -14,13 +14,14 @@ public:
     UdpFileDescriptor(void);
     virtual ~UdpFileDescriptor(void);
 
+    virtual const char* type(void) const override;
     virtual int read(void *buffer, size_t size) override;
     virtual int write(const void *buffer, size_t size) override;
     virtual int seek(int where, int whence) override;
     virtual void close(void) override;
     virtual int bind(const SocketAddress& addr) override;
 
-    int poll(bool* read_ready, bool* write_ready) override;
+    virtual int poll(bool* read_ready, bool* write_ready) override;
 
     virtual int connect(const SocketAddress& addr) override;
     virtual int recvfrom(void *buffer, size_t size, SocketAddress *address) override;
