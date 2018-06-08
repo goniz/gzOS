@@ -53,6 +53,13 @@ SECTIONS
     KEEP (*(SORT(.drivers)))
     PROVIDE(__drivers_end = .);
 
+    PROVIDE(__gtest_ctor_start = .);
+    KEEP (*_test.cpp.obj (SORT(.init_array.*)))
+    KEEP (*_test.cpp.obj (.init_array))
+    KEEP (*_test.cpp.obj (SORT(.ctors.*)))
+    KEEP (*_test.cpp.obj (.ctors))
+    PROVIDE(__gtest_ctor_end = .);
+
     PROVIDE(__init_array_start = .);
     KEEP (*(SORT(.init_array.*)))
     KEEP (*(.init_array))

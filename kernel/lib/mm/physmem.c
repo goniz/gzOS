@@ -262,7 +262,7 @@ vm_page_t *pm_alloc(size_t npages) {
         vm_page_t *page;
         if ((page = pm_alloc_from_seg(seg_it, npages))) {
             // kprintf("[pmem] pm_alloc {paddr:%lx vaddr:%lx size:%ld}\n", page->paddr, page->vaddr, page->size);
-            memset((void*)PG_VADDR_START(page), 0, PG_SIZE(page));
+//            memset((void*)PG_VADDR_START(page), 0, PG_SIZE(page));
             return page;
         }
     }

@@ -32,6 +32,10 @@ static int nbuf_pool_init(void)
 NetworkBuffer* nbuf_alloc_aligned(size_t size, int alignment) {
     NetworkBuffer* nbuf = NULL;
 
+    if (size <= 0) {
+        return NULL;
+    }
+
     unsigned int isrMask = interrupts_disable();
     nbuf = kmalloc(mp_nbuf, sizeof(*nbuf), M_ZERO | M_NOWAIT);
     if (NULL == nbuf) {

@@ -30,4 +30,6 @@ add_subdirectory(platform)
 add_subdirectory(lib/stubs)
 add_subdirectory(lib)
 add_subdirectory(src)
+
+add_subdirectory(gtest)
 add_subdirectory(tests)

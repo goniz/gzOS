@@ -57,57 +57,58 @@ general_exception:
         andi    $k1, CR_X_MASK
         la      $k0, general_exception_table
         add     $k1, $k0
-        lw      $k1, 0($k1)             # Load the address of a handler
-        bnez    $k1, exception_enter    # If non-NULL then enter handler
-        mfc0    $k0, C0_STATUS          # (delay slot) load status register
-        la      $k1, kernel_oops        # If no handler then panic!
+        lw      $k1, 0($k1)                 # Load the address of a handler
+        bnez    $k1, goto_exception_enter   # If non-NULL then enter handler
+        mfc0    $k0, C0_STATUS              # (delay slot) load status register
+        la      $k1, kernel_oops            # If no handler then panic!
+goto_exception_enter:
         j       exception_enter
         nop
 
         .org 0x200
 irq0:
         la      $k1, mips_hw_irq0
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x220
 irq1:
         la      $k1, mips_hw_irq1
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x240
 irq2:
         la      $k1, mips_hw_irq2
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x260
 irq3:
         la      $k1, mips_hw_irq3
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x280
 irq4:
         la      $k1, mips_hw_irq4
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x2a0
 irq5:
         la      $k1, mips_hw_irq5
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x2c0
 irq6:
         la      $k1, mips_hw_irq6
-        b       exception_enter
+        j       exception_enter
         nop
 
         .org 0x2e0
 irq7:
         la      $k1, mips_hw_irq7
-        b       exception_enter
+        j       exception_enter
         nop

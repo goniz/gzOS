@@ -180,6 +180,10 @@ try_allocating_in_area(mem_arena_t *ma, size_t requested_size) {
 }
 
 void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
+    if (0 >= size) {
+        return NULL;
+    }
+
     size_t size_aligned = align(size, MB_ALIGNMENT);
 
 //    kprintf("%s->kmalloc(%p, %d)\n", mp->mp_desc, mp, size);
@@ -194,7 +198,7 @@ void *kmalloc(malloc_pool_t *mp, size_t size, uint16_t flags) {
 
         mem_block_t *mb = try_allocating_in_area(current, size_aligned);
         if (mb) {
-            if (flags == M_ZERO) {
+            if (flags & M_ZERO) {
                 memset(mb->mb_data, 0, size);
             }
 

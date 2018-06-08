@@ -1,4 +1,5 @@
 #!/bin/bash -xe
 
-make malta compile
-qemu-system-mips -M malta -m 128 -kernel build/tests.elf -serial null -serial null -serial stdio $@
+dir=$(readlink -f $(dirname $0))
+
+${dir}/run_qemu_gzos.sh ${dir}/../kernel/build/tests.elf
